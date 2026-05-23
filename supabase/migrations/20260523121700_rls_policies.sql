@@ -79,8 +79,8 @@ begin
         on public.%1$I
         for all
         to authenticated
-        using (auth.user_has_role('admin'::app_role) or auth.user_has_role('direccion'::app_role))
-        with check (auth.user_has_role('admin'::app_role) or auth.user_has_role('direccion'::app_role))
+        using (public.user_has_role('admin'::app_role) or public.user_has_role('direccion'::app_role))
+        with check (public.user_has_role('admin'::app_role) or public.user_has_role('direccion'::app_role))
     $f$, tbl);
   end loop;
 end;

@@ -3,16 +3,18 @@
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
--- 16.1 · auth.user_has_role: helper para RLS.
+-- 16.1 · public.user_has_role: helper para RLS.
 -- Devuelve true si el usuario actual tiene el rol indicado.
+-- Vive en `public` (no `auth`) porque el rol del migration runner de Supabase
+-- no puede crear objetos en `auth` y las policies necesitan poder resolverla.
 -- Search path bloqueado por seguridad (SECURITY DEFINER).
 -- ----------------------------------------------------------------------------
-create or replace function auth.user_has_role(check_role app_role)
+create or replace function public.user_has_role(check_role app_role)
 returns boolean
 language sql
 stable
 security definer
-set search_path = public, auth
+set search_path = public
 as $$
   select exists (
     select 1
@@ -22,8 +24,8 @@ as $$
   );
 $$;
 
-revoke all on function auth.user_has_role(app_role) from public;
-grant execute on function auth.user_has_role(app_role) to authenticated, service_role;
+revoke all on function public.user_has_role(app_role) from public;
+grant execute on function public.user_has_role(app_role) to authenticated, service_role;
 
 -- ----------------------------------------------------------------------------
 -- 16.2 · trigger function: set_updated_at

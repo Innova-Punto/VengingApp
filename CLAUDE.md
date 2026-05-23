@@ -81,7 +81,7 @@ Resumen rápido — el detalle completo está en `docs/muscleup_modelo_datos.md`
 | Montos | `numeric(14,2)` MXN. Costo por gramo `numeric(12,6)`. |
 | Movimientos | Tablas append-only. Correcciones con asientos compensatorios. |
 | Folios | Generados por secuencias (`OC-000123`, `REC-000045`, `ENC-000234`, etc.). |
-| RLS | Habilitado en TODAS las tablas. Policies por rol vía `auth.user_has_role()`. |
+| RLS | Habilitado en TODAS las tablas. Policies por rol vía `public.user_has_role()`. |
 | Auditoría | Cambios sensibles → `audit_log` por trigger. |
 | Nombres | `snake_case`. Plurales para tablas (`productos`), singular para campos. |
 | FK | `on delete restrict` por default. `on delete cascade` solo en tablas hijas claras (ej. `oc_items` → `ordenes_compra`). |
@@ -95,7 +95,7 @@ Resumen rápido — el detalle completo está en `docs/muscleup_modelo_datos.md`
 
 ### Funciones críticas
 
-- `auth.user_has_role(role app_role) → boolean` — base de las RLS.
+- `public.user_has_role(role app_role) → boolean` — base de las RLS.
 - `pick_lote_peps_granel(producto_id, gramos)` — PEPS para granel.
 - `pick_batch_peps_cartucho(producto_id, cartuchos)` — PEPS para cartuchos.
 - `calcular_sugerido_surtido(maquina_id)` — máx/mín para planeación.

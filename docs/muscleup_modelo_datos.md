@@ -84,7 +84,7 @@ Tablas que manejan usuarios, roles y auditoría general del sistema.
 
 **Clave primaria**: Compuesta `(user_id, role)`.
 
-**Notas operativas**: Las policies de RLS consultan esta tabla mediante una función helper `auth.user_has_role(check_role)` que retorna `boolean`.
+**Notas operativas**: Las policies de RLS consultan esta tabla mediante una función helper `public.user_has_role(check_role)` que retorna `boolean`.
 
 ---
 
@@ -1351,7 +1351,7 @@ alertas                 ←  generadas por procesos automáticos
    - Auditoría en tablas sensibles.
 
 3. **Funciones útiles a implementar**:
-   - `auth.user_has_role(role app_role) returns boolean` para RLS.
+   - `public.user_has_role(role app_role) returns boolean` para RLS.
    - `pick_lote_peps_granel(producto_id uuid, gramos_requeridos int)` retorna lista de lotes a consumir.
    - `pick_batch_peps_cartucho(producto_id uuid, cartuchos_requeridos int)` retorna lista de batches a consumir.
    - `calcular_sugerido_surtido(maquina_id uuid)` retorna lista de productos y cantidades sugeridas.
