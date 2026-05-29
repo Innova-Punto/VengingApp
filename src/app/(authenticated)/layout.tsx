@@ -1,0 +1,73 @@
+import Link from "next/link";
+
+import { requireUser } from "@/lib/auth";
+import { signOut } from "@/app/(auth)/login/actions";
+
+const ROLE_NAV: { role: string; href: string; label: string }[] = [
+  { role: "admin", href: "/admin/usuarios", label: "Usuarios" },
+  { role: "direccion", href: "/admin/usuarios", label: "Usuarios" },
+  { role: "compras", href: "/compras", label: "Compras" },
+  { role: "almacen", href: "/almacen", label: "Almacén" },
+  { role: "planeador", href: "/planeacion", label: "Planeación" },
+  { role: "operador", href: "/campo", label: "Campo" },
+  { role: "direccion", href: "/direccion", label: "Dashboards" },
+];
+
+export default async function AuthenticatedLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const user = await requireUser();
+
+  // Deduplicar links por href, mostrando solo los que aplican a los roles del usuario.
+  const seen = new Set<string>();
+  const links = ROLE_NAV.filter((item) => {
+    if (!user.roles.includes(item.role as never)) return false;
+    if (seen.has(item.href)) return false;
+    seen.add(item.href);
+    return true;
+  });
+
+  return (
+    <div className="min-h-screen bg-zinc-50">
+      <header className="border-b border-zinc-200 bg-white">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-3">
+          <div className="flex items-center gap-6">
+            <Link href="/" className="text-base font-semibold tracking-tight">
+              MuscleUp
+            </Link>
+            <nav className="flex items-center gap-1 text-sm">
+              {links.map((l) => (
+                <Link
+                  key={`${l.role}-${l.href}`}
+                  href={l.href}
+                  className="rounded-md px-2 py-1 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
+                >
+                  {l.label}
+                </Link>
+              ))}
+            </nav>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="text-right text-xs leading-tight">
+              <div className="font-medium text-zinc-900">{user.fullName}</div>
+              <div className="text-zinc-500">{user.roles.join(", ")}</div>
+            </div>
+            <form action={signOut}>
+              <button
+                type="submit"
+                className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50"
+              >
+                Salir
+              </button>
+            </form>
+          </div>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-7xl px-6 py-6">{children}</main>
+    </div>
+  );
+}
