@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import MaquinaForm from "../MaquinaForm";
 import TolvaRow from "../TolvaRow";
+import AplicarPlanograma from "../AplicarPlanograma";
 
 export const metadata = { title: "Editar máquina · MuscleUp" };
 
@@ -29,6 +30,7 @@ export default async function EditarMaquinaPage({
     { data: tolvas },
     { data: productos },
     { data: ubicacionesRaw },
+    { data: planogramasRaw },
   ] = await Promise.all([
     supabase
       .from("maquinas")
@@ -54,6 +56,11 @@ export default async function EditarMaquinaPage({
       .select("id, nombre, cliente:clientes(nombre)")
       .eq("activo", true)
       .order("nombre"),
+    supabase
+      .from("planogramas")
+      .select("id, nombre, num_tolvas, items:planograma_items(id)")
+      .eq("activo", true)
+      .order("nombre"),
   ]);
 
   if (error) {
@@ -73,6 +80,13 @@ export default async function EditarMaquinaPage({
       cliente_nombre: cliente?.nombre ?? "(sin cliente)",
     };
   });
+
+  const planogramas = (planogramasRaw ?? []).map((p) => ({
+    id: p.id,
+    nombre: p.nombre,
+    num_tolvas: p.num_tolvas,
+    items_count: Array.isArray(p.items) ? p.items.length : 0,
+  }));
 
   const ubic = Array.isArray(maquina.ubicacion)
     ? maquina.ubicacion[0]
@@ -135,6 +149,8 @@ export default async function EditarMaquinaPage({
             Los cambios quedan registrados en el histórico.
           </p>
         </div>
+
+        <AplicarPlanograma maquinaId={maquina.id} planogramas={planogramas} />
 
         <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
           <table className="w-full text-sm">

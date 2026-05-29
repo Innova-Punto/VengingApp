@@ -1967,6 +1967,95 @@ export type Database = {
           },
         ]
       }
+      planograma_items: {
+        Row: {
+          created_at: string
+          gramaje_servicio: number
+          id: string
+          nayax_item_code: string | null
+          numero: number
+          planograma_id: string
+          precio_venta: number
+          producto_id: string
+        }
+        Insert: {
+          created_at?: string
+          gramaje_servicio: number
+          id?: string
+          nayax_item_code?: string | null
+          numero: number
+          planograma_id: string
+          precio_venta: number
+          producto_id: string
+        }
+        Update: {
+          created_at?: string
+          gramaje_servicio?: number
+          id?: string
+          nayax_item_code?: string | null
+          numero?: number
+          planograma_id?: string
+          precio_venta?: number
+          producto_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planograma_items_planograma_id_fkey"
+            columns: ["planograma_id"]
+            isOneToOne: false
+            referencedRelation: "planogramas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "planograma_items_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: false
+            referencedRelation: "productos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      planogramas: {
+        Row: {
+          activo: boolean
+          created_at: string
+          created_by: string | null
+          descripcion: string | null
+          id: string
+          nombre: string
+          num_tolvas: number
+          updated_at: string
+        }
+        Insert: {
+          activo?: boolean
+          created_at?: string
+          created_by?: string | null
+          descripcion?: string | null
+          id?: string
+          nombre: string
+          num_tolvas?: number
+          updated_at?: string
+        }
+        Update: {
+          activo?: boolean
+          created_at?: string
+          created_by?: string | null
+          descripcion?: string | null
+          id?: string
+          nombre?: string
+          num_tolvas?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planogramas_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       presentaciones_proveedor: {
         Row: {
           activo: boolean
