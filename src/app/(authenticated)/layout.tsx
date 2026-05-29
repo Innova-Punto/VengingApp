@@ -12,6 +12,8 @@ const ROLE_NAV: { role: string; href: string; label: string }[] = [
   { role: "admin", href: "/admin/proveedores", label: "Proveedores" },
   { role: "direccion", href: "/admin/proveedores", label: "Proveedores" },
   { role: "compras", href: "/admin/proveedores", label: "Proveedores" },
+  { role: "admin", href: "/admin/clientes", label: "Clientes" },
+  { role: "direccion", href: "/admin/clientes", label: "Clientes" },
   { role: "compras", href: "/compras", label: "Compras" },
   { role: "almacen", href: "/almacen", label: "Almacén" },
   { role: "planeador", href: "/planeacion", label: "Planeación" },
