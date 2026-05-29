@@ -6,6 +6,9 @@ import { signOut } from "@/app/(auth)/login/actions";
 const ROLE_NAV: { role: string; href: string; label: string }[] = [
   { role: "admin", href: "/admin/usuarios", label: "Usuarios" },
   { role: "direccion", href: "/admin/usuarios", label: "Usuarios" },
+  { role: "admin", href: "/admin/productos", label: "Productos" },
+  { role: "direccion", href: "/admin/productos", label: "Productos" },
+  { role: "compras", href: "/admin/productos", label: "Productos" },
   { role: "compras", href: "/compras", label: "Compras" },
   { role: "almacen", href: "/almacen", label: "Almacén" },
   { role: "planeador", href: "/planeacion", label: "Planeación" },
