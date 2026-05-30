@@ -50,6 +50,11 @@ const NAV_GROUPS: GroupDef[] = [
     ],
   },
   {
+    label: "Operación",
+    roles: ["admin", "direccion", "operador"],
+    items: [{ label: "Campo (móvil)", href: "/campo" }],
+  },
+  {
     label: "Admin",
     roles: ["admin", "direccion"],
     items: [{ label: "Usuarios", href: "/admin/usuarios" }],
