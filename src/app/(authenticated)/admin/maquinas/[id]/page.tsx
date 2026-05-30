@@ -31,6 +31,7 @@ export default async function EditarMaquinaPage({
     { data: productos },
     { data: ubicacionesRaw },
     { data: planogramasRaw },
+    { data: vasos },
   ] = await Promise.all([
     supabase
       .from("maquinas")
@@ -60,6 +61,12 @@ export default async function EditarMaquinaPage({
       .from("planogramas")
       .select("id, nombre, num_tolvas, items:planograma_items(id)")
       .eq("activo", true)
+      .order("nombre"),
+    supabase
+      .from("productos")
+      .select("id, sku, nombre")
+      .eq("activo", true)
+      .eq("tipo", "vaso")
       .order("nombre"),
   ]);
 
@@ -137,7 +144,57 @@ export default async function EditarMaquinaPage({
             mode="editar"
             maquina={maquina}
             ubicaciones={ubicaciones}
+            vasos={vasos ?? []}
           />
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight">Vasos</h2>
+          <p className="text-sm text-zinc-600">
+            Consumible independiente del planograma de tolvas. El inventario
+            se actualiza en surtidos y ventas.
+          </p>
+        </div>
+        <div className="rounded-lg border border-zinc-200 bg-white p-4">
+          {maquina.vaso_producto_id ? (
+            <dl className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <div>
+                <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                  Tipo
+                </dt>
+                <dd className="text-sm text-zinc-900">
+                  {(vasos ?? []).find((v) => v.id === maquina.vaso_producto_id)
+                    ?.nombre ?? "—"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                  Capacidad máx.
+                </dt>
+                <dd className="text-sm tabular-nums text-zinc-900">
+                  {maquina.vaso_capacidad_max} vasos
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                  Inventario actual
+                </dt>
+                <dd className="text-sm tabular-nums text-zinc-900">
+                  {maquina.vaso_inventario_actual}
+                  <span className="ml-1 text-zinc-500">
+                    /{maquina.vaso_capacidad_max}
+                  </span>
+                </dd>
+              </div>
+            </dl>
+          ) : (
+            <p className="text-sm text-zinc-500">
+              No hay tipo de vaso asignado. Asígnalo desde &laquo;Información
+              general&raquo;.
+            </p>
+          )}
         </div>
       </section>
 

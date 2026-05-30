@@ -33,6 +33,8 @@ type ParsedMaquina = {
   estado: MaquinaEstado;
   fecha_instalacion: string | null;
   notas: string | null;
+  vaso_producto_id: string | null;
+  vaso_capacidad_max: number;
 };
 
 function parseMaquina(
@@ -55,6 +57,9 @@ function parseMaquina(
   const fechaInst =
     String(formData.get("fecha_instalacion") ?? "").trim() || null;
   const notas = String(formData.get("notas") ?? "").trim() || null;
+  const vasoProductoRaw =
+    String(formData.get("vaso_producto_id") ?? "").trim() || null;
+  const vasoCapacidadRaw = formData.get("vaso_capacidad_max");
 
   if (!serie) return "Número de serie es obligatorio.";
   if (!ubicacion_id) return "Selecciona una ubicación.";
@@ -85,6 +90,15 @@ function parseMaquina(
     return "Estado inválido.";
   }
 
+  let vaso_capacidad_max = 300;
+  if (vasoCapacidadRaw && String(vasoCapacidadRaw).trim() !== "") {
+    const n = Number(vasoCapacidadRaw);
+    if (!Number.isInteger(n) || n < 0) {
+      return "Capacidad de vasos debe ser un entero ≥ 0.";
+    }
+    vaso_capacidad_max = n;
+  }
+
   // En edit no permitimos cambiar num_tolvas (rompería tolvas existentes).
   if (!options.isCreate) {
     // num_tolvas se ignora en update por seguridad; lo mantenemos como info.
@@ -104,6 +118,8 @@ function parseMaquina(
     estado: estadoRaw,
     fecha_instalacion: fechaInst,
     notas,
+    vaso_producto_id: vasoProductoRaw,
+    vaso_capacidad_max,
   };
 }
 

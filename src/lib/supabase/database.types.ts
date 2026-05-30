@@ -1417,6 +1417,9 @@ export type Database = {
           serie: string
           ubicacion_id: string
           updated_at: string
+          vaso_capacidad_max: number
+          vaso_inventario_actual: number
+          vaso_producto_id: string | null
         }
         Insert: {
           activo?: boolean
@@ -1437,6 +1440,9 @@ export type Database = {
           serie: string
           ubicacion_id: string
           updated_at?: string
+          vaso_capacidad_max?: number
+          vaso_inventario_actual?: number
+          vaso_producto_id?: string | null
         }
         Update: {
           activo?: boolean
@@ -1457,6 +1463,9 @@ export type Database = {
           serie?: string
           ubicacion_id?: string
           updated_at?: string
+          vaso_capacidad_max?: number
+          vaso_inventario_actual?: number
+          vaso_producto_id?: string | null
         }
         Relationships: [
           {
@@ -1464,6 +1473,13 @@ export type Database = {
             columns: ["ubicacion_id"]
             isOneToOne: false
             referencedRelation: "ubicaciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maquinas_vaso_producto_id_fkey"
+            columns: ["vaso_producto_id"]
+            isOneToOne: false
+            referencedRelation: "productos"
             referencedColumns: ["id"]
           },
         ]

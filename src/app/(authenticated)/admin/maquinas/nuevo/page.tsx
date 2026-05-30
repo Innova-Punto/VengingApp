@@ -11,11 +11,19 @@ export default async function NuevaMaquinaPage() {
   await requireRole("admin", "direccion");
 
   const supabase = createClient();
-  const { data: ubicacionesRaw } = await supabase
-    .from("ubicaciones")
-    .select("id, nombre, cliente:clientes(nombre)")
-    .eq("activo", true)
-    .order("nombre");
+  const [{ data: ubicacionesRaw }, { data: vasos }] = await Promise.all([
+    supabase
+      .from("ubicaciones")
+      .select("id, nombre, cliente:clientes(nombre)")
+      .eq("activo", true)
+      .order("nombre"),
+    supabase
+      .from("productos")
+      .select("id, sku, nombre")
+      .eq("activo", true)
+      .eq("tipo", "vaso")
+      .order("nombre"),
+  ]);
 
   const ubicaciones = (ubicacionesRaw ?? []).map((u) => {
     const cliente = Array.isArray(u.cliente) ? u.cliente[0] : u.cliente;
@@ -54,7 +62,11 @@ export default async function NuevaMaquinaPage() {
         </div>
       ) : (
         <div className="max-w-3xl rounded-lg border border-zinc-200 bg-white p-6">
-          <MaquinaForm mode="crear" ubicaciones={ubicaciones} />
+          <MaquinaForm
+            mode="crear"
+            ubicaciones={ubicaciones}
+            vasos={vasos ?? []}
+          />
         </div>
       )}
     </div>

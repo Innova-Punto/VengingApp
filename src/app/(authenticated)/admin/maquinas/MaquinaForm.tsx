@@ -14,6 +14,8 @@ type Ubicacion = {
   cliente_nombre: string;
 };
 
+type Vaso = { id: string; sku: string; nombre: string };
+
 type Maquina = {
   id: string;
   serie: string;
@@ -29,6 +31,8 @@ type Maquina = {
   estado: "operativa" | "mantenimiento" | "baja";
   fecha_instalacion: string | null;
   notas: string | null;
+  vaso_producto_id: string | null;
+  vaso_capacidad_max: number;
 };
 
 function SubmitButton({ label }: { label: string }) {
@@ -50,10 +54,12 @@ export default function MaquinaForm({
   mode,
   maquina,
   ubicaciones,
+  vasos,
 }: {
   mode: "crear" | "editar";
   maquina?: Maquina;
   ubicaciones: Ubicacion[];
+  vasos: Vaso[];
 }) {
   const action = mode === "crear" ? crearMaquina : actualizarMaquina;
   const [state, formAction] = useFormState(action, initial);
@@ -190,6 +196,38 @@ export default function MaquinaForm({
             name="fecha_instalacion"
             type="date"
             defaultValue={maquina?.fecha_instalacion ?? ""}
+            className="input"
+          />
+        </Field>
+
+        <Field
+          label="Tipo de vaso"
+          hint="Producto consumible usado al servir shakes. Independiente del planograma de tolvas."
+        >
+          <select
+            name="vaso_producto_id"
+            defaultValue={maquina?.vaso_producto_id ?? ""}
+            className="input"
+          >
+            <option value="">— Ninguno —</option>
+            {vasos.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.sku} · {v.nombre}
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        <Field
+          label="Capacidad de vasos"
+          hint="Cuántos vasos caben físicamente en el dispensador."
+        >
+          <input
+            name="vaso_capacidad_max"
+            type="number"
+            min={0}
+            step={1}
+            defaultValue={maquina?.vaso_capacidad_max ?? 300}
             className="input"
           />
         </Field>
