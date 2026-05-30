@@ -293,11 +293,13 @@ export async function completarSurtido(formData: FormData): Promise<void> {
     )
     .eq("surtido_id", id);
 
-  type PepsRpc = (
-    fn: string,
-    args: Record<string, unknown>,
-  ) => Promise<{ data: unknown; error: { message: string } | null }>;
-  const rpc = supabase.rpc as unknown as PepsRpc;
+  // Helper para llamar RPCs no expuestas en el typegen.
+  // IMPORTANTE: usamos supabase.rpc directo (no cast a variable suelta)
+  // para preservar el binding de `this` interno del cliente.
+  type RpcResult<T> = Promise<{ data: T | null; error: { message: string } | null }>;
+  const callRpc = <T>(fn: string, args: Record<string, unknown>): RpcResult<T> =>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.rpc as any)(fn, args);
 
   // -- Paso 1: validar stock disponible para TODOS los items antes de tocar nada
   const erroresStock: string[] = [];
@@ -352,7 +354,7 @@ export async function completarSurtido(formData: FormData): Promise<void> {
     if (!prod) continue;
 
     if (prod.tipo === "polvo" && (it.cartuchos_entregados ?? 0) > 0) {
-      const { data: pickedRaw, error: pepsErr } = await rpc(
+      const { data: picked, error: pepsErr } = await callRpc<PepsCartucho[]>(
         "pick_batch_peps_cartucho",
         {
           p_producto_id: it.producto_id,
@@ -364,9 +366,9 @@ export async function completarSurtido(formData: FormData): Promise<void> {
           `/planeacion/surtidos/${id}?error=${encodeURIComponent(pepsErr.message)}`,
         );
       }
-      const picked = (pickedRaw as unknown as PepsCartucho[] | null) ?? [];
+      const picks = picked ?? [];
 
-      const primario = picked[0];
+      const primario = picks[0];
       if (primario) {
         await supabase
           .from("surtido_items")
@@ -374,7 +376,7 @@ export async function completarSurtido(formData: FormData): Promise<void> {
           .eq("id", it.id);
       }
 
-      for (const p of picked) {
+      for (const p of picks) {
         const { data: encActual } = await supabase
           .from("encartuchados")
           .select("cantidad_disponible, gramos_por_cartucho")
@@ -411,7 +413,7 @@ export async function completarSurtido(formData: FormData): Promise<void> {
     }
 
     if (prod.tipo === "vaso" && (it.vasos_entregados ?? 0) > 0) {
-      const { data: pickedRaw, error: pepsErr } = await rpc(
+      const { data: picked, error: pepsErr } = await callRpc<PepsVaso[]>(
         "pick_lote_peps_vaso",
         {
           p_producto_id: it.producto_id,
@@ -423,9 +425,9 @@ export async function completarSurtido(formData: FormData): Promise<void> {
           `/planeacion/surtidos/${id}?error=${encodeURIComponent(pepsErr.message)}`,
         );
       }
-      const picked = (pickedRaw as unknown as PepsVaso[] | null) ?? [];
+      const picks = picked ?? [];
 
-      const primario = picked[0];
+      const primario = picks[0];
       if (primario) {
         await supabase
           .from("surtido_items")
@@ -433,7 +435,7 @@ export async function completarSurtido(formData: FormData): Promise<void> {
           .eq("id", it.id);
       }
 
-      for (const p of picked) {
+      for (const p of picks) {
         const { data: loteActual } = await supabase
           .from("lotes")
           .select("unidades_disponibles")

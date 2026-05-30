@@ -64,24 +64,21 @@ export async function crearEncartuchado(
     };
   }
 
-  // PEPS: pickear lotes — usa service_role para llamar la SECURITY DEFINER fn
+  // PEPS: pickear lotes. La función está SECURITY DEFINER con grant a
+  // authenticated; el typegen no la expone, llamamos con `any` cast
+  // preservando el binding de `this` del cliente.
   type PepsPick = {
     lote_id: string;
     gramos_a_consumir: number;
     costo_por_gramo: number;
   };
-  // pick_lote_peps_granel está SECURITY DEFINER con grant a authenticated;
-  // la llamamos con cast porque el typegen no la expone.
-  const { data: picksRaw, error: pepsErr } = await (supabase.rpc as unknown as (
-    fn: string,
-    args: Record<string, unknown>,
-  ) => Promise<{ data: unknown; error: { message: string } | null }>)(
-    "pick_lote_peps_granel",
-    {
-      p_producto_id: producto_id,
-      p_gramos_requeridos: gramos_totales_consumidos,
-    },
-  );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rpcResp = await (supabase.rpc as any)("pick_lote_peps_granel", {
+    p_producto_id: producto_id,
+    p_gramos_requeridos: gramos_totales_consumidos,
+  });
+  const pepsErr = rpcResp.error as { message: string } | null;
+  const picksRaw = rpcResp.data as PepsPick[] | null;
 
   if (pepsErr) {
     return {
@@ -89,7 +86,7 @@ export async function crearEncartuchado(
       message: pepsErr.message.replace(/^.*ERROR:\s*/, ""),
     };
   }
-  const picks = (picksRaw as unknown as PepsPick[] | null) ?? [];
+  const picks = picksRaw ?? [];
   if (picks.length === 0) {
     return {
       ok: false,
