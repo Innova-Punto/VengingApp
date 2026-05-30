@@ -136,6 +136,55 @@ export default async function DetalleSurtidoPage({
     totalVasos += it.vasos_entregados ?? 0;
   }
 
+  // Costo estimado del surtido (orientativo, no exacto):
+  // promedio ponderado de costo_promedio_g × gramos_por_cartucho de los
+  // encartuchados disponibles del producto. No incluye vasos (su costo se
+  // resuelve por presentación en PEPS al completar). El costo real queda
+  // en kardex tras completar el surtido.
+  const productoItemIds = Array.from(
+    new Set((items ?? []).map((it) => it.producto_id)),
+  );
+
+  const { data: encDisp } = productoItemIds.length > 0
+    ? await supabase
+        .from("encartuchados")
+        .select("producto_id, cantidad_disponible, gramos_por_cartucho, costo_promedio_g")
+        .in("producto_id", productoItemIds)
+        .gt("cantidad_disponible", 0)
+    : { data: [] };
+
+  const aggCartucho = new Map<
+    string,
+    { ponderadoCosto: number; ponderadoGramos: number; peso: number }
+  >();
+  for (const e of encDisp ?? []) {
+    const a = aggCartucho.get(e.producto_id) ?? {
+      ponderadoCosto: 0,
+      ponderadoGramos: 0,
+      peso: 0,
+    };
+    const w = e.cantidad_disponible ?? 0;
+    a.ponderadoCosto += (e.costo_promedio_g ?? 0) * w;
+    a.ponderadoGramos += (e.gramos_por_cartucho ?? 0) * w;
+    a.peso += w;
+    aggCartucho.set(e.producto_id, a);
+  }
+  const costoCartuchoEstPorProducto = new Map<string, number>();
+  aggCartucho.forEach((a, pid) => {
+    if (a.peso > 0) {
+      const costoG = a.ponderadoCosto / a.peso;
+      const gramosCartucho = a.ponderadoGramos / a.peso;
+      costoCartuchoEstPorProducto.set(pid, costoG * gramosCartucho);
+    }
+  });
+
+  let costoEstimado = 0;
+  for (const it of items ?? []) {
+    const cc = costoCartuchoEstPorProducto.get(it.producto_id) ?? 0;
+    costoEstimado += cc * (it.cartuchos_entregados ?? 0);
+  }
+  const costoEstimadoMxn = Math.round(costoEstimado * 100) / 100;
+
   return (
     <div className="space-y-8">
       <div>
@@ -172,14 +221,29 @@ export default async function DetalleSurtidoPage({
         </p>
       )}
 
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <Stat label="Cartuchos a llevar" value={String(totalCartuchos)} />
         <Stat label="Vasos a llevar" value={String(totalVasos)} />
+        <Stat label="Items" value={String((items ?? []).length)} />
         <Stat
-          label="Items"
-          value={String((items ?? []).length)}
+          label="Costo estimado"
+          value={`$${costoEstimadoMxn.toLocaleString("es-MX", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}`}
+          hint="Solo cartuchos (polvo). Promedio del inventario disponible. El costo real se aplica con PEPS al completar."
         />
       </section>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <Link
+          href={`/planeacion/surtidos/${params.id}/imprimir`}
+          target="_blank"
+          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 shadow-sm hover:bg-zinc-50"
+        >
+          Imprimir packing list
+        </Link>
+      </div>
 
       <details className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-sm">
         <summary className="cursor-pointer font-medium text-zinc-700">
@@ -325,7 +389,15 @@ export default async function DetalleSurtidoPage({
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+}) {
   return (
     <div className="rounded-lg border border-zinc-200 bg-white p-3">
       <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">
@@ -334,6 +406,7 @@ function Stat({ label, value }: { label: string; value: string }) {
       <div className="mt-1 text-sm font-medium text-zinc-900 tabular-nums">
         {value}
       </div>
+      {hint && <div className="mt-1 text-[10px] text-zinc-500">{hint}</div>}
     </div>
   );
 }

@@ -373,6 +373,51 @@ export async function agregarItemSurtido(
 }
 
 // ============================================================================
+// Eliminar item del surtido (mientras esté editable)
+// ============================================================================
+
+export async function eliminarItemSurtido(formData: FormData): Promise<void> {
+  await requireRole(...ROLES);
+
+  const id = String(formData.get("id") ?? "");
+  const surtido_id = String(formData.get("surtido_id") ?? "");
+  if (!id || !surtido_id) {
+    redirect("/planeacion/surtidos");
+  }
+
+  const supabase = createClient();
+
+  const { data: surt } = await supabase
+    .from("surtidos")
+    .select("estado")
+    .eq("id", surtido_id)
+    .maybeSingle();
+  if (!surt) redirect("/planeacion/surtidos");
+  if (surt.estado === "completado") {
+    redirect(
+      `/planeacion/surtidos/${surtido_id}?error=${encodeURIComponent(
+        "El surtido ya está completado y no admite cambios.",
+      )}`,
+    );
+  }
+
+  const { error } = await supabase
+    .from("surtido_items")
+    .delete()
+    .eq("id", id)
+    .eq("surtido_id", surtido_id);
+
+  if (error) {
+    redirect(
+      `/planeacion/surtidos/${surtido_id}?error=${encodeURIComponent(error.message)}`,
+    );
+  }
+
+  revalidatePath(`/planeacion/surtidos/${surtido_id}`);
+  redirect(`/planeacion/surtidos/${surtido_id}`);
+}
+
+// ============================================================================
 // Completar surtido: aplica PEPS, descuenta inventario, registra kardex
 // ============================================================================
 
