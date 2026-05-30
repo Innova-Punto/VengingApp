@@ -139,6 +139,8 @@ export async function agregarItem(
   const presentacion_id = String(formData.get("presentacion_id") ?? "");
   const cantidadRaw = formData.get("cantidad");
   const costoRaw = formData.get("costo_unitario");
+  const ivaTasaRaw = formData.get("iva_tasa");
+  const incluyeIva = formData.get("costo_incluye_iva") === "on";
   const notas = String(formData.get("notas") ?? "").trim() || null;
 
   if (!oc_id) return { ok: false, message: "Falta la OC." };
@@ -148,16 +150,23 @@ export async function agregarItem(
   if (!Number.isInteger(cantidad) || cantidad <= 0) {
     return { ok: false, message: "Cantidad debe ser un entero > 0." };
   }
-  const costo = Number(costoRaw);
-  if (!Number.isFinite(costo) || costo < 0) {
+  const costoCapturado = Number(costoRaw);
+  if (!Number.isFinite(costoCapturado) || costoCapturado < 0) {
     return { ok: false, message: "Costo debe ser ≥ 0." };
   }
-  const costo_unitario = Math.round(costo * 100) / 100;
+  const iva_tasa = ivaTasaRaw ? Number(ivaTasaRaw) : 0.16;
+  if (!Number.isFinite(iva_tasa) || iva_tasa < 0 || iva_tasa > 1) {
+    return { ok: false, message: "Tasa de IVA inválida." };
+  }
+
+  // Desglose: si el precio incluye IVA, dividir por (1+tasa) antes de guardar.
+  const costo_unitario = incluyeIva
+    ? Math.round((costoCapturado / (1 + iva_tasa)) * 100) / 100
+    : Math.round(costoCapturado * 100) / 100;
   const subtotal_item = Math.round(cantidad * costo_unitario * 100) / 100;
 
   const supabase = createClient();
 
-  // No permitir agregar items si la OC ya no está en borrador
   const { data: oc } = await supabase
     .from("ordenes_compra")
     .select("estado")
@@ -177,6 +186,7 @@ export async function agregarItem(
     presentacion_id,
     cantidad,
     costo_unitario,
+    iva_tasa,
     subtotal_item,
     notas,
   });

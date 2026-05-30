@@ -110,6 +110,25 @@ export default function PresentacionForm({
             placeholder="1500.00"
             className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm shadow-sm focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900"
           />
+          <label className="mt-1 flex items-center gap-2 text-xs text-zinc-600">
+            <input type="checkbox" name="costo_incluye_iva" />
+            El precio capturado ya incluye IVA
+          </label>
+        </div>
+
+        <div>
+          <label className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+            IVA
+          </label>
+          <select
+            name="iva_tasa"
+            defaultValue="0.16"
+            className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm shadow-sm focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900"
+          >
+            <option value="0.16">16% (general)</option>
+            <option value="0.08">8% (frontera)</option>
+            <option value="0">0% (exento)</option>
+          </select>
         </div>
 
         <div>

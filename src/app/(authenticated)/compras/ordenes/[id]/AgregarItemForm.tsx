@@ -11,6 +11,7 @@ type Presentacion = {
   peso_neto_gramos: number;
   unidades_por_presentacion: number;
   costo_unitario: number;
+  iva_tasa: number;
   sku_proveedor: string | null;
   producto_id: string;
   producto_sku: string;
@@ -107,20 +108,43 @@ export default function AgregarItemForm({
           />
         </div>
 
+        <div>
+          <label className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+            IVA
+          </label>
+          <select
+            name="iva_tasa"
+            key={`iva-${seleccionada?.id ?? "empty"}`}
+            defaultValue={String(seleccionada?.iva_tasa ?? 0.16)}
+            className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm shadow-sm focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900"
+          >
+            <option value="0.16">16%</option>
+            <option value="0.08">8%</option>
+            <option value="0">0%</option>
+          </select>
+        </div>
+
         <div className="flex items-end">
           <SubmitButton />
         </div>
       </div>
 
-      <div>
-        <label className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-          Notas
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="flex items-center gap-2 text-xs text-zinc-600">
+          <input type="checkbox" name="costo_incluye_iva" />
+          El costo capturado incluye IVA (se desglosa al guardar)
         </label>
-        <input
-          name="notas"
-          placeholder="opcional"
-          className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm shadow-sm focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900"
-        />
+
+        <div className="flex-1 min-w-[200px]">
+          <label className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+            Notas
+          </label>
+          <input
+            name="notas"
+            placeholder="opcional"
+            className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm shadow-sm focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900"
+          />
+        </div>
       </div>
 
       {state && !state.ok && (

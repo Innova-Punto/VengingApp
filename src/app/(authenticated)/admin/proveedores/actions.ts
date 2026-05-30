@@ -154,6 +154,7 @@ type ParsedPresentacion = {
   peso_neto_gramos: number;
   unidades_por_presentacion: number;
   costo_unitario: number;
+  iva_tasa: number;
   moneda: string;
   sku_proveedor: string | null;
 };
@@ -167,6 +168,8 @@ function parsePresentacion(formData: FormData): ParsedPresentacion | string {
   const pesoRaw = formData.get("peso_neto_gramos");
   const unidadesRaw = formData.get("unidades_por_presentacion");
   const costoRaw = formData.get("costo_unitario");
+  const ivaTasaRaw = formData.get("iva_tasa");
+  const incluyeIva = formData.get("costo_incluye_iva") === "on";
   const moneda =
     String(formData.get("moneda") ?? "").trim().toUpperCase() || "MXN";
   const sku_proveedor =
@@ -190,10 +193,20 @@ function parsePresentacion(formData: FormData): ParsedPresentacion | string {
     return "Unidades por presentación debe ser un entero positivo.";
   }
 
-  const costo = Number(costoRaw);
-  if (!Number.isFinite(costo) || costo < 0) {
+  const costoCapturado = Number(costoRaw);
+  if (!Number.isFinite(costoCapturado) || costoCapturado < 0) {
     return "Costo unitario debe ser un número ≥ 0.";
   }
+
+  const iva_tasa = ivaTasaRaw ? Number(ivaTasaRaw) : 0.16;
+  if (!Number.isFinite(iva_tasa) || iva_tasa < 0 || iva_tasa > 1) {
+    return "Tasa de IVA inválida (0..1).";
+  }
+
+  // Si el precio capturado incluye IVA, desglosar para guardar SIN IVA.
+  const costo_unitario = incluyeIva
+    ? Math.round((costoCapturado / (1 + iva_tasa)) * 100) / 100
+    : Math.round(costoCapturado * 100) / 100;
 
   return {
     proveedor_id,
@@ -201,7 +214,8 @@ function parsePresentacion(formData: FormData): ParsedPresentacion | string {
     nombre_presentacion,
     peso_neto_gramos: peso,
     unidades_por_presentacion: unidades,
-    costo_unitario: Math.round(costo * 100) / 100,
+    costo_unitario,
+    iva_tasa,
     moneda,
     sku_proveedor,
   };

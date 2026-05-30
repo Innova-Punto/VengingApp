@@ -28,7 +28,7 @@ export default async function EditarProveedorPage({
     supabase
       .from("presentaciones_proveedor")
       .select(
-        "id, producto_id, nombre_presentacion, peso_neto_gramos, unidades_por_presentacion, costo_unitario, moneda, sku_proveedor, activo, productos:productos(id, sku, nombre)",
+        "id, producto_id, nombre_presentacion, peso_neto_gramos, unidades_por_presentacion, costo_unitario, iva_tasa, moneda, sku_proveedor, activo, productos:productos(id, sku, nombre)",
       )
       .eq("proveedor_id", params.id)
       .order("activo", { ascending: false })
@@ -93,7 +93,9 @@ export default async function EditarProveedorPage({
                 <th className="px-4 py-2 font-medium">Presentación</th>
                 <th className="px-4 py-2 text-right font-medium">Peso (g)</th>
                 <th className="px-4 py-2 text-right font-medium">Unid.</th>
-                <th className="px-4 py-2 text-right font-medium">Costo</th>
+                <th className="px-4 py-2 text-right font-medium">Costo s/IVA</th>
+                <th className="px-4 py-2 text-right font-medium">IVA</th>
+                <th className="px-4 py-2 text-right font-medium">Costo c/IVA</th>
                 <th className="px-4 py-2 font-medium">SKU prov.</th>
                 <th className="px-4 py-2 text-right font-medium">Acciones</th>
               </tr>
@@ -103,6 +105,10 @@ export default async function EditarProveedorPage({
                 const prod = Array.isArray(p.productos)
                   ? p.productos[0]
                   : p.productos;
+                const tasa = Number(p.iva_tasa);
+                const costoConIva =
+                  Math.round(Number(p.costo_unitario) * (1 + tasa) * 100) /
+                  100;
                 return (
                   <tr
                     key={p.id}
@@ -125,6 +131,12 @@ export default async function EditarProveedorPage({
                     </td>
                     <td className="px-4 py-2 text-right tabular-nums">
                       {p.moneda} {Number(p.costo_unitario).toFixed(2)}
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums text-xs text-zinc-600">
+                      {(tasa * 100).toFixed(0)}%
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums">
+                      {p.moneda} {costoConIva.toFixed(2)}
                     </td>
                     <td className="px-4 py-2 font-mono text-xs text-zinc-600">
                       {p.sku_proveedor ?? "—"}
@@ -159,7 +171,7 @@ export default async function EditarProveedorPage({
               {(presentaciones ?? []).length === 0 && (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={9}
                     className="px-4 py-6 text-center text-zinc-500"
                   >
                     Este proveedor aún no tiene presentaciones registradas.

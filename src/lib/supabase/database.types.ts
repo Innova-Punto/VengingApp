@@ -1670,6 +1670,7 @@ export type Database = {
           costo_unitario: number
           created_at: string
           id: string
+          iva_tasa: number
           notas: string | null
           oc_id: string
           presentacion_id: string
@@ -1681,6 +1682,7 @@ export type Database = {
           costo_unitario: number
           created_at?: string
           id?: string
+          iva_tasa?: number
           notas?: string | null
           oc_id: string
           presentacion_id: string
@@ -1692,6 +1694,7 @@ export type Database = {
           costo_unitario?: number
           created_at?: string
           id?: string
+          iva_tasa?: number
           notas?: string | null
           oc_id?: string
           presentacion_id?: string
@@ -2078,6 +2081,7 @@ export type Database = {
           costo_unitario: number
           created_at: string
           id: string
+          iva_tasa: number
           moneda: string
           nombre_presentacion: string
           peso_neto_gramos: number
@@ -2092,6 +2096,7 @@ export type Database = {
           costo_unitario: number
           created_at?: string
           id?: string
+          iva_tasa?: number
           moneda?: string
           nombre_presentacion: string
           peso_neto_gramos: number
@@ -2106,6 +2111,7 @@ export type Database = {
           costo_unitario?: number
           created_at?: string
           id?: string
+          iva_tasa?: number
           moneda?: string
           nombre_presentacion?: string
           peso_neto_gramos?: number

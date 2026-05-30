@@ -50,7 +50,7 @@ export default async function DetalleOcPage({
     supabase
       .from("oc_items")
       .select(
-        `id, cantidad, costo_unitario, subtotal_item, recibido, notas,
+        `id, cantidad, costo_unitario, iva_tasa, subtotal_item, recibido, notas,
          presentacion:presentaciones_proveedor(
            id, nombre_presentacion, peso_neto_gramos,
            producto:productos(sku, nombre)
@@ -63,7 +63,7 @@ export default async function DetalleOcPage({
           .from("presentaciones_proveedor")
           .select(
             `id, nombre_presentacion, peso_neto_gramos, unidades_por_presentacion,
-             costo_unitario, sku_proveedor,
+             costo_unitario, iva_tasa, sku_proveedor,
              producto:productos(id, sku, nombre)`,
           )
           .eq("proveedor_id", proveedor.id)
@@ -80,6 +80,7 @@ export default async function DetalleOcPage({
       peso_neto_gramos: p.peso_neto_gramos,
       unidades_por_presentacion: p.unidades_por_presentacion,
       costo_unitario: Number(p.costo_unitario),
+      iva_tasa: Number(p.iva_tasa),
       sku_proveedor: p.sku_proveedor,
       producto_id: prod?.id ?? "",
       producto_sku: prod?.sku ?? "",
@@ -140,9 +141,11 @@ export default async function DetalleOcPage({
                 <th className="px-4 py-2 font-medium">Presentación</th>
                 <th className="px-4 py-2 text-right font-medium">Cant.</th>
                 <th className="px-4 py-2 text-right font-medium">
-                  Costo unit.
+                  Costo s/IVA
                 </th>
+                <th className="px-4 py-2 text-right font-medium">IVA</th>
                 <th className="px-4 py-2 text-right font-medium">Subtotal</th>
+                <th className="px-4 py-2 text-right font-medium">IVA item</th>
                 <th className="px-4 py-2 text-right font-medium">Recibido</th>
                 <th className="px-4 py-2"></th>
               </tr>
@@ -157,6 +160,10 @@ export default async function DetalleOcPage({
                     ? pres.producto[0]
                     : pres.producto
                   : null;
+                const ivaItem =
+                  Math.round(
+                    Number(it.subtotal_item) * Number(it.iva_tasa) * 100,
+                  ) / 100;
                 return (
                   <tr key={it.id}>
                     <td className="px-4 py-2 font-medium text-zinc-900">
@@ -181,8 +188,14 @@ export default async function DetalleOcPage({
                     <td className="px-4 py-2 text-right tabular-nums">
                       ${Number(it.costo_unitario).toFixed(2)}
                     </td>
+                    <td className="px-4 py-2 text-right tabular-nums text-xs text-zinc-600">
+                      {(Number(it.iva_tasa) * 100).toFixed(0)}%
+                    </td>
                     <td className="px-4 py-2 text-right tabular-nums font-medium">
                       ${Number(it.subtotal_item).toFixed(2)}
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums text-zinc-600">
+                      ${ivaItem.toFixed(2)}
                     </td>
                     <td className="px-4 py-2 text-right tabular-nums text-zinc-600">
                       {it.recibido} / {it.cantidad}
@@ -211,7 +224,7 @@ export default async function DetalleOcPage({
               {!tieneItems && (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={9}
                     className="px-4 py-6 text-center text-zinc-500"
                   >
                     Aún no hay items en esta OC.
