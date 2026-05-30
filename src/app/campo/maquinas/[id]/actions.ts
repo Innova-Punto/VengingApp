@@ -148,6 +148,39 @@ export async function registrarLlenado(
 }
 
 // ============================================================================
+// Pesaje de tolvas en máquina (requiere cierre mensual abierto)
+// ============================================================================
+
+export async function registrarPesaje(input: {
+  checkInId: string;
+  asignacionId: string;
+  maquinaId: string;
+  items: { tolva_id: string; gramos_medidos: number }[];
+  notas: string | null;
+}): Promise<ActionResult> {
+  await requireRole("operador", "admin", "direccion");
+
+  if (!input.checkInId) return { ok: false, message: "Falta check-in." };
+  if (!input.items || input.items.length === 0) {
+    return { ok: false, message: "Sin ítems para pesar." };
+  }
+
+  const supabase = createClient() as AnyClient;
+
+  const { error } = await supabase.rpc("op_registrar_pesaje_maquina", {
+    p_check_in_id: input.checkInId,
+    p_items: input.items,
+    p_notas: input.notas,
+  });
+
+  if (error) return { ok: false, message: error.message };
+
+  revalidatePath(`/campo/maquinas/${input.maquinaId}`);
+  revalidatePath(`/campo/jornada/${input.asignacionId}`);
+  return { ok: true, message: "Pesaje registrado." };
+}
+
+// ============================================================================
 // Reportar incidencia (insert directo, RLS permite al operador)
 // ============================================================================
 
