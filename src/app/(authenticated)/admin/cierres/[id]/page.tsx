@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
+import { cerrarCierre } from "../actions";
+
 const MESES = [
   "Enero",
   "Febrero",
@@ -289,13 +291,64 @@ export default async function CierreDetallePage({
         )}
       </section>
 
-      <section className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700">
-        <p className="font-medium text-zinc-900">Pendiente del cierre</p>
-        <ul className="mt-2 list-inside list-disc space-y-1 text-zinc-600">
-          <li>Conteo físico de cartuchos y granel en almacén.</li>
-          <li>Marcar cierre como cerrado (snapshot final).</li>
-        </ul>
-      </section>
+      {cierre.estado !== "cerrado" && (
+        <section className="space-y-3 rounded-lg border border-zinc-200 bg-white p-4">
+          <h2 className="text-sm font-semibold text-zinc-900">
+            Cerrar periodo
+          </h2>
+          <ul className="space-y-1 text-xs">
+            <li
+              className={
+                cierre.conteo_almacen_completado
+                  ? "text-green-700"
+                  : "text-amber-700"
+              }
+            >
+              {cierre.conteo_almacen_completado ? "✓" : "○"} Conteo de
+              almacén aplicado
+            </li>
+            <li className="text-zinc-600">
+              {(pesajes ?? []).length > 0 ? "✓" : "○"} {(pesajes ?? []).length}{" "}
+              pesaje(s) de máquina registrados
+            </li>
+          </ul>
+          <form action={cerrarCierre} className="flex flex-wrap items-center gap-3">
+            <input type="hidden" name="id" value={cierre.id} />
+            {!cierre.conteo_almacen_completado && (
+              <label className="flex items-center gap-2 text-xs text-amber-800">
+                <input
+                  type="checkbox"
+                  name="force"
+                  value="1"
+                  className="h-4 w-4"
+                />
+                Cerrar sin conteo de almacén (forzado)
+              </label>
+            )}
+            <button
+              type="submit"
+              className="rounded-md bg-green-700 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-800"
+            >
+              Cerrar periodo
+            </button>
+          </form>
+          <p className="text-xs text-zinc-500">
+            Al cerrar se toma snapshot de máquinas pesadas y total activas.
+            En v1 el sistema no bloquea físicamente movimientos posteriores
+            con fecha del mes cerrado; respétalo por proceso.
+          </p>
+        </section>
+      )}
+
+      {cierre.estado === "cerrado" && (
+        <section className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm">
+          <p className="font-medium text-green-900">Periodo cerrado</p>
+          <p className="mt-1 text-xs text-green-800">
+            {cierre.maquinas_pesadas} de {cierre.total_maquinas_periodo}{" "}
+            máquinas activas pesadas.
+          </p>
+        </section>
+      )}
     </div>
   );
 }
