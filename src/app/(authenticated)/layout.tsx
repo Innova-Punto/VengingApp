@@ -60,6 +60,7 @@ const NAV_GROUPS: GroupDef[] = [
     label: "Admin",
     roles: ["admin", "direccion"],
     items: [
+      { label: "Dashboard", href: "/admin/dashboard" },
       { label: "Usuarios", href: "/admin/usuarios" },
       { label: "Jornadas (auditoría)", href: "/admin/jornadas" },
       { label: "Incidencias", href: "/admin/incidencias" },

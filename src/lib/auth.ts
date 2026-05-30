@@ -67,8 +67,8 @@ export async function requireRole(
 
 export function homeForRoles(roles: AppRole[]): string {
   if (roles.length === 0) return "/sin-rol";
-  if (roles.includes("admin")) return "/admin/usuarios";
-  if (roles.includes("direccion")) return "/admin/usuarios";
+  if (roles.includes("admin")) return "/admin/dashboard";
+  if (roles.includes("direccion")) return "/admin/dashboard";
   if (roles.includes("compras")) return "/compras";
   if (roles.includes("almacen")) return "/almacen";
   if (roles.includes("planeador")) return "/planeacion/asignaciones";
