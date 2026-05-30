@@ -52,13 +52,13 @@ export async function generarSurtido(formData: FormData): Promise<void> {
     redirect(`/planeacion/surtidos/${existente.id}`);
   }
 
-  // Trae todas las máquinas de la asignación con su info de tolvas y vaso
+  // Trae todas las máquinas de la asignación con su info
   const { data: asigMaquinas } = await supabase
     .from("asignacion_maquinas")
     .select(
       `maquina_id,
        maquina:maquinas(
-         id, capacidad_max_tolva_g,
+         id, capacidad_max_tolva_g, frecuencia_visita_dias,
          vaso_producto_id, vaso_capacidad_max, vaso_inventario_actual,
          tolvas:tolvas(
            id, numero, producto_id, gramaje_servicio,
@@ -68,7 +68,37 @@ export async function generarSurtido(formData: FormData): Promise<void> {
     )
     .eq("asignacion_id", asignacion_id);
 
-  // Calcula sugerido por (maquina, producto)
+  // Recolecta los producto_id involucrados para traer su gramaje_cartucho_default
+  const productoIds = new Set<string>();
+  for (const am of asigMaquinas ?? []) {
+    const maquina = Array.isArray(am.maquina) ? am.maquina[0] : am.maquina;
+    if (!maquina) continue;
+    const tolvas = Array.isArray(maquina.tolvas) ? maquina.tolvas : [];
+    for (const t of tolvas) {
+      if (t.producto_id) productoIds.add(t.producto_id);
+    }
+    if (maquina.vaso_producto_id) productoIds.add(maquina.vaso_producto_id);
+  }
+
+  const { data: productos } =
+    productoIds.size > 0
+      ? await supabase
+          .from("productos")
+          .select("id, gramaje_cartucho_default")
+          .in("id", Array.from(productoIds))
+      : { data: [] };
+
+  const gramajePorProducto = new Map<string, number>();
+  for (const p of productos ?? []) {
+    gramajePorProducto.set(p.id, p.gramaje_cartucho_default ?? 400);
+  }
+
+  // Calcula sugerido por (maquina, producto).
+  // Lógica actual (sin datos de venta):
+  //   - Polvos: llenar cada tolva al 100% de su capacidad. Cartuchos =
+  //     ceil(gramos_a_surtir / gramaje_cartucho del producto).
+  //   - Vasos: llenar al 100% de la capacidad de la máquina.
+  // Pendiente Fase 9 (Nayax): velocidad de consumo × frecuencia visita.
   const sugeridoMap = new Map<string, Sugerido>();
   const key = (m: string, p: string) => `${m}|${p}`;
 
@@ -76,16 +106,17 @@ export async function generarSurtido(formData: FormData): Promise<void> {
     const maquina = Array.isArray(am.maquina) ? am.maquina[0] : am.maquina;
     if (!maquina) continue;
 
-    // Polvos: por cada tolva con producto, calcular cartuchos faltantes
     const tolvas = Array.isArray(maquina.tolvas) ? maquina.tolvas : [];
     for (const t of tolvas) {
       if (!t.producto_id) continue;
-      const gramajeCartucho = 400; // default; idealmente lo traemos del producto
+      const gramajeCartucho =
+        gramajePorProducto.get(t.producto_id) ?? 400;
       const espacioG = Math.max(
         0,
         (t.capacidad_max_g ?? 2000) - (t.inventario_actual_g ?? 0),
       );
-      const cartuchos = Math.floor(espacioG / gramajeCartucho);
+      if (espacioG <= 0) continue;
+      const cartuchos = Math.ceil(espacioG / gramajeCartucho);
       if (cartuchos <= 0) continue;
 
       const k = key(maquina.id, t.producto_id);
@@ -99,7 +130,6 @@ export async function generarSurtido(formData: FormData): Promise<void> {
       sugeridoMap.set(k, prev);
     }
 
-    // Vasos: una sola fila por máquina con el producto de vaso
     if (maquina.vaso_producto_id) {
       const vasosFaltan = Math.max(
         0,

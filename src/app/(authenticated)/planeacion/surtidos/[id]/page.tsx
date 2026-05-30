@@ -140,6 +140,29 @@ export default async function DetalleSurtidoPage({
         />
       </section>
 
+      <details className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-sm">
+        <summary className="cursor-pointer font-medium text-zinc-700">
+          ¿Cómo se calcularon los sugeridos?
+        </summary>
+        <div className="mt-2 space-y-1 text-xs text-zinc-600">
+          <p>
+            <strong>Polvos:</strong> por cada tolva configurada, se sugiere
+            llenar al 100% de su capacidad. Cartuchos = ⌈(capacidad − inventario
+            actual) ÷ gramaje del producto⌉.
+          </p>
+          <p>
+            <strong>Vasos:</strong> capacidad máxima de la máquina menos los
+            vasos disponibles.
+          </p>
+          <p className="text-zinc-500">
+            ⚠️ Hoy el inventario de tolvas y vasos en máquina sólo cambia con
+            llenados manuales (Fase 7) o pesajes mensuales (Fase 8). Cuando
+            integremos Nayax (Fase 9), el sugeridor usará velocidad real de
+            consumo × frecuencia de visita.
+          </p>
+        </div>
+      </details>
+
       <section className="space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">
           Items por máquina
