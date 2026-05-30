@@ -146,9 +146,10 @@ export default async function DetalleSurtidoPage({
         </summary>
         <div className="mt-2 space-y-1 text-xs text-zinc-600">
           <p>
-            <strong>Polvos:</strong> por cada tolva configurada, se sugiere
-            llenar al 100% de su capacidad. Cartuchos = ⌈(capacidad − inventario
-            actual) ÷ gramaje del producto⌉.
+            <strong>Polvos:</strong> por cada tolva configurada, se sugieren
+            solo los cartuchos que caben COMPLETOS. Cartuchos = ⌊(capacidad −
+            inventario actual) ÷ gramaje del producto⌋. Esto evita que regresen
+            cartuchos parcialmente usados al almacén.
           </p>
           <p>
             <strong>Vasos:</strong> capacidad máxima de la máquina menos los

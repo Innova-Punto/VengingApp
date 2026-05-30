@@ -116,7 +116,10 @@ export async function generarSurtido(formData: FormData): Promise<void> {
         (t.capacidad_max_g ?? 2000) - (t.inventario_actual_g ?? 0),
       );
       if (espacioG <= 0) continue;
-      const cartuchos = Math.ceil(espacioG / gramajeCartucho);
+      // floor: solo sugerimos los cartuchos que caben COMPLETOS en la tolva.
+      // Si el último cartucho no cabe entero, no lo llevamos para evitar
+      // que el operador regrese cartuchos parcialmente usados al almacén.
+      const cartuchos = Math.floor(espacioG / gramajeCartucho);
       if (cartuchos <= 0) continue;
 
       const k = key(maquina.id, t.producto_id);
