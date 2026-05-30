@@ -258,25 +258,69 @@ export async function completarSurtido(formData: FormData): Promise<void> {
     .from("surtido_items")
     .select(
       `id, maquina_id, producto_id, cartuchos_entregados, vasos_entregados,
-       producto:productos(tipo, gramaje_cartucho_default)`,
+       producto:productos(sku, nombre, tipo, gramaje_cartucho_default)`,
     )
     .eq("surtido_id", id);
 
-  // Validar y aplicar PEPS por cada item
   type PepsRpc = (
     fn: string,
     args: Record<string, unknown>,
   ) => Promise<{ data: unknown; error: { message: string } | null }>;
   const rpc = admin.rpc as unknown as PepsRpc;
 
+  // -- Paso 1: validar stock disponible para TODOS los items antes de tocar nada
+  const erroresStock: string[] = [];
   for (const it of items ?? []) {
     const prod = Array.isArray(it.producto) ? it.producto[0] : it.producto;
     if (!prod) continue;
 
     if (prod.tipo === "polvo" && (it.cartuchos_entregados ?? 0) > 0) {
-      // PEPS sobre encartuchados — toma el más viejo. Asumimos que cabe
-      // todo en un solo encartuchado (lo común). Si fuera múltiple,
-      // habría que crear múltiples surtido_items.
+      // Cuenta total disponible de cartuchos del producto
+      const { data: encs } = await supabase
+        .from("encartuchados")
+        .select("cantidad_disponible")
+        .eq("producto_id", it.producto_id);
+      const disp = (encs ?? []).reduce(
+        (s, e) => s + (e.cantidad_disponible ?? 0),
+        0,
+      );
+      if (disp < it.cartuchos_entregados) {
+        erroresStock.push(
+          `${prod.sku ?? prod.nombre}: pides ${it.cartuchos_entregados} cartucho(s), solo hay ${disp}`,
+        );
+      }
+    }
+    if (prod.tipo === "vaso" && (it.vasos_entregados ?? 0) > 0) {
+      const { data: lotes } = await supabase
+        .from("lotes")
+        .select("unidades_disponibles")
+        .eq("producto_id", it.producto_id)
+        .eq("activo", true);
+      const disp = (lotes ?? []).reduce(
+        (s, l) => s + (l.unidades_disponibles ?? 0),
+        0,
+      );
+      if (disp < it.vasos_entregados) {
+        erroresStock.push(
+          `${prod.sku ?? prod.nombre}: pides ${it.vasos_entregados} vaso(s), solo hay ${disp}`,
+        );
+      }
+    }
+  }
+
+  if (erroresStock.length > 0) {
+    const msg = `Stock insuficiente — ${erroresStock.join(" | ")}`;
+    redirect(
+      `/planeacion/surtidos/${id}?error=${encodeURIComponent(msg)}`,
+    );
+  }
+
+  // -- Paso 2: aplicar PEPS y descontar inventario por cada item
+  for (const it of items ?? []) {
+    const prod = Array.isArray(it.producto) ? it.producto[0] : it.producto;
+    if (!prod) continue;
+
+    if (prod.tipo === "polvo" && (it.cartuchos_entregados ?? 0) > 0) {
       const { data: pickedRaw, error: pepsErr } = await rpc(
         "pick_batch_peps_cartucho",
         {
@@ -291,7 +335,6 @@ export async function completarSurtido(formData: FormData): Promise<void> {
       }
       const picked = (pickedRaw as unknown as PepsCartucho[] | null) ?? [];
 
-      // Aplica el primer batch al surtido_item (regla simple: 1 encartuchado)
       const primario = picked[0];
       if (primario) {
         await supabase
@@ -300,7 +343,6 @@ export async function completarSurtido(formData: FormData): Promise<void> {
           .eq("id", it.id);
       }
 
-      // Descuenta cantidad_disponible y registra kardex por cada batch tomado
       for (const p of picked) {
         const { data: encActual } = await supabase
           .from("encartuchados")
@@ -338,7 +380,6 @@ export async function completarSurtido(formData: FormData): Promise<void> {
     }
 
     if (prod.tipo === "vaso" && (it.vasos_entregados ?? 0) > 0) {
-      // PEPS sobre lotes de vasos
       const { data: pickedRaw, error: pepsErr } = await rpc(
         "pick_lote_peps_vaso",
         {
@@ -379,9 +420,6 @@ export async function completarSurtido(formData: FormData): Promise<void> {
         const valor =
           Math.round(p.cantidad_tomar * p.costo_por_unidad * 100) / 100;
 
-        // No hay tipo 'surtido_salida_vaso' en el enum; usamos
-        // 'surtido_salida_cartucho' con presentación 'vaso' para
-        // distinguirlo. Refactor futuro.
         await supabase.from("movimientos_inventario").insert({
           tipo: "surtido_salida_cartucho",
           producto_id: it.producto_id,
@@ -399,7 +437,7 @@ export async function completarSurtido(formData: FormData): Promise<void> {
     }
   }
 
-  // Marca surtido como completado
+  // -- Paso 3: marcar completado
   await supabase
     .from("surtidos")
     .update({
@@ -409,7 +447,6 @@ export async function completarSurtido(formData: FormData): Promise<void> {
     })
     .eq("id", id);
 
-  // Mueve la asignación a estado 'surtida'
   await supabase
     .from("asignaciones_diarias")
     .update({ estado: "surtida" })
