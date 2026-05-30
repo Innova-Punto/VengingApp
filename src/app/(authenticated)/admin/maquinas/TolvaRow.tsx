@@ -20,9 +20,30 @@ type Tolva = {
   precio_venta: number | null;
   nayax_item_code: string | null;
   inventario_actual_g: number;
+  capacidad_max_g: number;
 };
 
 const initial: TolvaResult | null = null;
+
+function OcupacionBar({ actual, max }: { actual: number; max: number }) {
+  const pct = max > 0 ? Math.min(100, Math.round((actual / max) * 100)) : 0;
+  const color =
+    pct >= 80
+      ? "bg-green-500"
+      : pct >= 40
+        ? "bg-amber-500"
+        : pct > 0
+          ? "bg-red-500"
+          : "bg-zinc-300";
+  return (
+    <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-zinc-200">
+      <div
+        className={`h-full transition-all ${color}`}
+        style={{ width: `${pct}%` }}
+      />
+    </div>
+  );
+}
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -124,12 +145,19 @@ export default function TolvaRow({
             />
           </div>
 
-          <div className="flex items-end gap-2">
-            <span className="rounded-md bg-zinc-100 px-2 py-1 text-xs text-zinc-600">
-              Inv: {tolva.inventario_actual_g}g
-            </span>
-            <SubmitButton />
+          <div className="flex w-44 flex-col">
+            <div className="flex items-baseline justify-between text-[10px] uppercase tracking-wide text-zinc-500">
+              <span>Ocupación</span>
+              <span className="tabular-nums text-zinc-700">
+                {tolva.inventario_actual_g}/{tolva.capacidad_max_g}g
+              </span>
+            </div>
+            <OcupacionBar
+              actual={tolva.inventario_actual_g}
+              max={tolva.capacidad_max_g}
+            />
           </div>
+          <SubmitButton />
         </form>
         {state && !state.ok && (
           <p className="mt-1 text-xs text-red-700">{state.message}</p>

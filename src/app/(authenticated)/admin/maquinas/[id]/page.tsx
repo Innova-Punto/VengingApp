@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
+import { duplicarMaquina } from "../actions";
 import MaquinaForm from "../MaquinaForm";
 import TolvaRow from "../TolvaRow";
 import AplicarPlanograma from "../AplicarPlanograma";
@@ -43,7 +44,7 @@ export default async function EditarMaquinaPage({
     supabase
       .from("tolvas")
       .select(
-        "id, numero, producto_id, gramaje_servicio, precio_venta, nayax_item_code, inventario_actual_g",
+        "id, numero, producto_id, gramaje_servicio, precio_venta, nayax_item_code, inventario_actual_g, capacidad_max_g",
       )
       .eq("maquina_id", params.id)
       .order("numero"),
@@ -133,6 +134,18 @@ export default async function EditarMaquinaPage({
             {cliente.nombre} · {ubic?.nombre}
           </p>
         )}
+        <div className="mt-3">
+          <form action={duplicarMaquina}>
+            <input type="hidden" name="id" value={maquina.id} />
+            <button
+              type="submit"
+              className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 shadow-sm hover:bg-zinc-50"
+              title="Crea una nueva máquina copiando su configuración y planograma"
+            >
+              Duplicar máquina
+            </button>
+          </form>
+        </div>
       </div>
 
       <section className="space-y-3">

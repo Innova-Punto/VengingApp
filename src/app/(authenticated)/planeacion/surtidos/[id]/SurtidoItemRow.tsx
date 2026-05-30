@@ -2,7 +2,7 @@
 
 import { useFormState, useFormStatus } from "react-dom";
 
-import { actualizarSurtidoItem, type ItemResult } from "../actions";
+import { actualizarSurtidoItem, eliminarItemSurtido, type ItemResult } from "../actions";
 
 type Producto = { sku: string; nombre: string; tipo: "polvo" | "vaso" };
 
@@ -48,9 +48,27 @@ export default function SurtidoItemRow({
   return (
     <tr className="align-top">
       <td className="px-4 py-2">
-        <div className="font-medium text-zinc-900">{prod?.nombre ?? "—"}</div>
-        <div className="font-mono text-xs text-zinc-500">
-          {prod?.sku ?? "—"} · {prod?.tipo}
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <div className="font-medium text-zinc-900">{prod?.nombre ?? "—"}</div>
+            <div className="font-mono text-xs text-zinc-500">
+              {prod?.sku ?? "—"} · {prod?.tipo}
+            </div>
+          </div>
+          {editable && (
+            <form action={eliminarItemSurtido}>
+              <input type="hidden" name="id" value={item.id} />
+              <input type="hidden" name="surtido_id" value={surtidoId} />
+              <button
+                type="submit"
+                title="Eliminar del surtido"
+                className="rounded p-1 text-zinc-400 hover:bg-red-50 hover:text-red-600"
+                aria-label="Eliminar item"
+              >
+                ×
+              </button>
+            </form>
+          )}
         </div>
         {state && !state.ok && (
           <p className="mt-1 text-xs text-red-700">{state.message}</p>

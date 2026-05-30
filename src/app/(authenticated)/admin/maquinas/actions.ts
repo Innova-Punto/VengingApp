@@ -212,6 +212,111 @@ export async function cambiarEstadoMaquina(formData: FormData) {
 }
 
 // ============================================================================
+// Duplicar máquina (copia config base + planograma de tolvas)
+// ============================================================================
+//
+// Crea una nueva máquina copiando los campos de configuración (modelo, número
+// de tolvas, capacidades, frecuencia de visita, ubicación, vaso). La serie y
+// el alias se generan derivados de los originales para que el usuario los
+// edite después; nayax_machine_id / nayax_serial / qr_codigo se dejan vacíos
+// para no chocar con los unique constraints.
+//
+// Tras crear, copia la configuración de cada tolva (producto, gramaje,
+// precio, nayax_item_code) emparejando por número. El trigger
+// trg_maquina_create_tolvas crea las tolvas vacías al insertar la máquina.
+
+export async function duplicarMaquina(formData: FormData): Promise<void> {
+  await requireRole(...ROLES);
+
+  const sourceId = String(formData.get("id") ?? "");
+  if (!sourceId) redirect("/admin/maquinas");
+
+  const supabase = createClient();
+
+  const { data: src } = await supabase
+    .from("maquinas")
+    .select(
+      `serie, alias, ubicacion_id, modelo, num_tolvas,
+       capacidad_max_tolva_g, frecuencia_visita_dias, fecha_instalacion,
+       notas, vaso_producto_id, vaso_capacidad_max`,
+    )
+    .eq("id", sourceId)
+    .maybeSingle();
+  if (!src) {
+    redirect("/admin/maquinas?error=" + encodeURIComponent("Máquina origen no encontrada."));
+  }
+
+  // Serie derivada con sufijo único. El usuario la editará después.
+  const sufijo = new Date()
+    .toISOString()
+    .replace(/[-:T.Z]/g, "")
+    .slice(0, 14);
+  const nuevaSerie = `${src.serie}-COPIA-${sufijo}`;
+  const nuevoAlias = src.alias ? `Copia de ${src.alias}` : null;
+
+  const { data: nueva, error: insErr } = await supabase
+    .from("maquinas")
+    .insert({
+      serie: nuevaSerie,
+      alias: nuevoAlias,
+      ubicacion_id: src.ubicacion_id,
+      modelo: src.modelo,
+      num_tolvas: src.num_tolvas,
+      capacidad_max_tolva_g: src.capacidad_max_tolva_g,
+      frecuencia_visita_dias: src.frecuencia_visita_dias,
+      fecha_instalacion: src.fecha_instalacion,
+      notas: src.notas,
+      vaso_producto_id: src.vaso_producto_id,
+      vaso_capacidad_max: src.vaso_capacidad_max,
+      estado: "mantenimiento",
+    })
+    .select("id")
+    .single();
+
+  if (insErr || !nueva) {
+    redirect(
+      "/admin/maquinas?error=" +
+        encodeURIComponent(insErr?.message ?? "No se pudo crear la copia."),
+    );
+  }
+
+  // El trigger trg_maquina_create_tolvas ya creó las tolvas vacías de la nueva.
+  // Copia la configuración de cada tolva emparejando por número.
+  const [{ data: srcTolvas }, { data: dstTolvas }] = await Promise.all([
+    supabase
+      .from("tolvas")
+      .select("numero, producto_id, gramaje_servicio, precio_venta, nayax_item_code")
+      .eq("maquina_id", sourceId),
+    supabase
+      .from("tolvas")
+      .select("id, numero")
+      .eq("maquina_id", nueva.id),
+  ]);
+
+  const dstPorNumero = new Map<number, string>();
+  for (const t of dstTolvas ?? []) dstPorNumero.set(t.numero, t.id);
+
+  for (const s of srcTolvas ?? []) {
+    const dstId = dstPorNumero.get(s.numero);
+    if (!dstId) continue;
+    // nayax_item_code se queda vacío en el destino para evitar choque del
+    // unique constraint global por nayax_item_code.
+    await supabase
+      .from("tolvas")
+      .update({
+        producto_id: s.producto_id,
+        gramaje_servicio: s.gramaje_servicio,
+        precio_venta: s.precio_venta,
+        nayax_item_code: null,
+      })
+      .eq("id", dstId);
+  }
+
+  revalidatePath("/admin/maquinas");
+  redirect(`/admin/maquinas/${nueva.id}`);
+}
+
+// ============================================================================
 // Tolvas (configuración del planograma)
 // ============================================================================
 

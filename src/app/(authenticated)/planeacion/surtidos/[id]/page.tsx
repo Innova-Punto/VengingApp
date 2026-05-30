@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 import { completarSurtido } from "../actions";
+import AgregarItemForm from "./AgregarItemForm";
 import SurtidoItemRow from "./SurtidoItemRow";
 
 export const metadata = { title: "Detalle surtido · MuscleUp" };
@@ -76,15 +77,55 @@ export default async function DetalleSurtidoPage({
 
   const editable = surt.estado !== "completado";
 
-  // Agrupar por máquina para la presentación
+  // Trae todas las máquinas de la asignación (no solo las que el sugeridor llenó)
+  // junto con sus tolvas y vaso, para construir la lista de productos
+  // disponibles para agregar manualmente por máquina.
+  const { data: asigMaquinas } = await supabase
+    .from("asignacion_maquinas")
+    .select(
+      `orden,
+       maquina:maquinas(
+         id, serie, alias, vaso_producto_id,
+         tolvas:tolvas(producto_id)
+       )`,
+    )
+    .eq("asignacion_id", asig?.id ?? "")
+    .order("orden");
+
+  // Recolecta productos referenciados por tolvas o vasos de las máquinas
+  const productoIds = new Set<string>();
+  for (const am of asigMaquinas ?? []) {
+    const m = Array.isArray(am.maquina) ? am.maquina[0] : am.maquina;
+    if (!m) continue;
+    if (m.vaso_producto_id) productoIds.add(m.vaso_producto_id);
+    const tolvas = Array.isArray(m.tolvas) ? m.tolvas : [];
+    for (const t of tolvas) {
+      if (t.producto_id) productoIds.add(t.producto_id);
+    }
+  }
+  const { data: productos } =
+    productoIds.size > 0
+      ? await supabase
+          .from("productos")
+          .select("id, sku, nombre, tipo")
+          .in("id", Array.from(productoIds))
+      : { data: [] };
+  type Producto = { id: string; sku: string; nombre: string; tipo: "polvo" | "vaso" };
+  const productoById = new Map<string, Producto>(
+    ((productos ?? []) as Producto[]).map((p) => [p.id, p]),
+  );
+
+  // Productos ya presentes en el surtido por máquina (para excluirlos del select)
   type ItemRow = NonNullable<typeof items>[number];
-  const porMaquina = new Map<string, ItemRow[]>();
+  const itemsPorMaquinaId = new Map<string, ItemRow[]>();
+  const productosUsadosPorMaquina = new Map<string, Set<string>>();
   for (const it of items ?? []) {
-    const m = Array.isArray(it.maquina) ? it.maquina[0] : it.maquina;
-    const key = m?.serie ?? it.maquina_id;
-    const arr = porMaquina.get(key) ?? [];
+    const arr = itemsPorMaquinaId.get(it.maquina_id) ?? [];
     arr.push(it);
-    porMaquina.set(key, arr);
+    itemsPorMaquinaId.set(it.maquina_id, arr);
+    const usados = productosUsadosPorMaquina.get(it.maquina_id) ?? new Set<string>();
+    usados.add(it.producto_id);
+    productosUsadosPorMaquina.set(it.maquina_id, usados);
   }
 
   // Totales
@@ -94,6 +135,55 @@ export default async function DetalleSurtidoPage({
     totalCartuchos += it.cartuchos_entregados ?? 0;
     totalVasos += it.vasos_entregados ?? 0;
   }
+
+  // Costo estimado del surtido (orientativo, no exacto):
+  // promedio ponderado de costo_promedio_g × gramos_por_cartucho de los
+  // encartuchados disponibles del producto. No incluye vasos (su costo se
+  // resuelve por presentación en PEPS al completar). El costo real queda
+  // en kardex tras completar el surtido.
+  const productoItemIds = Array.from(
+    new Set((items ?? []).map((it) => it.producto_id)),
+  );
+
+  const { data: encDisp } = productoItemIds.length > 0
+    ? await supabase
+        .from("encartuchados")
+        .select("producto_id, cantidad_disponible, gramos_por_cartucho, costo_promedio_g")
+        .in("producto_id", productoItemIds)
+        .gt("cantidad_disponible", 0)
+    : { data: [] };
+
+  const aggCartucho = new Map<
+    string,
+    { ponderadoCosto: number; ponderadoGramos: number; peso: number }
+  >();
+  for (const e of encDisp ?? []) {
+    const a = aggCartucho.get(e.producto_id) ?? {
+      ponderadoCosto: 0,
+      ponderadoGramos: 0,
+      peso: 0,
+    };
+    const w = e.cantidad_disponible ?? 0;
+    a.ponderadoCosto += (e.costo_promedio_g ?? 0) * w;
+    a.ponderadoGramos += (e.gramos_por_cartucho ?? 0) * w;
+    a.peso += w;
+    aggCartucho.set(e.producto_id, a);
+  }
+  const costoCartuchoEstPorProducto = new Map<string, number>();
+  aggCartucho.forEach((a, pid) => {
+    if (a.peso > 0) {
+      const costoG = a.ponderadoCosto / a.peso;
+      const gramosCartucho = a.ponderadoGramos / a.peso;
+      costoCartuchoEstPorProducto.set(pid, costoG * gramosCartucho);
+    }
+  });
+
+  let costoEstimado = 0;
+  for (const it of items ?? []) {
+    const cc = costoCartuchoEstPorProducto.get(it.producto_id) ?? 0;
+    costoEstimado += cc * (it.cartuchos_entregados ?? 0);
+  }
+  const costoEstimadoMxn = Math.round(costoEstimado * 100) / 100;
 
   return (
     <div className="space-y-8">
@@ -131,14 +221,29 @@ export default async function DetalleSurtidoPage({
         </p>
       )}
 
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <Stat label="Cartuchos a llevar" value={String(totalCartuchos)} />
         <Stat label="Vasos a llevar" value={String(totalVasos)} />
+        <Stat label="Items" value={String((items ?? []).length)} />
         <Stat
-          label="Items"
-          value={String((items ?? []).length)}
+          label="Costo estimado"
+          value={`$${costoEstimadoMxn.toLocaleString("es-MX", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}`}
+          hint="Solo cartuchos (polvo). Promedio del inventario disponible. El costo real se aplica con PEPS al completar."
         />
       </section>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <Link
+          href={`/planeacion/surtidos/${params.id}/imprimir`}
+          target="_blank"
+          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 shadow-sm hover:bg-zinc-50"
+        >
+          Imprimir packing list
+        </Link>
+      </div>
 
       <details className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-sm">
         <summary className="cursor-pointer font-medium text-zinc-700">
@@ -169,61 +274,85 @@ export default async function DetalleSurtidoPage({
           Items por máquina
         </h2>
 
-        {Array.from(porMaquina.entries()).map(([serie, rows]) => {
-          const primera = rows[0];
-          const m = primera
-            ? Array.isArray(primera.maquina)
-              ? primera.maquina[0]
-              : primera.maquina
-            : null;
+        {(asigMaquinas ?? []).map((am) => {
+          const m = Array.isArray(am.maquina) ? am.maquina[0] : am.maquina;
+          if (!m) return null;
+          const rows = itemsPorMaquinaId.get(m.id) ?? [];
+
+          // Productos disponibles para agregar manualmente:
+          // los de las tolvas + el vaso de la máquina, menos los ya presentes
+          const posibles = new Set<string>();
+          if (m.vaso_producto_id) posibles.add(m.vaso_producto_id);
+          const tolvas = Array.isArray(m.tolvas) ? m.tolvas : [];
+          for (const t of tolvas) {
+            if (t.producto_id) posibles.add(t.producto_id);
+          }
+          const usados = productosUsadosPorMaquina.get(m.id) ?? new Set<string>();
+          const disponibles = Array.from(posibles)
+            .filter((p) => !usados.has(p))
+            .map((id) => productoById.get(id))
+            .filter((p): p is Producto => Boolean(p));
+
           return (
             <div
-              key={serie}
+              key={m.id}
               className="overflow-hidden rounded-lg border border-zinc-200 bg-white"
             >
               <div className="border-b border-zinc-200 bg-zinc-50 px-4 py-2">
-                <div className="font-mono text-sm font-medium">{serie}</div>
-                {m?.alias && (
+                <div className="font-mono text-sm font-medium">{m.serie}</div>
+                {m.alias && (
                   <div className="text-xs text-zinc-500">{m.alias}</div>
                 )}
               </div>
-              <table className="w-full text-sm">
-                <thead className="text-left text-xs uppercase tracking-wide text-zinc-500">
-                  <tr>
-                    <th className="px-4 py-2 font-medium">Producto</th>
-                    <th className="px-4 py-2 text-right font-medium">
-                      Cartuchos sug.
-                    </th>
-                    <th className="px-4 py-2 text-right font-medium">
-                      Cartuchos a llevar
-                    </th>
-                    <th className="px-4 py-2 text-right font-medium">
-                      Vasos sug.
-                    </th>
-                    <th className="px-4 py-2 text-right font-medium">
-                      Vasos a llevar
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-100">
-                  {rows.map((it) => (
-                    <SurtidoItemRow
-                      key={it.id}
-                      item={it}
-                      surtidoId={params.id}
-                      editable={editable}
-                    />
-                  ))}
-                </tbody>
-              </table>
+              {rows.length > 0 ? (
+                <table className="w-full text-sm">
+                  <thead className="text-left text-xs uppercase tracking-wide text-zinc-500">
+                    <tr>
+                      <th className="px-4 py-2 font-medium">Producto</th>
+                      <th className="px-4 py-2 text-right font-medium">
+                        Cartuchos sug.
+                      </th>
+                      <th className="px-4 py-2 text-right font-medium">
+                        Cartuchos a llevar
+                      </th>
+                      <th className="px-4 py-2 text-right font-medium">
+                        Vasos sug.
+                      </th>
+                      <th className="px-4 py-2 text-right font-medium">
+                        Vasos a llevar
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-100">
+                    {rows.map((it) => (
+                      <SurtidoItemRow
+                        key={it.id}
+                        item={it}
+                        surtidoId={params.id}
+                        editable={editable}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="px-4 py-3 text-xs text-zinc-500">
+                  El sugeridor no detectó necesidad para esta máquina.
+                </div>
+              )}
+              {editable && (
+                <AgregarItemForm
+                  surtidoId={params.id}
+                  maquinaId={m.id}
+                  productos={disponibles}
+                />
+              )}
             </div>
           );
         })}
 
-        {porMaquina.size === 0 && (
+        {(asigMaquinas ?? []).length === 0 && (
           <div className="rounded-lg border border-zinc-200 bg-white p-6 text-center text-sm text-zinc-500">
-            Este surtido no tiene items. Probablemente las tolvas están
-            llenas o el sugeridor no detectó necesidad.
+            La asignación no tiene máquinas.
           </div>
         )}
       </section>
@@ -260,7 +389,15 @@ export default async function DetalleSurtidoPage({
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+}) {
   return (
     <div className="rounded-lg border border-zinc-200 bg-white p-3">
       <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">
@@ -269,6 +406,7 @@ function Stat({ label, value }: { label: string; value: string }) {
       <div className="mt-1 text-sm font-medium text-zinc-900 tabular-nums">
         {value}
       </div>
+      {hint && <div className="mt-1 text-[10px] text-zinc-500">{hint}</div>}
     </div>
   );
 }
