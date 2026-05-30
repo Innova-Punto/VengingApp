@@ -271,6 +271,17 @@ export default async function DetalleOcPage({
         </section>
       )}
 
+      {(oc.estado === "enviada" || oc.estado === "parcial") && (
+        <section>
+          <Link
+            href={`/almacen/recepciones/nuevo?oc_id=${params.id}`}
+            className="inline-flex rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800"
+          >
+            Registrar recepción
+          </Link>
+        </section>
+      )}
+
       {oc.notas && (
         <section>
           <h2 className="mb-2 text-sm font-medium text-zinc-700">Notas</h2>
