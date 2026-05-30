@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 import { completarSurtido } from "../actions";
+import AgregarItemForm from "./AgregarItemForm";
 import SurtidoItemRow from "./SurtidoItemRow";
 
 export const metadata = { title: "Detalle surtido · MuscleUp" };
@@ -76,15 +77,55 @@ export default async function DetalleSurtidoPage({
 
   const editable = surt.estado !== "completado";
 
-  // Agrupar por máquina para la presentación
+  // Trae todas las máquinas de la asignación (no solo las que el sugeridor llenó)
+  // junto con sus tolvas y vaso, para construir la lista de productos
+  // disponibles para agregar manualmente por máquina.
+  const { data: asigMaquinas } = await supabase
+    .from("asignacion_maquinas")
+    .select(
+      `orden,
+       maquina:maquinas(
+         id, serie, alias, vaso_producto_id,
+         tolvas:tolvas(producto_id)
+       )`,
+    )
+    .eq("asignacion_id", asig?.id ?? "")
+    .order("orden");
+
+  // Recolecta productos referenciados por tolvas o vasos de las máquinas
+  const productoIds = new Set<string>();
+  for (const am of asigMaquinas ?? []) {
+    const m = Array.isArray(am.maquina) ? am.maquina[0] : am.maquina;
+    if (!m) continue;
+    if (m.vaso_producto_id) productoIds.add(m.vaso_producto_id);
+    const tolvas = Array.isArray(m.tolvas) ? m.tolvas : [];
+    for (const t of tolvas) {
+      if (t.producto_id) productoIds.add(t.producto_id);
+    }
+  }
+  const { data: productos } =
+    productoIds.size > 0
+      ? await supabase
+          .from("productos")
+          .select("id, sku, nombre, tipo")
+          .in("id", Array.from(productoIds))
+      : { data: [] };
+  type Producto = { id: string; sku: string; nombre: string; tipo: "polvo" | "vaso" };
+  const productoById = new Map<string, Producto>(
+    ((productos ?? []) as Producto[]).map((p) => [p.id, p]),
+  );
+
+  // Productos ya presentes en el surtido por máquina (para excluirlos del select)
   type ItemRow = NonNullable<typeof items>[number];
-  const porMaquina = new Map<string, ItemRow[]>();
+  const itemsPorMaquinaId = new Map<string, ItemRow[]>();
+  const productosUsadosPorMaquina = new Map<string, Set<string>>();
   for (const it of items ?? []) {
-    const m = Array.isArray(it.maquina) ? it.maquina[0] : it.maquina;
-    const key = m?.serie ?? it.maquina_id;
-    const arr = porMaquina.get(key) ?? [];
+    const arr = itemsPorMaquinaId.get(it.maquina_id) ?? [];
     arr.push(it);
-    porMaquina.set(key, arr);
+    itemsPorMaquinaId.set(it.maquina_id, arr);
+    const usados = productosUsadosPorMaquina.get(it.maquina_id) ?? new Set<string>();
+    usados.add(it.producto_id);
+    productosUsadosPorMaquina.set(it.maquina_id, usados);
   }
 
   // Totales
@@ -169,61 +210,85 @@ export default async function DetalleSurtidoPage({
           Items por máquina
         </h2>
 
-        {Array.from(porMaquina.entries()).map(([serie, rows]) => {
-          const primera = rows[0];
-          const m = primera
-            ? Array.isArray(primera.maquina)
-              ? primera.maquina[0]
-              : primera.maquina
-            : null;
+        {(asigMaquinas ?? []).map((am) => {
+          const m = Array.isArray(am.maquina) ? am.maquina[0] : am.maquina;
+          if (!m) return null;
+          const rows = itemsPorMaquinaId.get(m.id) ?? [];
+
+          // Productos disponibles para agregar manualmente:
+          // los de las tolvas + el vaso de la máquina, menos los ya presentes
+          const posibles = new Set<string>();
+          if (m.vaso_producto_id) posibles.add(m.vaso_producto_id);
+          const tolvas = Array.isArray(m.tolvas) ? m.tolvas : [];
+          for (const t of tolvas) {
+            if (t.producto_id) posibles.add(t.producto_id);
+          }
+          const usados = productosUsadosPorMaquina.get(m.id) ?? new Set<string>();
+          const disponibles = Array.from(posibles)
+            .filter((p) => !usados.has(p))
+            .map((id) => productoById.get(id))
+            .filter((p): p is Producto => Boolean(p));
+
           return (
             <div
-              key={serie}
+              key={m.id}
               className="overflow-hidden rounded-lg border border-zinc-200 bg-white"
             >
               <div className="border-b border-zinc-200 bg-zinc-50 px-4 py-2">
-                <div className="font-mono text-sm font-medium">{serie}</div>
-                {m?.alias && (
+                <div className="font-mono text-sm font-medium">{m.serie}</div>
+                {m.alias && (
                   <div className="text-xs text-zinc-500">{m.alias}</div>
                 )}
               </div>
-              <table className="w-full text-sm">
-                <thead className="text-left text-xs uppercase tracking-wide text-zinc-500">
-                  <tr>
-                    <th className="px-4 py-2 font-medium">Producto</th>
-                    <th className="px-4 py-2 text-right font-medium">
-                      Cartuchos sug.
-                    </th>
-                    <th className="px-4 py-2 text-right font-medium">
-                      Cartuchos a llevar
-                    </th>
-                    <th className="px-4 py-2 text-right font-medium">
-                      Vasos sug.
-                    </th>
-                    <th className="px-4 py-2 text-right font-medium">
-                      Vasos a llevar
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-100">
-                  {rows.map((it) => (
-                    <SurtidoItemRow
-                      key={it.id}
-                      item={it}
-                      surtidoId={params.id}
-                      editable={editable}
-                    />
-                  ))}
-                </tbody>
-              </table>
+              {rows.length > 0 ? (
+                <table className="w-full text-sm">
+                  <thead className="text-left text-xs uppercase tracking-wide text-zinc-500">
+                    <tr>
+                      <th className="px-4 py-2 font-medium">Producto</th>
+                      <th className="px-4 py-2 text-right font-medium">
+                        Cartuchos sug.
+                      </th>
+                      <th className="px-4 py-2 text-right font-medium">
+                        Cartuchos a llevar
+                      </th>
+                      <th className="px-4 py-2 text-right font-medium">
+                        Vasos sug.
+                      </th>
+                      <th className="px-4 py-2 text-right font-medium">
+                        Vasos a llevar
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-100">
+                    {rows.map((it) => (
+                      <SurtidoItemRow
+                        key={it.id}
+                        item={it}
+                        surtidoId={params.id}
+                        editable={editable}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="px-4 py-3 text-xs text-zinc-500">
+                  El sugeridor no detectó necesidad para esta máquina.
+                </div>
+              )}
+              {editable && (
+                <AgregarItemForm
+                  surtidoId={params.id}
+                  maquinaId={m.id}
+                  productos={disponibles}
+                />
+              )}
             </div>
           );
         })}
 
-        {porMaquina.size === 0 && (
+        {(asigMaquinas ?? []).length === 0 && (
           <div className="rounded-lg border border-zinc-200 bg-white p-6 text-center text-sm text-zinc-500">
-            Este surtido no tiene items. Probablemente las tolvas están
-            llenas o el sugeridor no detectó necesidad.
+            La asignación no tiene máquinas.
           </div>
         )}
       </section>

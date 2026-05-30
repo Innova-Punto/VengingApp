@@ -252,6 +252,127 @@ export async function actualizarSurtidoItem(
 }
 
 // ============================================================================
+// Agregar manualmente un item al surtido (producto fuera del sugerido)
+// ============================================================================
+
+export async function agregarItemSurtido(
+  _prev: ItemResult | null,
+  formData: FormData,
+): Promise<ItemResult> {
+  await requireRole(...ROLES);
+
+  const surtido_id = String(formData.get("surtido_id") ?? "");
+  const maquina_id = String(formData.get("maquina_id") ?? "");
+  const producto_id = String(formData.get("producto_id") ?? "");
+  const cartuchos = Number(formData.get("cartuchos_entregados") ?? 0);
+  const vasos = Number(formData.get("vasos_entregados") ?? 0);
+
+  if (!surtido_id || !maquina_id || !producto_id) {
+    return { ok: false, message: "Falta surtido, máquina o producto." };
+  }
+  if (!Number.isInteger(cartuchos) || cartuchos < 0) {
+    return { ok: false, message: "Cartuchos debe ser entero ≥ 0." };
+  }
+  if (!Number.isInteger(vasos) || vasos < 0) {
+    return { ok: false, message: "Vasos debe ser entero ≥ 0." };
+  }
+  if (cartuchos === 0 && vasos === 0) {
+    return { ok: false, message: "Indica al menos 1 cartucho o vaso." };
+  }
+
+  const supabase = createClient();
+
+  const { data: surt } = await supabase
+    .from("surtidos")
+    .select("estado, asignacion_id")
+    .eq("id", surtido_id)
+    .maybeSingle();
+  if (!surt) return { ok: false, message: "Surtido no encontrado." };
+  if (surt.estado === "completado") {
+    return {
+      ok: false,
+      message: "El surtido ya está completado y no admite cambios.",
+    };
+  }
+
+  const { data: am } = await supabase
+    .from("asignacion_maquinas")
+    .select("id")
+    .eq("asignacion_id", surt.asignacion_id)
+    .eq("maquina_id", maquina_id)
+    .maybeSingle();
+  if (!am) {
+    return {
+      ok: false,
+      message: "La máquina no pertenece a esta asignación.",
+    };
+  }
+
+  const { data: maquina } = await supabase
+    .from("maquinas")
+    .select("vaso_producto_id, tolvas:tolvas(producto_id)")
+    .eq("id", maquina_id)
+    .maybeSingle();
+  if (!maquina) return { ok: false, message: "Máquina no encontrada." };
+
+  const tolvaProductoIds = new Set(
+    (Array.isArray(maquina.tolvas) ? maquina.tolvas : [])
+      .map((t) => t.producto_id)
+      .filter((p): p is string => Boolean(p)),
+  );
+  const esVaso = maquina.vaso_producto_id === producto_id;
+  const esPolvoDeMaquina = tolvaProductoIds.has(producto_id);
+  if (!esVaso && !esPolvoDeMaquina) {
+    return {
+      ok: false,
+      message: "El producto no está asignado a ninguna tolva ni al vaso de esta máquina.",
+    };
+  }
+
+  const { data: prod } = await supabase
+    .from("productos")
+    .select("tipo")
+    .eq("id", producto_id)
+    .maybeSingle();
+  if (!prod) return { ok: false, message: "Producto no encontrado." };
+
+  if (prod.tipo === "polvo" && vasos > 0) {
+    return { ok: false, message: "Un producto polvo no lleva vasos." };
+  }
+  if (prod.tipo === "vaso" && cartuchos > 0) {
+    return { ok: false, message: "Un producto vaso no lleva cartuchos." };
+  }
+
+  const { data: existente } = await supabase
+    .from("surtido_items")
+    .select("id")
+    .eq("surtido_id", surtido_id)
+    .eq("maquina_id", maquina_id)
+    .eq("producto_id", producto_id)
+    .maybeSingle();
+  if (existente) {
+    return {
+      ok: false,
+      message: "Ese producto ya está en el surtido para esta máquina. Edita la fila existente.",
+    };
+  }
+
+  const { error } = await supabase.from("surtido_items").insert({
+    surtido_id,
+    maquina_id,
+    producto_id,
+    cartuchos_sugeridos: 0,
+    cartuchos_entregados: cartuchos,
+    vasos_sugeridos: 0,
+    vasos_entregados: vasos,
+  });
+  if (error) return { ok: false, message: error.message };
+
+  revalidatePath(`/planeacion/surtidos/${surtido_id}`);
+  return { ok: true, message: "Producto agregado al surtido." };
+}
+
+// ============================================================================
 // Completar surtido: aplica PEPS, descuenta inventario, registra kardex
 // ============================================================================
 
