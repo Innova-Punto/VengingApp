@@ -30,7 +30,7 @@ export default async function NuevaAsignacionPage({
       .from("rutas")
       .select(
         `id, nombre, operador_titular_id,
-         maquinas:ruta_maquinas(id)`,
+         maquinas:ruta_maquinas(maquina_id)`,
       )
       .eq("activa", true)
       .order("nombre"),
