@@ -634,6 +634,13 @@ export type Database = {
             referencedRelation: "productos"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "conteo_cartuchos_items_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: false
+            referencedRelation: "v_inventario_producto"
+            referencedColumns: ["id"]
+          },
         ]
       }
       conteo_granel_items: {
@@ -891,6 +898,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "devoluciones_almacen_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: false
+            referencedRelation: "v_inventario_producto"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "devoluciones_almacen_recibida_por_fkey"
             columns: ["recibida_por"]
             isOneToOne: false
@@ -1003,6 +1017,13 @@ export type Database = {
             columns: ["producto_id"]
             isOneToOne: false
             referencedRelation: "productos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "encartuchados_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: false
+            referencedRelation: "v_inventario_producto"
             referencedColumns: ["id"]
           },
         ]
@@ -1118,6 +1139,13 @@ export type Database = {
             columns: ["producto_afectado_id"]
             isOneToOne: false
             referencedRelation: "productos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "incidencias_producto_afectado_id_fkey"
+            columns: ["producto_afectado_id"]
+            isOneToOne: false
+            referencedRelation: "v_inventario_producto"
             referencedColumns: ["id"]
           },
         ]
@@ -1382,6 +1410,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "lotes_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: false
+            referencedRelation: "v_inventario_producto"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "lotes_proveedor_id_fkey"
             columns: ["proveedor_id"]
             isOneToOne: false
@@ -1480,6 +1515,13 @@ export type Database = {
             columns: ["vaso_producto_id"]
             isOneToOne: false
             referencedRelation: "productos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maquinas_vaso_producto_id_fkey"
+            columns: ["vaso_producto_id"]
+            isOneToOne: false
+            referencedRelation: "v_inventario_producto"
             referencedColumns: ["id"]
           },
         ]
@@ -1595,6 +1637,13 @@ export type Database = {
             columns: ["producto_id"]
             isOneToOne: false
             referencedRelation: "productos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movimientos_inventario_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: false
+            referencedRelation: "v_inventario_producto"
             referencedColumns: ["id"]
           },
           {
@@ -1731,6 +1780,7 @@ export type Database = {
           id: string
           iva: number
           moneda: string
+          motivo_cierre: string | null
           notas: string | null
           proveedor_id: string
           subtotal: number
@@ -1749,6 +1799,7 @@ export type Database = {
           id?: string
           iva?: number
           moneda?: string
+          motivo_cierre?: string | null
           notas?: string | null
           proveedor_id: string
           subtotal?: number
@@ -1767,6 +1818,7 @@ export type Database = {
           id?: string
           iva?: number
           moneda?: string
+          motivo_cierre?: string | null
           notas?: string | null
           proveedor_id?: string
           subtotal?: number
@@ -1984,6 +2036,13 @@ export type Database = {
             referencedRelation: "productos"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "planograma_historico_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: false
+            referencedRelation: "v_inventario_producto"
+            referencedColumns: ["id"]
+          },
         ]
       }
       planograma_items: {
@@ -2030,6 +2089,13 @@ export type Database = {
             columns: ["producto_id"]
             isOneToOne: false
             referencedRelation: "productos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "planograma_items_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: false
+            referencedRelation: "v_inventario_producto"
             referencedColumns: ["id"]
           },
         ]
@@ -2130,6 +2196,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "presentaciones_proveedor_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: false
+            referencedRelation: "v_inventario_producto"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "presentaciones_proveedor_proveedor_id_fkey"
             columns: ["proveedor_id"]
             isOneToOne: false
@@ -2151,8 +2224,11 @@ export type Database = {
           nombre: string
           notas: string | null
           precio_venta_default: number | null
+          punto_reorden: number
           sabor: string | null
           sku: string
+          stock_maximo: number
+          stock_minimo: number
           tipo: Database["public"]["Enums"]["producto_tipo"]
           unidad_medida: string
           updated_at: string
@@ -2169,8 +2245,11 @@ export type Database = {
           nombre: string
           notas?: string | null
           precio_venta_default?: number | null
+          punto_reorden?: number
           sabor?: string | null
           sku: string
+          stock_maximo?: number
+          stock_minimo?: number
           tipo: Database["public"]["Enums"]["producto_tipo"]
           unidad_medida?: string
           updated_at?: string
@@ -2187,8 +2266,11 @@ export type Database = {
           nombre?: string
           notas?: string | null
           precio_venta_default?: number | null
+          punto_reorden?: number
           sabor?: string | null
           sku?: string
+          stock_maximo?: number
+          stock_minimo?: number
           tipo?: Database["public"]["Enums"]["producto_tipo"]
           unidad_medida?: string
           updated_at?: string
@@ -2628,6 +2710,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "surtido_items_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: false
+            referencedRelation: "v_inventario_producto"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "surtido_items_surtido_id_fkey"
             columns: ["surtido_id"]
             isOneToOne: false
@@ -2762,6 +2851,13 @@ export type Database = {
             columns: ["producto_id"]
             isOneToOne: false
             referencedRelation: "productos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tolvas_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: false
+            referencedRelation: "v_inventario_producto"
             referencedColumns: ["id"]
           },
         ]
@@ -2970,6 +3066,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "ventas_maquina_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: false
+            referencedRelation: "v_inventario_producto"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "ventas_maquina_sync_log_id_fkey"
             columns: ["sync_log_id"]
             isOneToOne: false
@@ -2987,12 +3090,42 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_inventario_producto: {
+        Row: {
+          activo: boolean | null
+          bajo_minimo: boolean | null
+          cartuchos_disponibles: number | null
+          en_punto_reorden: boolean | null
+          gramaje_cartucho_default: number | null
+          gramos_en_cartuchos: number | null
+          gramos_granel: number | null
+          id: string | null
+          marca: string | null
+          nombre: string | null
+          punto_reorden: number | null
+          sabor: string | null
+          sku: string | null
+          stock_maximo: number | null
+          stock_minimo: number | null
+          stock_total: number | null
+          tipo: Database["public"]["Enums"]["producto_tipo"] | null
+          unidades_disponibles: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       gen_folio: {
         Args: { prefijo: string; seq_name: string }
         Returns: string
+      }
+      pick_lote_peps_granel: {
+        Args: { p_gramos_requeridos: number; p_producto_id: string }
+        Returns: {
+          costo_por_gramo: number
+          gramos_a_consumir: number
+          lote_id: string
+        }[]
       }
       user_has_role: {
         Args: { check_role: Database["public"]["Enums"]["app_role"] }

@@ -121,6 +121,41 @@ export async function cancelarOc(formData: FormData) {
   redirect("/compras/ordenes");
 }
 
+/**
+ * Cierra una OC en estado 'parcial' como recibida, dejando faltantes.
+ * Útil cuando el proveedor no puede surtir el resto y se compra a otro.
+ * Guarda el motivo en motivo_cierre.
+ */
+export async function cerrarOcIncompleta(formData: FormData) {
+  await requireRole(...ROLES);
+  const id = String(formData.get("id") ?? "");
+  const motivo = String(formData.get("motivo") ?? "").trim();
+  if (!id) redirect("/compras/ordenes");
+  if (!motivo) {
+    redirect(`/compras/ordenes/${id}?error=motivo_requerido`);
+  }
+
+  const supabase = createClient();
+  const { data: oc } = await supabase
+    .from("ordenes_compra")
+    .select("estado")
+    .eq("id", id)
+    .maybeSingle();
+  if (!oc) redirect("/compras/ordenes");
+  if (oc.estado !== "parcial") {
+    redirect(`/compras/ordenes/${id}?error=estado_invalido`);
+  }
+
+  await supabase
+    .from("ordenes_compra")
+    .update({ estado: "recibida", motivo_cierre: motivo })
+    .eq("id", id);
+
+  revalidatePath(`/compras/ordenes/${id}`);
+  revalidatePath("/compras/ordenes");
+  redirect(`/compras/ordenes/${id}`);
+}
+
 // ============================================================================
 // Items
 // ============================================================================

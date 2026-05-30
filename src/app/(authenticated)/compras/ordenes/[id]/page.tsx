@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
-import { aprobarOc, cancelarOc, eliminarItem } from "../actions";
+import { aprobarOc, cancelarOc, cerrarOcIncompleta, eliminarItem } from "../actions";
 import AgregarItemForm from "./AgregarItemForm";
 
 export const metadata = { title: "Detalle OC · MuscleUp" };
@@ -29,7 +29,7 @@ export default async function DetalleOcPage({
   const { data: oc, error } = await supabase
     .from("ordenes_compra")
     .select(
-      `id, folio, fecha_emision, fecha_esperada, estado, subtotal, iva, total, notas,
+      `id, folio, fecha_emision, fecha_esperada, estado, subtotal, iva, total, notas, motivo_cierre,
        proveedor:proveedores(id, nombre, rfc)`,
     )
     .eq("id", params.id)
@@ -285,13 +285,52 @@ export default async function DetalleOcPage({
       )}
 
       {(oc.estado === "enviada" || oc.estado === "parcial") && (
-        <section>
+        <section className="space-y-3">
           <Link
             href={`/almacen/recepciones/nuevo?oc_id=${params.id}`}
             className="inline-flex rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800"
           >
             Registrar recepción
           </Link>
+
+          {oc.estado === "parcial" && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+              <h3 className="mb-2 text-sm font-medium text-amber-900">
+                Cerrar OC con faltantes
+              </h3>
+              <p className="mb-3 text-xs text-amber-800">
+                Úsalo si el proveedor no puede surtir el resto y vas a comprar
+                el faltante a otro proveedor. La OC pasa a &laquo;recibida&raquo;
+                aunque queden items pendientes.
+              </p>
+              <form action={cerrarOcIncompleta} className="flex flex-wrap gap-2">
+                <input type="hidden" name="id" value={params.id} />
+                <input
+                  name="motivo"
+                  required
+                  placeholder="Motivo (ej. proveedor sin stock)"
+                  className="flex-1 min-w-[240px] rounded-md border border-amber-300 bg-white px-3 py-1.5 text-sm shadow-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                />
+                <button
+                  type="submit"
+                  className="rounded-md bg-amber-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-amber-700"
+                >
+                  Cerrar OC
+                </button>
+              </form>
+            </div>
+          )}
+        </section>
+      )}
+
+      {oc.motivo_cierre && (
+        <section>
+          <h2 className="mb-2 text-sm font-medium text-zinc-700">
+            Motivo de cierre con faltantes
+          </h2>
+          <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 whitespace-pre-wrap">
+            {oc.motivo_cierre}
+          </p>
         </section>
       )}
 

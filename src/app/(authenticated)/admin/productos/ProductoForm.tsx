@@ -24,6 +24,9 @@ type Producto = {
   precio_venta_default: number | null;
   unidad_medida: string;
   notas: string | null;
+  stock_minimo: number;
+  stock_maximo: number;
+  punto_reorden: number;
 };
 
 function SubmitButton({ label }: { label: string }) {
@@ -180,6 +183,48 @@ export default function ProductoForm({
           <input
             name="unidad_medida"
             defaultValue={producto?.unidad_medida ?? "gramos"}
+            className="input"
+          />
+        </Field>
+
+        <Field
+          label="Stock mínimo"
+          hint="Polvos: gramos totales (granel + cartuchos). Vasos: unidades. Por debajo = crítico."
+        >
+          <input
+            name="stock_minimo"
+            type="number"
+            min={0}
+            step={1}
+            defaultValue={producto?.stock_minimo ?? 0}
+            className="input"
+          />
+        </Field>
+
+        <Field
+          label="Punto de reorden"
+          hint="Cuando el stock llegue aquí, levanta una OC nueva."
+        >
+          <input
+            name="punto_reorden"
+            type="number"
+            min={0}
+            step={1}
+            defaultValue={producto?.punto_reorden ?? 0}
+            className="input"
+          />
+        </Field>
+
+        <Field
+          label="Stock máximo"
+          hint="Stock objetivo después de una compra."
+        >
+          <input
+            name="stock_maximo"
+            type="number"
+            min={0}
+            step={1}
+            defaultValue={producto?.stock_maximo ?? 0}
             className="input"
           />
         </Field>

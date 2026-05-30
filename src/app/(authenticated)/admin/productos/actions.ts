@@ -28,6 +28,9 @@ type ParsedProducto = {
   precio_venta_default: number | null;
   unidad_medida: string;
   notas: string | null;
+  stock_minimo: number;
+  stock_maximo: number;
+  punto_reorden: number;
 };
 
 function parseProducto(formData: FormData): ParsedProducto | string {
@@ -45,6 +48,9 @@ function parseProducto(formData: FormData): ParsedProducto | string {
   const unidadMedida =
     String(formData.get("unidad_medida") ?? "").trim() || "gramos";
   const notas = String(formData.get("notas") ?? "").trim() || null;
+  const stockMinRaw = formData.get("stock_minimo");
+  const stockMaxRaw = formData.get("stock_maximo");
+  const reordenRaw = formData.get("punto_reorden");
 
   if (!sku) return "SKU es obligatorio.";
   if (!nombre) return "Nombre es obligatorio.";
@@ -75,6 +81,21 @@ function parseProducto(formData: FormData): ParsedProducto | string {
     precio = Math.round(n * 100) / 100;
   }
 
+  const parseStock = (raw: FormDataEntryValue | null, label: string) => {
+    if (!raw || String(raw).trim() === "") return 0;
+    const n = Number(raw);
+    if (!Number.isInteger(n) || n < 0) {
+      return `${label} debe ser entero ≥ 0.`;
+    }
+    return n;
+  };
+  const stockMin = parseStock(stockMinRaw, "Stock mínimo");
+  if (typeof stockMin === "string") return stockMin;
+  const stockMax = parseStock(stockMaxRaw, "Stock máximo");
+  if (typeof stockMax === "string") return stockMax;
+  const reorden = parseStock(reordenRaw, "Punto de reorden");
+  if (typeof reorden === "string") return reorden;
+
   return {
     sku,
     nombre,
@@ -88,6 +109,9 @@ function parseProducto(formData: FormData): ParsedProducto | string {
     precio_venta_default: precio,
     unidad_medida: unidadMedida,
     notas,
+    stock_minimo: stockMin,
+    stock_maximo: stockMax,
+    punto_reorden: reorden,
   };
 }
 
