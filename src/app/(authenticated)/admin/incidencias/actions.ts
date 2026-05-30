@@ -35,8 +35,41 @@ export async function actualizarIncidencia(
     return { ok: false, message: "Estado inválido." };
   }
 
+  void user;
   const supabase = createClient();
 
+  // Autorizar merma va vía RPC porque descuenta inventario y registra kardex.
+  if (autorizar) {
+    const cerrar =
+      estadoRaw === "resuelta" || estadoRaw === "descartada";
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const supabaseAny = supabase as any;
+    const { error } = await supabaseAny.rpc("autorizar_merma_incidencia", {
+      p_incidencia_id: id,
+      p_notas_resolucion: notasResolucion,
+      p_cerrar: cerrar,
+    });
+    if (error) return { ok: false, message: error.message };
+
+    // Si pidieron estado distinto del que aplicó el RPC (no se autocierra), aplica el resto
+    if (
+      estadoRaw &&
+      !cerrar &&
+      (estadoRaw === "abierta" || estadoRaw === "en_revision")
+    ) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error: e2 } = await (supabase.from("incidencias") as any)
+        .update({ estado: estadoRaw })
+        .eq("id", id);
+      if (e2) return { ok: false, message: e2.message };
+    }
+
+    revalidatePath("/admin/incidencias");
+    revalidatePath(`/admin/incidencias/${id}`);
+    return { ok: true, message: "Merma autorizada." };
+  }
+
+  // Update simple (estado + notas)
   const update: Record<string, unknown> = {};
   if (estadoRaw) {
     update.estado = estadoRaw;
@@ -46,10 +79,6 @@ export async function actualizarIncidencia(
   }
   if (notasResolucion !== null) {
     update.notas_resolucion = notasResolucion;
-  }
-  if (autorizar) {
-    update.autorizada_por = user.id;
-    update.fecha_autorizacion = new Date().toISOString();
   }
 
   if (Object.keys(update).length === 0) {
