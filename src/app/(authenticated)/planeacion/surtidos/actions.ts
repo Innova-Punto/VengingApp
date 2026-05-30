@@ -294,12 +294,13 @@ export async function completarSurtido(formData: FormData): Promise<void> {
     .eq("surtido_id", id);
 
   // Helper para llamar RPCs no expuestas en el typegen.
-  // IMPORTANTE: usamos supabase.rpc directo (no cast a variable suelta)
-  // para preservar el binding de `this` interno del cliente.
+  // IMPORTANTE: castamos el cliente entero (no solo .rpc) para que la
+  // llamada se haga como método y preserve el binding de `this` interno.
   type RpcResult<T> = Promise<{ data: T | null; error: { message: string } | null }>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabaseAny = supabase as any;
   const callRpc = <T>(fn: string, args: Record<string, unknown>): RpcResult<T> =>
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase.rpc as any)(fn, args);
+    supabaseAny.rpc(fn, args);
 
   // -- Paso 1: validar stock disponible para TODOS los items antes de tocar nada
   const erroresStock: string[] = [];

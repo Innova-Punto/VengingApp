@@ -73,7 +73,8 @@ export async function crearEncartuchado(
     costo_por_gramo: number;
   };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const rpcResp = await (supabase.rpc as any)("pick_lote_peps_granel", {
+  const supabaseAny = supabase as any;
+  const rpcResp = await supabaseAny.rpc("pick_lote_peps_granel", {
     p_producto_id: producto_id,
     p_gramos_requeridos: gramos_totales_consumidos,
   });
