@@ -22,30 +22,39 @@ export default async function NuevaAsignacionPage({
 
   const supabase = createClient();
 
-  const [
-    { data: rutasRaw },
-    { data: rolesRows },
-  ] = await Promise.all([
-    supabase
-      .from("rutas")
-      .select(
-        `id, nombre, operador_titular_id,
-         maquinas:ruta_maquinas(maquina_id)`,
-      )
-      .eq("activa", true)
-      .order("nombre"),
-    supabase
-      .from("user_roles")
-      .select("user_id, profile:profiles(id, full_name, activo)")
-      .eq("role", "operador"),
-  ]);
+  // 1. Rutas activas con su conteo de máquinas
+  const { data: rutasRaw } = await supabase
+    .from("rutas")
+    .select(
+      `id, nombre, operador_titular_id,
+       maquinas:ruta_maquinas(maquina_id)`,
+    )
+    .eq("activa", true)
+    .order("nombre");
 
-  const operadores = (rolesRows ?? [])
-    .map((r) => {
-      const p = Array.isArray(r.profile) ? r.profile[0] : r.profile;
-      return p && p.activo ? { id: p.id, full_name: p.full_name } : null;
-    })
-    .filter((p): p is { id: string; full_name: string } => p !== null);
+  // 2. Operadores: hacemos dos queries separadas porque el embedded
+  //    select profile:profiles(...) no siempre resuelve bien.
+  const { data: rolesRows } = await supabase
+    .from("user_roles")
+    .select("user_id")
+    .eq("role", "operador");
+
+  const operadorIds = (rolesRows ?? []).map((r) => r.user_id);
+
+  const { data: profilesOperadores } =
+    operadorIds.length > 0
+      ? await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", operadorIds)
+          .eq("activo", true)
+          .order("full_name")
+      : { data: [] };
+
+  const operadores = (profilesOperadores ?? []).map((p) => ({
+    id: p.id,
+    full_name: p.full_name,
+  }));
 
   const rutas = (rutasRaw ?? []).map((r) => ({
     id: r.id,

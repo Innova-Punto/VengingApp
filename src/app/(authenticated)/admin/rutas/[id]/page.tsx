@@ -34,17 +34,29 @@ export default async function EditarRutaPage({
   }
   if (!ruta) notFound();
 
-  // Operadores con rol operador
+  // Operadores con rol operador (queries separadas para evitar el
+  // embedded select que no siempre resuelve).
   const { data: rolesRows } = await supabase
     .from("user_roles")
-    .select("user_id, profile:profiles(id, full_name)")
+    .select("user_id")
     .eq("role", "operador");
-  const operadores = (rolesRows ?? [])
-    .map((r) => {
-      const p = Array.isArray(r.profile) ? r.profile[0] : r.profile;
-      return p ? { id: p.id, full_name: p.full_name } : null;
-    })
-    .filter((p): p is { id: string; full_name: string } => p !== null);
+
+  const operadorIds = (rolesRows ?? []).map((r) => r.user_id);
+
+  const { data: profilesOperadores } =
+    operadorIds.length > 0
+      ? await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", operadorIds)
+          .eq("activo", true)
+          .order("full_name")
+      : { data: [] };
+
+  const operadores = (profilesOperadores ?? []).map((p) => ({
+    id: p.id,
+    full_name: p.full_name,
+  }));
 
   // Máquinas ya asignadas a esta ruta (con su orden)
   const { data: rutaMaquinas } = await supabase

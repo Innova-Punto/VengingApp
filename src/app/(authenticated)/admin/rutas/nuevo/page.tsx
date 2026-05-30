@@ -12,18 +12,29 @@ export default async function NuevaRutaPage() {
 
   const supabase = createClient();
 
-  // Solo profiles que tengan rol "operador"
+  // Solo profiles que tengan rol "operador" — dos queries separadas
+  // porque el embedded select profile:profiles(...) no siempre se resuelve.
   const { data: rolesRows } = await supabase
     .from("user_roles")
-    .select("user_id, profile:profiles(id, full_name)")
+    .select("user_id")
     .eq("role", "operador");
 
-  const operadores = (rolesRows ?? [])
-    .map((r) => {
-      const p = Array.isArray(r.profile) ? r.profile[0] : r.profile;
-      return p ? { id: p.id, full_name: p.full_name } : null;
-    })
-    .filter((p): p is { id: string; full_name: string } => p !== null);
+  const operadorIds = (rolesRows ?? []).map((r) => r.user_id);
+
+  const { data: profilesOperadores } =
+    operadorIds.length > 0
+      ? await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", operadorIds)
+          .eq("activo", true)
+          .order("full_name")
+      : { data: [] };
+
+  const operadores = (profilesOperadores ?? []).map((p) => ({
+    id: p.id,
+    full_name: p.full_name,
+  }));
 
   return (
     <div className="space-y-6">
