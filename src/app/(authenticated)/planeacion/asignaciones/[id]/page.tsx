@@ -8,6 +8,7 @@ import {
   cambiarEstadoAsig,
   quitarMaquinaDeAsig,
 } from "../actions";
+import { generarSurtido } from "../../surtidos/actions";
 import AgregarMaquinaExcepcionForm from "./AgregarMaquinaExcepcionForm";
 
 export const metadata = { title: "Detalle asignación · MuscleUp" };
@@ -64,6 +65,13 @@ export default async function DetalleAsigPage({
     )
     .eq("asignacion_id", params.id)
     .order("orden");
+
+  // ¿Ya existe surtido para esta asignación?
+  const { data: surtidoExistente } = await supabase
+    .from("surtidos")
+    .select("id, folio, estado")
+    .eq("asignacion_id", params.id)
+    .maybeSingle();
 
   // Máquinas disponibles para agregar (operativas, no incluidas todavía)
   const idsActuales = new Set(
@@ -152,22 +160,43 @@ export default async function DetalleAsigPage({
         />
       </section>
 
-      {acciones.length > 0 && (
-        <section className="flex flex-wrap gap-2">
-          {acciones.map((a) => (
-            <form key={a.siguiente} action={cambiarEstadoAsig}>
-              <input type="hidden" name="id" value={params.id} />
-              <input type="hidden" name="estado" value={a.siguiente} />
+      <section className="flex flex-wrap gap-2">
+        {acciones.map((a) => (
+          <form key={a.siguiente} action={cambiarEstadoAsig}>
+            <input type="hidden" name="id" value={params.id} />
+            <input type="hidden" name="estado" value={a.siguiente} />
+            <button
+              type="submit"
+              className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+            >
+              {a.label}
+            </button>
+          </form>
+        ))}
+
+        {asig.estado === "planeada" &&
+          !surtidoExistente &&
+          (asigMaquinas ?? []).length > 0 && (
+            <form action={generarSurtido}>
+              <input type="hidden" name="asignacion_id" value={params.id} />
               <button
                 type="submit"
-                className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-zinc-800"
               >
-                {a.label}
+                Generar surtido sugerido
               </button>
             </form>
-          ))}
-        </section>
-      )}
+          )}
+
+        {surtidoExistente && (
+          <Link
+            href={`/planeacion/surtidos/${surtidoExistente.id}`}
+            className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+          >
+            Ver surtido {surtidoExistente.folio} ({surtidoExistente.estado})
+          </Link>
+        )}
+      </section>
 
       <section className="space-y-3">
         <div>
