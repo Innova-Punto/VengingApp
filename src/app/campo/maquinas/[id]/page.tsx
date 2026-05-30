@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import CheckInForm from "./CheckInForm";
 import IncidenciaForm from "./IncidenciaForm";
 import LlenadoForm from "./LlenadoForm";
+import PesajeForm from "./PesajeForm";
 
 export default async function MaquinaCampoPage({
   params,
@@ -142,6 +143,25 @@ export default async function MaquinaCampoPage({
   const tieneCheckIn = !!checkIn;
   const visitaCerrada = !!checkIn?.fecha_salida || !!llenado;
 
+  // Cierre mensual activo (para habilitar pesaje)
+  const { data: cierreActivo } = await supabase
+    .from("cierres_mensuales")
+    .select("id, periodo_mes, periodo_anio, estado")
+    .in("estado", ["abierto", "en_proceso"])
+    .order("periodo_anio", { ascending: false })
+    .order("periodo_mes", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  // ¿Esta máquina ya tiene pesaje en este check-in?
+  const { data: pesajeExistente } = checkIn
+    ? await supabase
+        .from("pesajes_maquina")
+        .select("id")
+        .eq("check_in_id", checkIn.id)
+        .maybeSingle()
+    : { data: null };
+
   // Solo tolvas con producto polvo asignado (donde se puede llenar)
   const tolvasPolvo = tolvas.filter((t) => t.producto_id !== null);
   type TolvaInfo = (typeof tolvasPolvo)[number];
@@ -241,6 +261,37 @@ export default async function MaquinaCampoPage({
             <div className="rounded-lg border border-zinc-200 bg-white p-4 text-sm text-zinc-500">
               No hay surtido planeado para esta máquina. Si solo vienes a
               inspección o a reportar algo, usa &laquo;Reportar incidencia&raquo;.
+            </div>
+          )}
+
+          {cierreActivo && !pesajeExistente && tolvasPolvo.length > 0 && (
+            <PesajeForm
+              checkInId={checkIn.id}
+              asignacionId={asignacionId}
+              maquinaId={maquina.id}
+              tolvas={tolvasPolvo
+                .filter((t) => t.producto_id)
+                .map((t) => {
+                  const prod = Array.isArray(t.producto)
+                    ? t.producto[0]
+                    : t.producto;
+                  return {
+                    id: t.id,
+                    numero: t.numero,
+                    inventario_actual_g: t.inventario_actual_g ?? 0,
+                    producto_nombre: prod?.nombre ?? "—",
+                    producto_sku: prod?.sku ?? "—",
+                  };
+                })}
+            />
+          )}
+
+          {cierreActivo && pesajeExistente && (
+            <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
+              ✓ Pesaje de esta máquina ya registrado para el cierre
+              {" "}
+              {String(cierreActivo.periodo_mes).padStart(2, "0")}/
+              {cierreActivo.periodo_anio}.
             </div>
           )}
 
