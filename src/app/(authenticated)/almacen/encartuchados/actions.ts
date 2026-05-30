@@ -5,7 +5,6 @@ import { redirect } from "next/navigation";
 
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 
 const ROLES = ["admin", "direccion", "almacen"] as const;
 
@@ -71,11 +70,9 @@ export async function crearEncartuchado(
     gramos_a_consumir: number;
     costo_por_gramo: number;
   };
-  const admin = createAdminClient();
-  // La función pick_lote_peps_granel está restringida (SECURITY DEFINER, sin
-  // execute para anon/authenticated). El typegen no la expone, llamamos
-  // con un cast.
-  const { data: picksRaw, error: pepsErr } = await (admin.rpc as unknown as (
+  // pick_lote_peps_granel está SECURITY DEFINER con grant a authenticated;
+  // la llamamos con cast porque el typegen no la expone.
+  const { data: picksRaw, error: pepsErr } = await (supabase.rpc as unknown as (
     fn: string,
     args: Record<string, unknown>,
   ) => Promise<{ data: unknown; error: { message: string } | null }>)(

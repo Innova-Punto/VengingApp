@@ -5,7 +5,6 @@ import { redirect } from "next/navigation";
 
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 
 const ROLES = ["admin", "direccion", "planeador", "almacen"] as const;
 
@@ -275,7 +274,6 @@ export async function completarSurtido(formData: FormData): Promise<void> {
   if (!id) redirect("/planeacion/surtidos");
 
   const supabase = createClient();
-  const admin = createAdminClient();
 
   const { data: surt } = await supabase
     .from("surtidos")
@@ -299,7 +297,7 @@ export async function completarSurtido(formData: FormData): Promise<void> {
     fn: string,
     args: Record<string, unknown>,
   ) => Promise<{ data: unknown; error: { message: string } | null }>;
-  const rpc = admin.rpc as unknown as PepsRpc;
+  const rpc = supabase.rpc as unknown as PepsRpc;
 
   // -- Paso 1: validar stock disponible para TODOS los items antes de tocar nada
   const erroresStock: string[] = [];
