@@ -71,7 +71,7 @@ export function homeForRoles(roles: AppRole[]): string {
   if (roles.includes("direccion")) return "/admin/usuarios";
   if (roles.includes("compras")) return "/compras";
   if (roles.includes("almacen")) return "/almacen";
-  if (roles.includes("planeador")) return "/planeacion";
+  if (roles.includes("planeador")) return "/admin/rutas";
   if (roles.includes("operador")) return "/campo";
   return "/sin-rol";
 }
