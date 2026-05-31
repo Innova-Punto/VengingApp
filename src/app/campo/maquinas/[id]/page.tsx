@@ -68,7 +68,7 @@ export default async function MaquinaCampoPage({
     .from("maquinas")
     .select(
       `id, serie, alias,
-       ubicacion:ubicaciones(nombre, cliente:clientes(nombre)),
+       ubicacion:ubicaciones(nombre, lat, lng, cliente:clientes(nombre)),
        tolvas:tolvas(
          id, numero, producto_id, gramaje_servicio,
          inventario_actual_g, capacidad_max_g,
@@ -229,6 +229,8 @@ export default async function MaquinaCampoPage({
           asignacionId={asignacionId}
           maquinaId={maquina.id}
           serie={maquina.serie}
+          ubicacionLat={ubic?.lat ?? null}
+          ubicacionLng={ubic?.lng ?? null}
         />
       )}
 
@@ -251,51 +253,71 @@ export default async function MaquinaCampoPage({
             </div>
           </div>
 
-          {surtidoItemsInfo.length > 0 ? (
-            <LlenadoForm
-              checkInId={checkIn.id}
-              maquinaId={maquina.id}
-              asignacionId={asignacionId}
-              items={surtidoItemsInfo}
-            />
-          ) : (
-            <CerrarSinLlenadoForm
-              checkInId={checkIn.id}
-              asignacionId={asignacionId}
-              maquinaId={maquina.id}
-            />
-          )}
+          {(() => {
+            const requierePesaje =
+              !!cierreActivo &&
+              !pesajeExistente &&
+              tolvasPolvo.filter((t) => t.producto_id).length > 0;
 
-          {cierreActivo && !pesajeExistente && tolvasPolvo.length > 0 && (
-            <PesajeForm
-              checkInId={checkIn.id}
-              asignacionId={asignacionId}
-              maquinaId={maquina.id}
-              tolvas={tolvasPolvo
-                .filter((t) => t.producto_id)
-                .map((t) => {
-                  const prod = Array.isArray(t.producto)
-                    ? t.producto[0]
-                    : t.producto;
-                  return {
-                    id: t.id,
-                    numero: t.numero,
-                    inventario_actual_g: t.inventario_actual_g ?? 0,
-                    producto_nombre: prod?.nombre ?? "—",
-                    producto_sku: prod?.sku ?? "—",
-                  };
-                })}
-            />
-          )}
+            if (requierePesaje) {
+              return (
+                <>
+                  <div className="rounded-md border border-blue-300 bg-blue-50 px-3 py-2 text-sm text-blue-900">
+                    📋 Hay un cierre mensual abierto ({String(
+                      cierreActivo.periodo_mes,
+                    ).padStart(2, "0")}/{cierreActivo.periodo_anio}). Debes
+                    pesar las tolvas <strong>antes</strong> de llenar o cerrar
+                    la visita.
+                  </div>
+                  <PesajeForm
+                    checkInId={checkIn.id}
+                    asignacionId={asignacionId}
+                    maquinaId={maquina.id}
+                    tolvas={tolvasPolvo
+                      .filter((t) => t.producto_id)
+                      .map((t) => {
+                        const prod = Array.isArray(t.producto)
+                          ? t.producto[0]
+                          : t.producto;
+                        return {
+                          id: t.id,
+                          numero: t.numero,
+                          inventario_actual_g: t.inventario_actual_g ?? 0,
+                          producto_nombre: prod?.nombre ?? "—",
+                          producto_sku: prod?.sku ?? "—",
+                        };
+                      })}
+                  />
+                </>
+              );
+            }
 
-          {cierreActivo && pesajeExistente && (
-            <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
-              ✓ Pesaje de esta máquina ya registrado para el cierre
-              {" "}
-              {String(cierreActivo.periodo_mes).padStart(2, "0")}/
-              {cierreActivo.periodo_anio}.
-            </div>
-          )}
+            return (
+              <>
+                {cierreActivo && pesajeExistente && (
+                  <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
+                    ✓ Pesaje registrado para el cierre{" "}
+                    {String(cierreActivo.periodo_mes).padStart(2, "0")}/
+                    {cierreActivo.periodo_anio}.
+                  </div>
+                )}
+                {surtidoItemsInfo.length > 0 ? (
+                  <LlenadoForm
+                    checkInId={checkIn.id}
+                    maquinaId={maquina.id}
+                    asignacionId={asignacionId}
+                    items={surtidoItemsInfo}
+                  />
+                ) : (
+                  <CerrarSinLlenadoForm
+                    checkInId={checkIn.id}
+                    asignacionId={asignacionId}
+                    maquinaId={maquina.id}
+                  />
+                )}
+              </>
+            );
+          })()}
 
           <IncidenciaForm
             checkInId={checkIn.id}
