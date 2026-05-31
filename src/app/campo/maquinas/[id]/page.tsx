@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
+import CerrarSinLlenadoForm from "./CerrarSinLlenadoForm";
 import CheckInForm from "./CheckInForm";
 import IncidenciaForm from "./IncidenciaForm";
 import LlenadoForm from "./LlenadoForm";
@@ -258,10 +259,11 @@ export default async function MaquinaCampoPage({
               items={surtidoItemsInfo}
             />
           ) : (
-            <div className="rounded-lg border border-zinc-200 bg-white p-4 text-sm text-zinc-500">
-              No hay surtido planeado para esta máquina. Si solo vienes a
-              inspección o a reportar algo, usa &laquo;Reportar incidencia&raquo;.
-            </div>
+            <CerrarSinLlenadoForm
+              checkInId={checkIn.id}
+              asignacionId={asignacionId}
+              maquinaId={maquina.id}
+            />
           )}
 
           {cierreActivo && !pesajeExistente && tolvasPolvo.length > 0 && (

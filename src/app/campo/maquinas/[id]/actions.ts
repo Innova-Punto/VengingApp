@@ -148,6 +148,33 @@ export async function registrarLlenado(
 }
 
 // ============================================================================
+// Cerrar visita sin llenado (cuando no hay surtido planeado en la máquina)
+// ============================================================================
+
+export async function cerrarVisitaSinLlenado(input: {
+  checkInId: string;
+  asignacionId: string;
+  maquinaId: string;
+  notas: string | null;
+}): Promise<ActionResult> {
+  await requireRole("operador", "admin", "direccion");
+
+  if (!input.checkInId) return { ok: false, message: "Falta check-in." };
+
+  const supabase = createClient() as AnyClient;
+  const { error } = await supabase.rpc("op_cerrar_check_in_sin_llenado", {
+    p_check_in_id: input.checkInId,
+    p_notas: input.notas,
+  });
+
+  if (error) return { ok: false, message: error.message };
+
+  revalidatePath(`/campo/maquinas/${input.maquinaId}`);
+  revalidatePath(`/campo/jornada/${input.asignacionId}`);
+  return { ok: true, message: "Visita cerrada." };
+}
+
+// ============================================================================
 // Pesaje de tolvas en máquina (requiere cierre mensual abierto)
 // ============================================================================
 
