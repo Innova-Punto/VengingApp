@@ -89,12 +89,8 @@ export default function CheckInForm({
       setError("Captura tu ubicación antes de hacer check-in.");
       return;
     }
-    if (fueraDeRango) {
-      setError(
-        `Estás a ${distancia} m de la máquina. Acércate a menos de 100 m.`,
-      );
-      return;
-    }
+    // Warning visual ya está, pero no bloqueamos: el operador puede registrar
+    // el check-in aunque esté fuera de rango. Queda registrado con validado=false.
     setError(null);
     setEstado("enviando");
     startTransition(async () => {
@@ -114,7 +110,7 @@ export default function CheckInForm({
     });
   }
 
-  const puedeEnviar = coords !== null && !fueraDeRango;
+  const puedeEnviar = coords !== null;
 
   return (
     <div className="space-y-3 rounded-lg border border-zinc-200 bg-white p-4">
