@@ -199,6 +199,52 @@ export type ItemResult =
   | { ok: true; message: string }
   | { ok: false; message: string };
 
+export async function actualizarSurtidoItemDirecto(input: {
+  id: string;
+  surtidoId: string;
+  cartuchosEntregados: number;
+  vasosEntregados: number;
+}): Promise<ItemResult> {
+  await requireRole(...ROLES);
+
+  if (!input.id || !input.surtidoId) {
+    return { ok: false, message: "Falta id." };
+  }
+  if (!Number.isInteger(input.cartuchosEntregados) || input.cartuchosEntregados < 0) {
+    return { ok: false, message: "Cartuchos debe ser entero ≥ 0." };
+  }
+  if (!Number.isInteger(input.vasosEntregados) || input.vasosEntregados < 0) {
+    return { ok: false, message: "Vasos debe ser entero ≥ 0." };
+  }
+
+  const supabase = createClient();
+  const { data: surt } = await supabase
+    .from("surtidos")
+    .select("estado")
+    .eq("id", input.surtidoId)
+    .maybeSingle();
+  if (!surt) return { ok: false, message: "Surtido no encontrado." };
+  if (surt.estado === "completado") {
+    return {
+      ok: false,
+      message: "El surtido ya está completado y no admite cambios.",
+    };
+  }
+
+  const { error } = await supabase
+    .from("surtido_items")
+    .update({
+      cartuchos_entregados: input.cartuchosEntregados,
+      vasos_entregados: input.vasosEntregados,
+    })
+    .eq("id", input.id);
+
+  if (error) return { ok: false, message: error.message };
+
+  revalidatePath(`/planeacion/surtidos/${input.surtidoId}`);
+  return { ok: true, message: "Item actualizado." };
+}
+
 export async function actualizarSurtidoItem(
   _prev: ItemResult | null,
   formData: FormData,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useFormState, useFormStatus } from "react-dom";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { agregarItem, type ItemResult } from "../actions";
 
@@ -43,6 +43,16 @@ export default function AgregarItemForm({
   const [state, action] = useFormState(agregarItem, initial);
   const [presentacionId, setPresentacionId] = useState("");
   const [cantidad, setCantidad] = useState("1");
+  const formRef = useRef<HTMLFormElement>(null);
+
+  // Reset al recibir confirmación exitosa
+  useEffect(() => {
+    if (state?.ok) {
+      setPresentacionId("");
+      setCantidad("1");
+      formRef.current?.reset();
+    }
+  }, [state]);
 
   const seleccionada = useMemo(
     () => presentaciones.find((p) => p.id === presentacionId),
@@ -50,7 +60,7 @@ export default function AgregarItemForm({
   );
 
   return (
-    <form action={action} className="space-y-3">
+    <form ref={formRef} action={action} className="space-y-3">
       <input type="hidden" name="oc_id" value={ocId} />
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-6">

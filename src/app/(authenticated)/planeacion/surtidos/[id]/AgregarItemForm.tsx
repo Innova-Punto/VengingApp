@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 
 import { agregarItemSurtido, type ItemResult } from "../actions";
@@ -38,6 +38,14 @@ export default function AgregarItemForm({
 }) {
   const [state, action] = useFormState(agregarItemSurtido, initial);
   const [productoId, setProductoId] = useState<string>("");
+  const formRef = useRef<HTMLFormElement>(null);
+
+  useEffect(() => {
+    if (state?.ok) {
+      setProductoId("");
+      formRef.current?.reset();
+    }
+  }, [state]);
 
   if (productos.length === 0) {
     return (
@@ -51,6 +59,7 @@ export default function AgregarItemForm({
 
   return (
     <form
+      ref={formRef}
       action={action}
       className="flex flex-wrap items-end gap-3 border-t border-zinc-100 bg-zinc-50/50 px-4 py-3"
     >
