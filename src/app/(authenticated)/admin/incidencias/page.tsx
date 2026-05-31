@@ -88,12 +88,20 @@ export default async function IncidenciasPage({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Incidencias</h1>
-        <p className="text-sm text-zinc-600">
-          Reportes de operadores en campo, discrepancias de devolución y
-          eventos generados por el sistema.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Incidencias</h1>
+          <p className="text-sm text-zinc-600">
+            Reportes de operadores en campo, discrepancias de devolución y
+            eventos generados por el sistema.
+          </p>
+        </div>
+        <Link
+          href="/admin/incidencias/por-maquina"
+          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+        >
+          Análisis por máquina →
+        </Link>
       </div>
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
