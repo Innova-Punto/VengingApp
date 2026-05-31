@@ -17,7 +17,14 @@ import {
 import Link from "next/link";
 
 import { requireRole } from "@/lib/auth";
+import { getIncidenciaTipoInfo } from "@/lib/incidencias-catalogo";
 import { createClient } from "@/lib/supabase/server";
+
+import {
+  IncidenciasCategoriaChart,
+  TopProductosChart,
+  VentasPorDiaChart,
+} from "./Charts";
 
 export const metadata = { title: "Dashboard · MuscleUp" };
 
@@ -170,6 +177,47 @@ export default async function DashboardPage({
   const topMaquinas = Array.from(porMaquina.values())
     .sort((a, b) => b.ingresos - a.ingresos)
     .slice(0, 10);
+
+  // Series para gráficos
+  // a) Ingresos / utilidad por día (rango)
+  const porDia = new Map<string, { ingresos: number; utilidad: number }>();
+  for (let i = rango.dias - 1; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
+    porDia.set(d, { ingresos: 0, utilidad: 0 });
+  }
+  for (const v of ventasArr) {
+    const d = v.fecha_transaccion.slice(0, 10);
+    const acc = porDia.get(d) ?? { ingresos: 0, utilidad: 0 };
+    acc.ingresos += Number(v.precio_neto ?? 0);
+    acc.utilidad += Number(v.utilidad_bruta ?? 0);
+    porDia.set(d, acc);
+  }
+  const ventasPorDia = Array.from(porDia.entries()).map(([fecha, v]) => ({
+    fecha,
+    ingresos: Math.round(v.ingresos * 100) / 100,
+    utilidad: Math.round(v.utilidad * 100) / 100,
+  }));
+
+  // b) Top productos para chart (reusa topProductos)
+  const topProductosChart = topProductos.map((p) => ({
+    nombre: p.nombre.length > 22 ? p.nombre.slice(0, 22) + "…" : p.nombre,
+    utilidad: Math.round(p.utilidad * 100) / 100,
+  }));
+
+  // c) Incidencias por categoría (últimos 90d para tener volumen)
+  const { data: incTodas } = await supabase
+    .from("incidencias")
+    .select("tipo")
+    .gte("fecha_apertura", new Date(Date.now() - 90 * 86400000).toISOString());
+  const porCategoria = new Map<string, number>();
+  for (const i of incTodas ?? []) {
+    const info = getIncidenciaTipoInfo(i.tipo);
+    const cat = info?.categoria ?? "otro";
+    porCategoria.set(cat, (porCategoria.get(cat) ?? 0) + 1);
+  }
+  const incidenciasCategoria = Array.from(porCategoria.entries())
+    .map(([categoria, count]) => ({ categoria, count }))
+    .sort((a, b) => b.count - a.count);
 
   // 4. Mermas del mes (pesajes + incidencias autorizadas)
   const inicioMes = new Date(anio, mes - 1, 1).toISOString();
@@ -383,6 +431,45 @@ export default async function DashboardPage({
           />
         </div>
       </section>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <section className="lg:col-span-2">
+          <h2 className="mb-2 text-sm font-semibold tracking-tight">
+            Ingresos y utilidad por día · {rango.label}
+          </h2>
+          <div className="rounded-lg border border-zinc-200 bg-white p-4">
+            <VentasPorDiaChart data={ventasPorDia} />
+            <div className="mt-3 flex items-center gap-4 text-xs text-zinc-600">
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block h-2 w-3 rounded-sm bg-brand" />
+                Ingresos netos
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block h-2 w-3 rounded-sm bg-brand-accent" />
+                Utilidad
+              </span>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h2 className="mb-2 text-sm font-semibold tracking-tight">
+            Top productos por utilidad
+          </h2>
+          <div className="rounded-lg border border-zinc-200 bg-white p-4">
+            <TopProductosChart data={topProductosChart} />
+          </div>
+        </section>
+
+        <section>
+          <h2 className="mb-2 text-sm font-semibold tracking-tight">
+            Incidencias por categoría (90 días)
+          </h2>
+          <div className="rounded-lg border border-zinc-200 bg-white p-4">
+            <IncidenciasCategoriaChart data={incidenciasCategoria} />
+          </div>
+        </section>
+      </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section>
