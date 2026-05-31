@@ -70,7 +70,7 @@ export default async function ConteoDetallePage({
           </h1>
           <span
             className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-              conteo.estado === "aplicado"
+              conteo.estado === "completado"
                 ? "bg-green-100 text-green-700"
                 : "bg-amber-100 text-amber-700"
             }`}
