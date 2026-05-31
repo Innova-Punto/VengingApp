@@ -17,7 +17,7 @@ function SubmitButton({ label }: { label: string }) {
     <button
       type="submit"
       disabled={pending}
-      className="w-full rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
+      className="w-full rounded-md bg-brand px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
     >
       {pending ? "Enviando..." : label}
     </button>
@@ -52,7 +52,7 @@ export default function LoginForm({
           onClick={() => setMode("magic")}
           className={`flex-1 rounded px-3 py-1.5 transition ${
             mode === "magic"
-              ? "bg-zinc-900 text-white"
+              ? "bg-brand text-white"
               : "text-zinc-600 hover:bg-zinc-100"
           }`}
         >
@@ -63,7 +63,7 @@ export default function LoginForm({
           onClick={() => setMode("password")}
           className={`flex-1 rounded px-3 py-1.5 transition ${
             mode === "password"
-              ? "bg-zinc-900 text-white"
+              ? "bg-brand text-white"
               : "text-zinc-600 hover:bg-zinc-100"
           }`}
         >

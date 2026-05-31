@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { requireUser, type AppRole } from "@/lib/auth";
 import { signOut } from "@/app/(auth)/login/actions";
+import { Logo } from "@/components/Logo";
 import NavMenu, { type NavGroup } from "@/components/NavMenu";
 
 type ItemDef = { label: string; href: string };
@@ -85,24 +86,24 @@ export default async function AuthenticatedLayout({
 
   return (
     <div className="min-h-screen bg-zinc-50">
-      <header className="border-b border-zinc-200 bg-white">
+      <header className="bg-brand text-white shadow-sm">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-3">
-          <div className="flex items-center gap-6">
-            <Link href="/" className="text-base font-semibold tracking-tight">
-              MuscleUp
+          <div className="flex items-center gap-8">
+            <Link href="/" className="flex items-center">
+              <Logo size="md" />
             </Link>
             <NavMenu groups={visibles} />
           </div>
 
           <div className="flex items-center gap-3">
             <div className="text-right text-xs leading-tight">
-              <div className="font-medium text-zinc-900">{user.fullName}</div>
-              <div className="text-zinc-500">{user.roles.join(", ")}</div>
+              <div className="font-medium text-white">{user.fullName}</div>
+              <div className="text-white/70">{user.roles.join(", ")}</div>
             </div>
             <form action={signOut}>
               <button
                 type="submit"
-                className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50"
+                className="rounded-md border border-white/30 bg-white/10 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/20"
               >
                 Salir
               </button>
