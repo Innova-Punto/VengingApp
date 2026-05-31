@@ -1,60 +1,54 @@
+/* eslint-disable @next/next/no-img-element */
 /**
  * Logo de Innovaypunto.
- * Reemplazar por el SVG/PNG oficial cuando esté disponible (sustituye este
- * componente o pásale otra `variant` con un <Image src="/logo.svg" ... />).
+ *
+ * Usa el archivo en /public/logo-innovaypunto.jfif (JPEG con tagline ya
+ * incluido). Para sustituir por una versión oficial diferente, cambia la
+ * constante LOGO_SRC.
  *
  * Variantes:
- *  - "default" : color blanco con la Y en teal (uso sobre fondo navy)
- *  - "dark"    : todo en navy (uso sobre fondo blanco)
- *  - "light"   : todo en blanco (sin acento, sobre cualquier fondo oscuro)
+ *  - "default" / "light" : invierte a blanco con filter (sobre fondos oscuros)
+ *  - "dark"              : logo en navy original (sobre fondo blanco)
  */
+const LOGO_SRC = "/logo-innovaypunto.jfif";
+
+const HEIGHTS = {
+  sm: 28,
+  md: 40,
+  lg: 64,
+  xl: 96,
+};
+
 export function Logo({
   variant = "default",
-  showTagline = true,
   size = "md",
   className = "",
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  showTagline = true,
 }: {
   variant?: "default" | "dark" | "light";
-  showTagline?: boolean;
   size?: "sm" | "md" | "lg" | "xl";
   className?: string;
+  /** El tagline ya viene incluido en el archivo del logo; el prop se mantiene
+   * por compatibilidad pero no afecta el render. */
+  showTagline?: boolean;
 }) {
-  const sizes = {
-    sm: { name: "text-sm", tag: "text-[8px]" },
-    md: { name: "text-base", tag: "text-[9px]" },
-    lg: { name: "text-2xl", tag: "text-[11px]" },
-    xl: { name: "text-4xl", tag: "text-sm" },
-  }[size];
-
-  const baseColor =
-    variant === "dark"
-      ? "text-brand"
-      : variant === "light"
-        ? "text-white"
-        : "text-white";
-
-  const yColor =
-    variant === "light"
-      ? "text-white"
-      : variant === "dark"
-        ? "text-brand-accent"
-        : "text-brand-accent";
+  const h = HEIGHTS[size];
+  const invertir = variant === "default" || variant === "light";
 
   return (
-    <div className={`select-none ${className}`}>
-      <div
-        className={`${sizes.name} ${baseColor} font-extrabold tracking-tight leading-none`}
-        style={{ letterSpacing: "0.02em" }}
-      >
-        INNOVA<span className={`${yColor} font-black`}>Y</span>PUNTO
-      </div>
-      {showTagline && (
-        <div
-          className={`${sizes.tag} ${baseColor} opacity-80 mt-0.5 tracking-[0.18em] font-medium`}
-        >
-          INNOVAMOS EL PUNTO DE VENTA
-        </div>
-      )}
-    </div>
+    <img
+      src={LOGO_SRC}
+      alt="Innovaypunto"
+      height={h}
+      style={{
+        height: `${h}px`,
+        width: "auto",
+        objectFit: "contain",
+        // Convierte el logo navy a blanco puro cuando se necesita
+        filter: invertir ? "brightness(0) invert(1)" : undefined,
+      }}
+      className={className}
+    />
   );
 }
