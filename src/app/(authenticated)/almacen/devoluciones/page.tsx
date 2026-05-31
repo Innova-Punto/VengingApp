@@ -14,7 +14,7 @@ const ESTADO_BADGE: Record<string, string> = {
 };
 
 export default async function DevolucionesPage() {
-  await requireRole("admin", "direccion", "almacen");
+  await requireRole("admin", "direccion", "almacen", "planeador");
   const supabase = createClient();
 
   const { data: pendientes } = await supabase

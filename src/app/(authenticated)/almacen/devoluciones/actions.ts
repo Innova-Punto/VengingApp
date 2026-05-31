@@ -13,7 +13,7 @@ export async function recibirDevolucion(
   _prev: ActionResult | null,
   formData: FormData,
 ): Promise<ActionResult> {
-  await requireRole("admin", "direccion", "almacen");
+  await requireRole("admin", "direccion", "almacen", "planeador");
 
   const id = String(formData.get("id") ?? "");
   const cantidadRaw = formData.get("cantidad_recibida");

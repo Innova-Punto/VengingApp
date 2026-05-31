@@ -26,7 +26,7 @@ export default async function IncidenciaDetallePage({
 }: {
   params: { id: string };
 }) {
-  await requireRole("admin", "direccion");
+  await requireRole("admin", "direccion", "planeador");
   const supabase = createClient();
 
   const { data: i, error } = await supabase
@@ -35,13 +35,14 @@ export default async function IncidenciaDetallePage({
       `id, folio, tipo, severidad, estado, descripcion, foto_url,
        fecha_apertura, fecha_cierre, fecha_autorizacion,
        requiere_autorizacion_merma, cartuchos_afectados,
+       producto_afectado_id, encartuchado_afectado_id,
        notas_resolucion,
        maquina:maquinas(serie, alias, ubicacion:ubicaciones(nombre, cliente:clientes(nombre))),
        operador:profiles!incidencias_operador_id_fkey(full_name),
        autorizada:profiles!incidencias_autorizada_por_fkey(full_name),
        check_in:check_ins(fecha_entrada),
        producto_afectado:productos!incidencias_producto_afectado_id_fkey(sku, nombre),
-       encartuchado_afectado:encartuchados!incidencias_encartuchado_afectado_id_fkey(id, lote_id)`,
+       encartuchado_afectado:encartuchados!incidencias_encartuchado_afectado_id_fkey(id, folio)`,
     )
     .eq("id", params.id)
     .maybeSingle();
@@ -71,6 +72,21 @@ export default async function IncidenciaDetallePage({
   const prod = Array.isArray(i.producto_afectado)
     ? i.producto_afectado[0]
     : i.producto_afectado;
+
+  // Productos (polvo) y encartuchados con stock para los selects del form
+  const [{ data: productosPolvo }, { data: encartuchadosDisp }] = await Promise.all([
+    supabase
+      .from("productos")
+      .select("id, sku, nombre")
+      .eq("activo", true)
+      .eq("tipo", "polvo")
+      .order("nombre"),
+    supabase
+      .from("encartuchados")
+      .select("id, folio, producto_id, cantidad_disponible")
+      .gt("cantidad_disponible", 0)
+      .order("fecha", { ascending: false }),
+  ]);
 
   // Foto: signed URL si está
   let fotoSrc: string | null = null;
@@ -214,6 +230,11 @@ export default async function IncidenciaDetallePage({
           requiereMerma={i.requiere_autorizacion_merma}
           yaAutorizada={!!aut}
           notasIniciales={i.notas_resolucion ?? ""}
+          productoAfectadoIdInicial={i.producto_afectado_id ?? ""}
+          encartuchadoAfectadoIdInicial={i.encartuchado_afectado_id ?? ""}
+          cartuchosAfectadosIniciales={i.cartuchos_afectados ?? 0}
+          productos={productosPolvo ?? []}
+          encartuchados={encartuchadosDisp ?? []}
         />
       </section>
     </div>

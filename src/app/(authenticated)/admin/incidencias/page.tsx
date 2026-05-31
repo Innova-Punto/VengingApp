@@ -29,7 +29,7 @@ export default async function IncidenciasPage({
 }: {
   searchParams: SearchParams;
 }) {
-  await requireRole("admin", "direccion");
+  await requireRole("admin", "direccion", "planeador");
   const supabase = createClient();
 
   let query = supabase
