@@ -2,24 +2,16 @@
 
 import { useState, useTransition } from "react";
 
+import {
+  INCIDENCIAS_CATALOGO,
+  type IncidenciaTipo,
+} from "@/lib/incidencias-catalogo";
+
 import { reportarIncidencia } from "./actions";
 
-const TIPOS = [
-  "maquina_apagada",
-  "sin_conexion_nayax",
-  "tolva_atascada",
-  "producto_compactado",
-  "vandalismo",
-  "falta_vasos",
-  "producto_contaminado",
-  "acceso_denegado",
-  "queja_cliente",
-  "cartucho_danado",
-  "cartucho_perdido",
-  "discrepancia_devolucion",
-  "desviacion_calibracion",
-  "otro",
-] as const;
+const TIPOS_OPERADOR: IncidenciaTipo[] = INCIDENCIAS_CATALOGO
+  .filter((i) => i.tipo !== "discrepancia_devolucion") // auto-generada por sistema
+  .map((i) => i.tipo);
 
 export default function IncidenciaForm({
   checkInId,
@@ -31,7 +23,7 @@ export default function IncidenciaForm({
   asignacionId: string;
 }) {
   const [abierto, setAbierto] = useState(false);
-  const [tipo, setTipo] = useState<(typeof TIPOS)[number]>("maquina_apagada");
+  const [tipo, setTipo] = useState<IncidenciaTipo>("maquina_apagada");
   const [severidad, setSeveridad] = useState<"baja" | "media" | "alta">("media");
   const [descripcion, setDescripcion] = useState("");
   const [foto, setFoto] = useState<File | null>(null);
@@ -104,11 +96,14 @@ export default function IncidenciaForm({
           onChange={(e) => setTipo(e.target.value as typeof tipo)}
           className="mt-1 w-full rounded-md border border-amber-300 bg-white px-2 py-1 text-sm shadow-sm focus:border-amber-900 focus:outline-none"
         >
-          {TIPOS.map((t) => (
-            <option key={t} value={t}>
-              {t.replace(/_/g, " ")}
-            </option>
-          ))}
+          {TIPOS_OPERADOR.map((t) => {
+            const info = INCIDENCIAS_CATALOGO.find((i) => i.tipo === t);
+            return (
+              <option key={t} value={t}>
+                {info?.label ?? t.replace(/_/g, " ")}
+              </option>
+            );
+          })}
         </select>
       </div>
 
