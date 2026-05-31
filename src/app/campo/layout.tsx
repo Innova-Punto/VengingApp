@@ -2,8 +2,9 @@ import Link from "next/link";
 
 import { requireRole } from "@/lib/auth";
 import { signOut } from "@/app/(auth)/login/actions";
+import { Logo } from "@/components/Logo";
 
-export const metadata = { title: "Campo · MuscleUp" };
+export const metadata = { title: "Campo · Innovaypunto" };
 
 export default async function CampoLayout({
   children,
@@ -14,20 +15,23 @@ export default async function CampoLayout({
 
   return (
     <div className="min-h-screen bg-zinc-100">
-      <header className="sticky top-0 z-10 border-b border-zinc-200 bg-white shadow-sm">
-        <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
-          <Link href="/campo" className="text-base font-semibold tracking-tight">
-            MuscleUp · Campo
+      <header className="sticky top-0 z-10 bg-brand text-white shadow-md">
+        <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-4 py-3">
+          <Link href="/campo" className="flex items-center gap-2">
+            <Logo size="sm" showTagline={false} />
+            <span className="ml-1 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider">
+              Campo
+            </span>
           </Link>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <div className="text-right text-xs leading-tight">
-              <div className="font-medium text-zinc-900">{user.fullName}</div>
-              <div className="text-zinc-500">operador</div>
+              <div className="font-medium text-white">{user.fullName}</div>
+              <div className="text-white/70">operador</div>
             </div>
             <form action={signOut}>
               <button
                 type="submit"
-                className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 active:bg-zinc-100"
+                className="rounded-md border border-white/30 bg-white/10 px-3 py-1.5 text-xs font-medium text-white active:bg-white/20"
               >
                 Salir
               </button>

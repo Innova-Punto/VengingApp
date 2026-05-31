@@ -41,10 +41,10 @@ export default function NavMenu({ groups }: { groups: NavGroup[] }) {
             <button
               type="button"
               onClick={() => setOpenIdx(isOpen ? null : i)}
-              className={`flex items-center gap-1 rounded-md px-2 py-1 transition ${
+              className={`flex items-center gap-1 rounded-md px-2.5 py-1.5 transition ${
                 isActive
-                  ? "bg-zinc-100 text-zinc-900"
-                  : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
+                  ? "bg-white/15 text-white"
+                  : "text-white/80 hover:bg-white/10 hover:text-white"
               }`}
             >
               {g.label}

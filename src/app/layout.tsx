@@ -14,8 +14,9 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "MuscleUp",
+  title: "Innovaypunto · Vending",
   description: "Plataforma de operación de vending de suplementos.",
+  themeColor: "#1B3548",
 };
 
 export default function RootLayout({
