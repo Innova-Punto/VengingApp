@@ -1,3 +1,19 @@
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ClipboardList,
+  Coins,
+  DollarSign,
+  PackageMinus,
+  Percent,
+  Receipt,
+  Scale,
+  ShoppingBag,
+  TrendingDown,
+  Warehouse,
+  Weight,
+  type LucideIcon,
+} from "lucide-react";
 import Link from "next/link";
 
 import { requireRole } from "@/lib/auth";
@@ -247,20 +263,24 @@ export default async function DashboardPage({
           <Stat
             label="Ventas hoy"
             value={String((ventasHoy ?? []).length)}
+            icon={Receipt}
           />
           <Stat
             label="Ingresos hoy"
             value={fmt(ingresosHoy)}
+            icon={DollarSign}
           />
           <Stat
             label="Utilidad hoy"
             value={fmt(utilidadHoy)}
             tone={utilidadHoy >= 0 ? "green" : "red"}
+            icon={Coins}
           />
           <Stat
             label="Asignaciones de hoy"
             value={`${completadasHoy} / ${asignacionesHoyArr.length}`}
             hint={`${enJornada} en curso`}
+            icon={ClipboardList}
           />
         </div>
       </section>
@@ -270,22 +290,25 @@ export default async function DashboardPage({
           {rango.label}
         </h2>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-          <Stat label="Ventas" value={totalVentas.toLocaleString("es-MX")} />
-          <Stat label="Ingresos netos" value={fmt(ingresosRango)} />
+          <Stat label="Ventas" value={totalVentas.toLocaleString("es-MX")} icon={Receipt} />
+          <Stat label="Ingresos netos" value={fmt(ingresosRango)} icon={DollarSign} />
           <Stat
             label="Utilidad"
             value={fmt(utilidadRango)}
             tone={utilidadRango >= 0 ? "green" : "red"}
+            icon={Coins}
           />
           <Stat
             label="Margen promedio"
             value={`${margenPromedio.toFixed(1)}%`}
             tone={margenPromedio >= 0 ? "green" : "red"}
+            icon={Percent}
           />
           <Stat
             label="Ticket promedio"
             value={fmt(ticketPromedio)}
             hint={`${(gramosRango / 1000).toFixed(1)} kg dispensados`}
+            icon={ShoppingBag}
           />
         </div>
       </section>
@@ -308,23 +331,27 @@ export default async function DashboardPage({
                 ? `Cierre ${String(mes).padStart(2, "0")}/${anio} ${cierreActual.estado}`
                 : "Sin cierre abierto"
             }
+            icon={Scale}
           />
           <Stat
             label="Incidencias abiertas"
             value={String(totalIncidenciasAbiertas)}
             tone={incidenciasAltas > 0 ? "red" : totalIncidenciasAbiertas > 0 ? "amber" : "zinc"}
             hint={incidenciasAltas > 0 ? `${incidenciasAltas} de severidad alta` : undefined}
+            icon={AlertTriangle}
           />
           <Stat
             label="Devoluciones pendientes"
             value={String((devPendientes ?? []).length)}
             tone={(devPendientes ?? []).length > 0 ? "amber" : "zinc"}
             hint={`${devCartuchosPendientes} cartuchos`}
+            icon={PackageMinus}
           />
           <Stat
             label="Conteo almacén"
-            value={cierreActual?.conteo_almacen_completado ? "✓" : "Pendiente"}
+            value={cierreActual?.conteo_almacen_completado ? "Completado" : "Pendiente"}
             tone={cierreActual?.conteo_almacen_completado ? "green" : "amber"}
+            icon={cierreActual?.conteo_almacen_completado ? CheckCircle2 : Warehouse}
           />
         </div>
       </section>
@@ -339,16 +366,19 @@ export default async function DashboardPage({
             value={fmt(ajusteValorMes)}
             tone={ajusteValorMes < 0 ? "red" : ajusteValorMes > 0 ? "amber" : "zinc"}
             hint="Diferencias capturadas en pesajes y conteos de almacén"
+            icon={Scale}
           />
           <Stat
             label="Mermas autorizadas (valor)"
             value={fmt(mermaValorMes)}
             tone={mermaValorMes < 0 ? "red" : "zinc"}
             hint="Por incidencias con merma autorizada"
+            icon={TrendingDown}
           />
           <Stat
             label="Cartuchos mermados"
             value={String(mermaCartuchosMes)}
+            icon={Weight}
             tone={mermaCartuchosMes > 0 ? "red" : "zinc"}
           />
         </div>
@@ -512,11 +542,13 @@ function Stat({
   value,
   hint,
   tone,
+  icon: Icon,
 }: {
   label: string;
   value: string;
   hint?: string;
   tone?: "green" | "red" | "amber" | "zinc";
+  icon?: LucideIcon;
 }) {
   const color =
     tone === "green"
@@ -526,15 +558,32 @@ function Stat({
         : tone === "amber"
           ? "text-amber-700"
           : "text-zinc-900";
+  const iconBg =
+    tone === "green"
+      ? "bg-green-50 text-green-600"
+      : tone === "red"
+        ? "bg-red-50 text-red-600"
+        : tone === "amber"
+          ? "bg-amber-50 text-amber-600"
+          : "bg-zinc-50 text-zinc-500";
   return (
-    <div className="rounded-lg border border-zinc-200 bg-white p-3">
-      <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-        {label}
+    <div className="rounded-lg border border-zinc-200 bg-white p-3 transition hover:border-zinc-300 hover:shadow-sm">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+            {label}
+          </div>
+          <div className={`mt-1 text-xl font-semibold tabular-nums ${color}`}>
+            {value}
+          </div>
+          {hint && <div className="mt-1 text-[10px] text-zinc-500">{hint}</div>}
+        </div>
+        {Icon && (
+          <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${iconBg}`}>
+            <Icon className="h-4 w-4" strokeWidth={2} />
+          </div>
+        )}
       </div>
-      <div className={`mt-1 text-xl font-semibold tabular-nums ${color}`}>
-        {value}
-      </div>
-      {hint && <div className="mt-1 text-[10px] text-zinc-500">{hint}</div>}
     </div>
   );
 }

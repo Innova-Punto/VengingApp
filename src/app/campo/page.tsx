@@ -1,3 +1,9 @@
+import {
+  CalendarDays,
+  ChevronRight,
+  MapPin,
+  Truck,
+} from "lucide-react";
 import Link from "next/link";
 
 import { requireRole } from "@/lib/auth";
@@ -26,20 +32,36 @@ export default async function CampoHomePage() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">Hoy</h1>
-        <p className="text-sm text-zinc-600">
-          {new Date().toLocaleDateString("es-MX", {
-            weekday: "long",
-            day: "numeric",
-            month: "long",
-          })}
-        </p>
+      <div className="flex items-center gap-3 rounded-lg border border-zinc-200 bg-white p-4">
+        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-brand/10 text-brand">
+          <CalendarDays className="h-5 w-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-base font-semibold tracking-tight text-zinc-900">
+            Hoy
+          </div>
+          <p className="text-xs text-zinc-600 capitalize">
+            {new Date().toLocaleDateString("es-MX", {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+            })}
+          </p>
+        </div>
+        <div className="text-right">
+          <div className="text-2xl font-semibold tabular-nums text-brand">
+            {asigArray.length}
+          </div>
+          <div className="text-[10px] uppercase tracking-wide text-zinc-500">
+            asignacion{asigArray.length === 1 ? "" : "es"}
+          </div>
+        </div>
       </div>
 
       {asigArray.length === 0 && (
-        <div className="rounded-lg border border-zinc-200 bg-white p-6 text-center text-sm text-zinc-500">
-          No tienes asignaciones para hoy.
+        <div className="rounded-lg border border-dashed border-zinc-300 bg-white p-8 text-center">
+          <Truck className="mx-auto mb-2 h-8 w-8 text-zinc-300" />
+          <p className="text-sm text-zinc-500">No tienes asignaciones para hoy.</p>
         </div>
       )}
 
@@ -52,22 +74,29 @@ export default async function CampoHomePage() {
             <Link
               key={a.id}
               href={`/campo/jornada/${a.id}`}
-              className="block rounded-lg border border-zinc-200 bg-white p-4 shadow-sm active:bg-zinc-50"
+              className="block overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition active:scale-[0.99] active:bg-zinc-50"
             >
-              <div className="flex items-start gap-3">
+              <div className="flex items-stretch gap-3">
                 <div
-                  className="mt-0.5 h-12 w-1.5 rounded-sm"
+                  className="w-1.5 shrink-0"
                   style={{ backgroundColor: ruta?.color_hex ?? "#a1a1aa" }}
                 />
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-zinc-900">
-                    {ruta?.nombre ?? "Ruta sin nombre"}
+                <div className="flex flex-1 items-center gap-3 py-3 pr-3 min-w-0">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 font-medium text-zinc-900">
+                      <Truck className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
+                      <span className="truncate">
+                        {ruta?.nombre ?? "Ruta sin nombre"}
+                      </span>
+                    </div>
+                    <div className="mt-0.5 flex items-center gap-1 text-xs text-zinc-500">
+                      <MapPin className="h-3 w-3" />
+                      {numMaquinas} máquina{numMaquinas === 1 ? "" : "s"}
+                    </div>
                   </div>
-                  <div className="text-xs text-zinc-500">
-                    {numMaquinas} máquina{numMaquinas === 1 ? "" : "s"}
-                  </div>
+                  <EstadoBadge estado={a.estado} jornadaIniciada={!!jornada} />
+                  <ChevronRight className="h-4 w-4 shrink-0 text-zinc-400" />
                 </div>
-                <EstadoBadge estado={a.estado} jornadaIniciada={!!jornada} />
               </div>
             </Link>
           );
