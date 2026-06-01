@@ -22,11 +22,13 @@ export default function PesajeForm({
   asignacionId,
   maquinaId,
   tolvas,
+  cierrePeriodo,
 }: {
   checkInId: string;
   asignacionId: string;
   maquinaId: string;
   tolvas: TolvaPesaje[];
+  cierrePeriodo?: { mes: number; anio: number } | null;
 }) {
   const [abierto, setAbierto] = useState(false);
   const [lineas, setLineas] = useState<Record<string, Linea>>(() => {
@@ -113,6 +115,12 @@ export default function PesajeForm({
         Captura el peso real de cada tolva. El sistema calcula la diferencia
         con el inventario teórico y ajusta el saldo.
       </p>
+      {cierrePeriodo && (
+        <p className="rounded-md border border-blue-200 bg-white/60 px-2 py-1 text-[11px] font-medium text-blue-900">
+          Este pesaje cuenta para el cierre {String(cierrePeriodo.mes).padStart(2, "0")}/
+          {cierrePeriodo.anio}.
+        </p>
+      )}
 
       <div className="space-y-2">
         {tolvas.map((t) => (

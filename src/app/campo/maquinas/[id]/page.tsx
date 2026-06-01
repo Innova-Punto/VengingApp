@@ -273,6 +273,10 @@ export default async function MaquinaCampoPage({
                     checkInId={checkIn.id}
                     asignacionId={asignacionId}
                     maquinaId={maquina.id}
+                    cierrePeriodo={{
+                      mes: cierreActivo.periodo_mes,
+                      anio: cierreActivo.periodo_anio,
+                    }}
                     tolvas={tolvasPolvo
                       .filter((t) => t.producto_id)
                       .map((t) => {
