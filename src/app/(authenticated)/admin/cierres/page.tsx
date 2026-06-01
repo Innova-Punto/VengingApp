@@ -112,6 +112,10 @@ export default async function CierresPage({
         >
           {yaExisteActual ? "Ir al cierre actual" : "Abrir cierre"}
         </button>
+        <label className="flex items-center gap-1.5 text-xs text-zinc-600">
+          <input type="checkbox" name="force" value="1" className="h-3.5 w-3.5" />
+          Forzar (si hay cierre anterior sin cerrar)
+        </label>
       </form>
 
       <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">

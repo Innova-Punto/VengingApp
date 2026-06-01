@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 import { cerrarCierre } from "../actions";
+import PesajeItemEditor from "./PesajeItemEditor";
 
 const MESES = [
   "Enero",
@@ -368,8 +369,13 @@ export default async function CierreDetallePage({
                               <td className="px-3 py-1 text-right tabular-nums">
                                 {it.gramos_teoricos}g
                               </td>
-                              <td className="px-3 py-1 text-right tabular-nums">
-                                {it.gramos_medidos}g
+                              <td className="px-3 py-1 text-right">
+                                <PesajeItemEditor
+                                  itemId={it.id}
+                                  cierreId={cierre.id}
+                                  gramosMedidos={it.gramos_medidos}
+                                  editable={cierre.estado !== "cerrado"}
+                                />
                               </td>
                               <td
                                 className={`px-3 py-1 text-right tabular-nums font-medium ${tone}`}
