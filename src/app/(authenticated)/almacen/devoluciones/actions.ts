@@ -37,5 +37,7 @@ export async function recibirDevolucion(
   if (error) return { ok: false, message: error.message };
 
   revalidatePath("/almacen/devoluciones");
+  revalidatePath("/admin/dashboard");
+  revalidatePath("/admin/incidencias", "layout");
   return { ok: true, message: "Devolución registrada." };
 }

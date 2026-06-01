@@ -98,6 +98,7 @@ export async function actualizarIncidencia(
 
     revalidatePath("/admin/incidencias");
     revalidatePath(`/admin/incidencias/${id}`);
+    revalidatePath("/admin/dashboard");
     return { ok: true, message: "Merma autorizada." };
   }
 

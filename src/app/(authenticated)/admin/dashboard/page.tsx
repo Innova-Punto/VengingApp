@@ -79,9 +79,11 @@ export default async function DashboardPage({
       .gte("fecha_transaccion", hoyInicioIso),
     supabase
       .from("cierres_mensuales")
-      .select("id, estado, conteo_almacen_completado")
-      .eq("periodo_mes", mes)
-      .eq("periodo_anio", anio)
+      .select("id, estado, conteo_almacen_completado, periodo_mes, periodo_anio")
+      .in("estado", ["abierto", "en_proceso"])
+      .order("periodo_anio", { ascending: false })
+      .order("periodo_mes", { ascending: false })
+      .limit(1)
       .maybeSingle(),
     supabase
       .from("maquinas")
@@ -376,7 +378,7 @@ export default async function DashboardPage({
             }
             hint={
               cierreActual
-                ? `Cierre ${String(mes).padStart(2, "0")}/${anio} ${cierreActual.estado}`
+                ? `Cierre ${String(cierreActual.periodo_mes).padStart(2, "0")}/${cierreActual.periodo_anio} ${cierreActual.estado}`
                 : "Sin cierre abierto"
             }
             icon={Scale}
