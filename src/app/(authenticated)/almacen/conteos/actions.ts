@@ -53,5 +53,7 @@ export async function aplicarConteo(input: {
 
   revalidatePath("/almacen/conteos");
   revalidatePath(`/almacen/conteos/${input.conteoId}`);
+  revalidatePath("/admin/dashboard");
+  revalidatePath("/admin/cierres", "layout");
   return { ok: true, message: "Conteo aplicado. Diferencias registradas." };
 }

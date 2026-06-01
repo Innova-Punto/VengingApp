@@ -86,6 +86,8 @@ export async function hacerCheckIn(formData: FormData): Promise<ActionResult> {
 
   revalidatePath(`/campo/maquinas/${maquina_id}`);
   revalidatePath(`/campo/jornada/${asignacion_id}`);
+  revalidatePath("/admin/dashboard");
+  revalidatePath("/admin/jornadas", "layout");
   return { ok: true, message: "Check-in registrado." };
 }
 
@@ -144,6 +146,10 @@ export async function registrarLlenado(
 
   revalidatePath(`/campo/maquinas/${maquina_id}`);
   revalidatePath(`/campo/jornada/${asignacion_id}`);
+  revalidatePath("/admin/dashboard");
+  revalidatePath("/admin/cierres", "layout");
+  revalidatePath("/admin/jornadas", "layout");
+  revalidatePath("/almacen/devoluciones");
   return { ok: true, message: "Visita completada." };
 }
 
@@ -171,6 +177,8 @@ export async function cerrarVisitaSinLlenado(input: {
 
   revalidatePath(`/campo/maquinas/${input.maquinaId}`);
   revalidatePath(`/campo/jornada/${input.asignacionId}`);
+  revalidatePath("/admin/dashboard");
+  revalidatePath("/admin/jornadas", "layout");
   return { ok: true, message: "Visita cerrada." };
 }
 
@@ -204,6 +212,8 @@ export async function registrarPesaje(input: {
 
   revalidatePath(`/campo/maquinas/${input.maquinaId}`);
   revalidatePath(`/campo/jornada/${input.asignacionId}`);
+  revalidatePath("/admin/dashboard");
+  revalidatePath("/admin/cierres", "layout");
   return { ok: true, message: "Pesaje registrado." };
 }
 
@@ -258,5 +268,7 @@ export async function reportarIncidencia(
   if (error) return { ok: false, message: error.message };
 
   revalidatePath(`/campo/maquinas/${maquina_id}`);
+  revalidatePath("/admin/dashboard");
+  revalidatePath("/admin/incidencias", "layout");
   return { ok: true, message: "Incidencia reportada." };
 }
