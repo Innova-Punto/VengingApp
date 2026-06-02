@@ -63,6 +63,20 @@ function parseNumber(v: number | string | null | undefined): number {
 }
 
 export async function GET(request: Request) {
+  try {
+    return await handleGET(request);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    const stack = e instanceof Error ? e.stack : undefined;
+    console.error("[/api/nayax/poll] unhandled:", msg, stack);
+    return NextResponse.json(
+      { ok: false, error: msg, stack: stack ?? null },
+      { status: 500 },
+    );
+  }
+}
+
+async function handleGET(request: Request) {
   // Auth Vercel Cron: cron job manda Authorization: Bearer <CRON_SECRET>
   const auth = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
