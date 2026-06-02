@@ -54,10 +54,26 @@ export type Ubicacion = {
   cliente_nombre: string;
 };
 
+export type ProductoNayax = {
+  /** Único: NayaxProductID si existe, fallback DEXProductName + PACode */
+  key: string;
+  nayax_product_id: number | null;
+  dex_name: string;
+  pa_code_ejemplo: string | null;
+  precio_sugerido: number | null;
+  /** Si ya existe en BD local: id local */
+  local_id: string | null;
+  local_sku: string | null;
+  match_razon: string | null;
+  /** SKU candidato propuesto si no existe local */
+  sku_sugerido: string;
+};
+
 export type Snapshot = {
   maquinas_nayax: SnapshotMaquina[];
   maquinas_locales: SnapshotLocal[];
   ubicaciones: Ubicacion[];
+  productos_nayax: ProductoNayax[];
 };
 
 /**
@@ -159,13 +175,68 @@ export async function obtenerSnapshot(): Promise<ActionResult<Snapshot>> {
       };
     });
 
+    // Productos locales actuales (para detectar matches)
+    const { data: productosLocales } = await supabase
+      .from("productos")
+      .select("id, sku, nombre")
+      .eq("activo", true);
+
+    // Recolecta productos únicos de Nayax desde MachineProducts
+    const productosNayaxMap = new Map<string, ProductoNayax>();
+    for (const mn of conProductos) {
+      for (const p of mn.productos) {
+        // Identificador único: NayaxProductID si existe; sino DEXProductName + PACode
+        const key = p.NayaxProductID
+          ? `nayax-${p.NayaxProductID}`
+          : `name-${(p.DEXProductName ?? "").toLowerCase()}-${p.PACode ?? ""}`;
+        if (productosNayaxMap.has(key)) continue;
+
+        const dexName = p.DEXProductName ?? "(sin nombre)";
+        const precio =
+          p.RetailPrice ?? p.MachinePrice ?? p.CashPrice ?? null;
+
+        // Match con producto local: por nombre exacto (case-insensitive)
+        const matchLocal = (productosLocales ?? []).find(
+          (pl) => pl.nombre.toLowerCase() === dexName.toLowerCase(),
+        );
+
+        // SKU candidato: prefijo NX-{id} o slug del nombre
+        let skuCandidato = "";
+        if (p.NayaxProductID) {
+          skuCandidato = `NX-${p.NayaxProductID}`;
+        } else {
+          skuCandidato = dexName
+            .toUpperCase()
+            .replace(/[^A-Z0-9]+/g, "-")
+            .replace(/^-|-$/g, "")
+            .slice(0, 20);
+        }
+
+        productosNayaxMap.set(key, {
+          key,
+          nayax_product_id: p.NayaxProductID ?? null,
+          dex_name: dexName,
+          pa_code_ejemplo: p.PACode ?? null,
+          precio_sugerido: precio != null ? Number(precio) : null,
+          local_id: matchLocal?.id ?? null,
+          local_sku: matchLocal?.sku ?? null,
+          match_razon: matchLocal ? "nombre coincide" : null,
+          sku_sugerido: skuCandidato,
+        });
+      }
+    }
+    const productos_nayax: ProductoNayax[] = Array.from(
+      productosNayaxMap.values(),
+    ).sort((a, b) => a.dex_name.localeCompare(b.dex_name));
+
     return {
       ok: true,
-      message: `${conProductos.length} máquinas Nayax · ${locales.length} máquinas locales.`,
+      message: `${conProductos.length} máquinas Nayax · ${locales.length} máquinas locales · ${productos_nayax.length} productos únicos en Nayax.`,
       data: {
         maquinas_nayax: conProductos,
         maquinas_locales: locales,
         ubicaciones,
+        productos_nayax,
       },
     };
   } catch (e) {
@@ -256,6 +327,76 @@ export async function autoCrearMaquinas(input: {
     ok: true,
     message: `${creadas} máquina(s) creada(s) en estado mantenimiento. Completa producto y gramaje en cada tolva.`,
     data: { creadas, errores },
+  };
+}
+
+/**
+ * Crea productos locales desde la lista de productos Nayax.
+ * El admin elige SKU, tipo (polvo/vaso), gramaje y precio.
+ */
+export async function autoCrearProductos(input: {
+  items: {
+    sku: string;
+    nombre: string;
+    tipo: "polvo" | "vaso";
+    gramaje_servicio_default: number | null;
+    precio_venta_default: number | null;
+    notas: string;
+  }[];
+}): Promise<ActionResult<{ creados: number; errores: string[] }>> {
+  await requireRole("admin", "direccion");
+  if (input.items.length === 0) {
+    return { ok: false, message: "Selecciona al menos un producto." };
+  }
+
+  const supabase = createAdminClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabaseAny = supabase as any;
+  let creados = 0;
+  const errores: string[] = [];
+
+  for (const it of input.items) {
+    if (!it.sku.trim() || !it.nombre.trim()) {
+      errores.push(`${it.nombre || "?"}: falta SKU o nombre`);
+      continue;
+    }
+    if (it.tipo === "polvo" && (!it.gramaje_servicio_default || it.gramaje_servicio_default <= 0)) {
+      errores.push(`${it.sku}: producto polvo requiere gramaje > 0`);
+      continue;
+    }
+
+    const insert = {
+      sku: it.sku.trim().toUpperCase(),
+      nombre: it.nombre.trim(),
+      tipo: it.tipo,
+      gramaje_servicio_default: it.gramaje_servicio_default,
+      precio_venta_default: it.precio_venta_default,
+      activo: true,
+      notas: it.notas || "Importado desde Nayax (Lynx)",
+    };
+
+    const { error } = await supabaseAny.from("productos").insert(insert);
+    if (error) {
+      if (error.code === "23505") {
+        errores.push(`${it.sku}: SKU ya existe`);
+      } else {
+        errores.push(`${it.sku}: ${error.message}`);
+      }
+    } else {
+      creados += 1;
+    }
+  }
+
+  revalidatePath("/admin/productos", "layout");
+  revalidatePath("/admin/nayax", "layout");
+
+  if (errores.length > 0 && creados === 0) {
+    return { ok: false, message: errores.join(" · ") };
+  }
+  return {
+    ok: true,
+    message: `${creados} producto(s) creado(s).`,
+    data: { creados, errores },
   };
 }
 

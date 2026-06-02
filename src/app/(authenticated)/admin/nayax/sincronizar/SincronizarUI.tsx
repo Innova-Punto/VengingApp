@@ -6,10 +6,20 @@ import { useState, useTransition } from "react";
 import {
   aplicarMapeo,
   autoCrearMaquinas,
+  autoCrearProductos,
   obtenerSnapshot,
   probarConexionLynx,
   type Snapshot,
 } from "./actions";
+
+type ProductoConfig = {
+  seleccionado: boolean;
+  sku: string;
+  nombre: string;
+  tipo: "polvo" | "vaso";
+  gramaje: string;
+  precio: string;
+};
 
 export default function SincronizarUI() {
   const [estado, setEstado] = useState<
@@ -23,6 +33,8 @@ export default function SincronizarUI() {
   // Para auto-creación: map { nayaxMachineId → ubicacion_id seleccionada }
   const [crearUbicacion, setCrearUbicacion] = useState<Record<string, string>>({});
   const [crearSeleccionadas, setCrearSeleccionadas] = useState<Record<string, boolean>>({});
+  // Productos: state por key Nayax
+  const [productos, setProductos] = useState<Record<string, ProductoConfig>>({});
   const [, startTransition] = useTransition();
 
   async function handleProbar() {
@@ -54,8 +66,61 @@ export default function SincronizarUI() {
           }
         }
         setMapeoMaquinas(m);
+        // Inicializa el state de productos
+        const p: Record<string, ProductoConfig> = {};
+        for (const pn of r.data.productos_nayax) {
+          p[pn.key] = {
+            seleccionado: !pn.local_id, // por default, los que no existen
+            sku: pn.sku_sugerido,
+            nombre: pn.dex_name,
+            tipo: "polvo",
+            gramaje: "25",
+            precio:
+              pn.precio_sugerido != null ? String(pn.precio_sugerido) : "",
+          };
+        }
+        setProductos(p);
       } else {
         setError(r.ok ? "Sin datos" : r.message);
+      }
+      setEstado("idle");
+    });
+  }
+
+  async function handleAutoCrearProductos() {
+    if (!snapshot) return;
+    setError(null);
+    setMensaje(null);
+
+    const items = Object.entries(productos)
+      .filter(([, v]) => v.seleccionado)
+      .map(([, v]) => ({
+        sku: v.sku.trim(),
+        nombre: v.nombre.trim(),
+        tipo: v.tipo,
+        gramaje_servicio_default:
+          v.tipo === "polvo" && v.gramaje ? Number(v.gramaje) : null,
+        precio_venta_default: v.precio ? Number(v.precio) : null,
+        notas: "Importado desde Nayax (Lynx)",
+      }));
+
+    if (items.length === 0) {
+      setError("Selecciona al menos un producto.");
+      return;
+    }
+
+    setEstado("aplicando");
+    startTransition(async () => {
+      const r = await autoCrearProductos({ items });
+      if (r.ok) {
+        setMensaje(r.message);
+        if (r.data?.errores && r.data.errores.length > 0) {
+          setError(`Errores: ${r.data.errores.join(" · ")}`);
+        }
+        const r2 = await obtenerSnapshot();
+        if (r2.ok && r2.data) setSnapshot(r2.data);
+      } else {
+        setError(r.message);
       }
       setEstado("idle");
     });
@@ -177,6 +242,184 @@ export default function SincronizarUI() {
 
       {snapshot && (
         <>
+          {/* Productos Nayax: auto-creación */}
+          {snapshot.productos_nayax.length > 0 && (
+            <section className="space-y-3 rounded-lg border border-purple-200 bg-purple-50 p-4">
+              <div>
+                <h2 className="text-sm font-semibold tracking-tight text-purple-900">
+                  Productos en Nayax ({snapshot.productos_nayax.length} únicos)
+                </h2>
+                <p className="text-xs text-purple-900">
+                  Productos detectados en las máquinas Nayax. Los que ya
+                  existen localmente se muestran con su SKU. Selecciona los
+                  nuevos a crear, ajusta el tipo (polvo/vaso), gramaje y
+                  precio. <strong>Crea estos productos primero</strong>{" "}
+                  para poder asignarlos a las tolvas después.
+                </p>
+              </div>
+              <div className="overflow-hidden rounded-md border border-purple-200 bg-white">
+                <table className="w-full text-sm">
+                  <thead className="border-b border-purple-100 bg-purple-50/50 text-left text-xs uppercase tracking-wide text-purple-900">
+                    <tr>
+                      <th className="w-10 px-2 py-2"></th>
+                      <th className="px-2 py-2 font-medium">Nombre Nayax</th>
+                      <th className="px-2 py-2 font-medium">SKU local</th>
+                      <th className="px-2 py-2 font-medium">Tipo</th>
+                      <th className="px-2 py-2 font-medium">Gramaje (g)</th>
+                      <th className="px-2 py-2 font-medium">Precio</th>
+                      <th className="px-2 py-2 font-medium">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-purple-50">
+                    {snapshot.productos_nayax.map((pn) => {
+                      const cfg = productos[pn.key];
+                      if (!cfg) return null;
+                      const yaExiste = !!pn.local_id;
+                      return (
+                        <tr key={pn.key} className={yaExiste ? "bg-zinc-50" : ""}>
+                          <td className="px-2 py-2">
+                            {!yaExiste && (
+                              <input
+                                type="checkbox"
+                                checked={cfg.seleccionado}
+                                onChange={(e) =>
+                                  setProductos((prev) => ({
+                                    ...prev,
+                                    [pn.key]: {
+                                      ...prev[pn.key],
+                                      seleccionado: e.target.checked,
+                                    },
+                                  }))
+                                }
+                                className="h-4 w-4"
+                              />
+                            )}
+                          </td>
+                          <td className="px-2 py-2">
+                            <div className="font-medium text-zinc-900">
+                              {pn.dex_name}
+                            </div>
+                            {pn.nayax_product_id && (
+                              <div className="font-mono text-[10px] text-zinc-500">
+                                NayaxID {pn.nayax_product_id}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-2 py-2">
+                            {yaExiste ? (
+                              <span className="font-mono text-xs text-zinc-700">
+                                {pn.local_sku}
+                              </span>
+                            ) : (
+                              <input
+                                type="text"
+                                value={cfg.sku}
+                                onChange={(e) =>
+                                  setProductos((prev) => ({
+                                    ...prev,
+                                    [pn.key]: {
+                                      ...prev[pn.key],
+                                      sku: e.target.value,
+                                    },
+                                  }))
+                                }
+                                disabled={!cfg.seleccionado}
+                                className="w-28 rounded-md border border-zinc-300 px-2 py-1 text-xs font-mono"
+                              />
+                            )}
+                          </td>
+                          <td className="px-2 py-2">
+                            {!yaExiste && (
+                              <select
+                                value={cfg.tipo}
+                                onChange={(e) =>
+                                  setProductos((prev) => ({
+                                    ...prev,
+                                    [pn.key]: {
+                                      ...prev[pn.key],
+                                      tipo: e.target.value as
+                                        | "polvo"
+                                        | "vaso",
+                                    },
+                                  }))
+                                }
+                                disabled={!cfg.seleccionado}
+                                className="rounded-md border border-zinc-300 px-2 py-1 text-xs"
+                              >
+                                <option value="polvo">polvo</option>
+                                <option value="vaso">vaso</option>
+                              </select>
+                            )}
+                          </td>
+                          <td className="px-2 py-2">
+                            {!yaExiste && cfg.tipo === "polvo" && (
+                              <input
+                                type="number"
+                                min={1}
+                                step={1}
+                                value={cfg.gramaje}
+                                onChange={(e) =>
+                                  setProductos((prev) => ({
+                                    ...prev,
+                                    [pn.key]: {
+                                      ...prev[pn.key],
+                                      gramaje: e.target.value,
+                                    },
+                                  }))
+                                }
+                                disabled={!cfg.seleccionado}
+                                className="w-20 rounded-md border border-zinc-300 px-2 py-1 text-right text-xs"
+                              />
+                            )}
+                          </td>
+                          <td className="px-2 py-2">
+                            {!yaExiste && (
+                              <input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                value={cfg.precio}
+                                onChange={(e) =>
+                                  setProductos((prev) => ({
+                                    ...prev,
+                                    [pn.key]: {
+                                      ...prev[pn.key],
+                                      precio: e.target.value,
+                                    },
+                                  }))
+                                }
+                                disabled={!cfg.seleccionado}
+                                placeholder="0.00"
+                                className="w-24 rounded-md border border-zinc-300 px-2 py-1 text-right text-xs"
+                              />
+                            )}
+                          </td>
+                          <td className="px-2 py-2 text-xs">
+                            {yaExiste ? (
+                              <span className="inline-flex items-center gap-1 text-green-700">
+                                <Check className="h-3 w-3" /> ya existe
+                              </span>
+                            ) : (
+                              <span className="text-zinc-500">nuevo</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <button
+                type="button"
+                onClick={handleAutoCrearProductos}
+                disabled={estado !== "idle"}
+                className="inline-flex items-center gap-2 rounded-md bg-purple-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-purple-800 disabled:opacity-60"
+              >
+                Crear productos seleccionados
+              </button>
+            </section>
+          )}
+
           {/* Máquinas Nayax sin match local: oferta de auto-creación */}
           {(() => {
             const sinMatch = snapshot.maquinas_nayax.filter(
