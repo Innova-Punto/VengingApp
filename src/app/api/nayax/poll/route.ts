@@ -3,12 +3,15 @@ import {
   ReceiveMessageCommand,
   SQSClient,
 } from "@aws-sdk/client-sqs";
+import { unstable_noStore as noStore } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+export const revalidate = 0;
 export const maxDuration = 60;
 
 /**
@@ -63,6 +66,7 @@ function parseNumber(v: number | string | null | undefined): number {
 }
 
 export async function GET(request: Request) {
+  noStore();
   try {
     return await handleGET(request);
   } catch (e) {
