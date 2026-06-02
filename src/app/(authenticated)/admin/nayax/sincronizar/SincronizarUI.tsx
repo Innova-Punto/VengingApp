@@ -108,7 +108,7 @@ export default function SincronizarUI() {
             v.tipo === "polvo" && v.gramaje ? Number(v.gramaje) : null,
           precio_venta_default: v.precio ? Number(v.precio) : null,
           notas: "Importado desde Nayax (Lynx)",
-          nayax_product_id: pn?.nayax_product_id ?? null,
+          nayax_product_ids: pn?.nayax_product_ids ?? [],
         };
       });
 
@@ -117,8 +117,11 @@ export default function SincronizarUI() {
       .filter(([, productoLocalId]) => !!productoLocalId)
       .map(([nayaxKey, productoLocalId]) => {
         const pn = snapshot.productos_nayax.find((x) => x.key === nayaxKey);
-        if (!pn?.nayax_product_id) return null;
-        return { productoLocalId, nayaxProductId: pn.nayax_product_id };
+        if (!pn || pn.nayax_product_ids.length === 0) return null;
+        return {
+          productoLocalId,
+          nayaxProductIds: pn.nayax_product_ids,
+        };
       })
       .filter((x): x is NonNullable<typeof x> => !!x);
 
@@ -284,11 +287,14 @@ export default function SincronizarUI() {
                   Productos en Nayax ({snapshot.productos_nayax.length} únicos)
                 </h2>
                 <p className="text-xs text-purple-900">
-                  Productos detectados en las máquinas Nayax. Los que ya
-                  existen localmente se muestran con su SKU. Selecciona los
-                  nuevos a crear, ajusta el tipo (polvo/vaso), gramaje y
-                  precio. <strong>Crea estos productos primero</strong>{" "}
-                  para poder asignarlos a las tolvas después.
+                  Productos detectados en las máquinas Nayax,{" "}
+                  <strong>agrupados por nombre</strong> (Nayax asigna un{" "}
+                  <code>NayaxProductID</code> distinto por planograma para el
+                  mismo producto físico). Cada producto local puede tener{" "}
+                  <strong>hasta 4 NayaxIDs</strong> vinculados. Selecciona los
+                  nuevos a crear, o vincúlalos a uno local ya existente.{" "}
+                  <strong>Crea estos productos primero</strong> para poder
+                  asignarlos a las tolvas después.
                 </p>
               </div>
               <div className="overflow-hidden rounded-md border border-purple-200 bg-white">
@@ -338,9 +344,15 @@ export default function SincronizarUI() {
                             <div className="font-medium text-zinc-900">
                               {pn.dex_name}
                             </div>
-                            {pn.nayax_product_id && (
+                            {pn.nayax_product_ids.length > 0 && (
                               <div className="font-mono text-[10px] text-zinc-500">
-                                NayaxID {pn.nayax_product_id}
+                                NayaxIDs:{" "}
+                                {pn.nayax_product_ids.join(", ")}
+                                {pn.nayax_product_ids.length > 1 && (
+                                  <span className="ml-1 text-zinc-400">
+                                    ({pn.nayax_product_ids.length} planogramas)
+                                  </span>
+                                )}
                               </div>
                             )}
                           </td>
@@ -434,7 +446,7 @@ export default function SincronizarUI() {
                             )}
                           </td>
                           <td className="px-2 py-2">
-                            {!yaExiste && pn.nayax_product_id && (
+                            {!yaExiste && pn.nayax_product_ids.length > 0 && (
                               <select
                                 value={vinculadoA}
                                 onChange={(e) =>
@@ -448,11 +460,15 @@ export default function SincronizarUI() {
                                 <option value="">— crear nuevo —</option>
                                 {snapshot.productos_locales
                                   .filter(
-                                    (pl) => pl.nayax_product_id == null,
+                                    (pl) =>
+                                      pl.nayax_product_ids.length + pn.nayax_product_ids.length <= 4,
                                   )
                                   .map((pl) => (
                                     <option key={pl.id} value={pl.id}>
                                       {pl.sku} · {pl.nombre}
+                                      {pl.nayax_product_ids.length > 0
+                                        ? ` (${pl.nayax_product_ids.length}/4)`
+                                        : ""}
                                     </option>
                                   ))}
                               </select>
@@ -461,7 +477,9 @@ export default function SincronizarUI() {
                           <td className="px-2 py-2 text-xs">
                             {yaExiste ? (
                               <span className="inline-flex items-center gap-1 text-green-700">
-                                <Check className="h-3 w-3" /> ya existe
+                                <Check className="h-3 w-3" />
+                                vinculado ({pn.ya_vinculados}/
+                                {pn.nayax_product_ids.length})
                               </span>
                             ) : vinculadoA ? (
                               <span className="text-blue-700">vincular</span>
