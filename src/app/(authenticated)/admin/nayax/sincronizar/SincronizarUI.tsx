@@ -160,8 +160,8 @@ export default function SincronizarUI() {
 
     setEstado("aplicando");
     startTransition(async () => {
-      let mensajes: string[] = [];
-      let errs: string[] = [];
+      const mensajes: string[] = [];
+      const errs: string[] = [];
 
       if (items.length > 0) {
         const r = await autoCrearProductos({ items });
