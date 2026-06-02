@@ -32,6 +32,31 @@ export async function probarConexionLynx(): Promise<ActionResult> {
   }
 }
 
+/**
+ * Diagnóstico: llama Lynx /v1/machine/{id}/machineProducts y devuelve la
+ * respuesta cruda (o el error completo). Útil para saber si el planograma
+ * está vacío en Nayax vs. si nuestra llamada falla.
+ */
+export async function diagnosticarProductosLynx(
+  nayaxMachineId: number,
+): Promise<ActionResult<{ productos: LynxMachineProduct[]; raw: string }>> {
+  await requireRole("admin", "direccion");
+  try {
+    const token = await lynxGetToken();
+    const productos = await lynxListMachineProducts(token, nayaxMachineId);
+    return {
+      ok: true,
+      message: `Lynx regresó ${productos.length} producto(s) para máquina #${nayaxMachineId}.`,
+      data: { productos, raw: JSON.stringify(productos, null, 2) },
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      message: e instanceof Error ? e.message : String(e),
+    };
+  }
+}
+
 export type SnapshotMaquina = {
   nayax: LynxMachine;
   productos: LynxMachineProduct[];
@@ -55,9 +80,11 @@ export type Ubicacion = {
 };
 
 export type ProductoNayax = {
-  /** Único: NayaxProductID si existe, fallback DEXProductName + PACode */
+  /** Único: nombre normalizado (case/espacios). Agrupa el mismo producto físico
+   * en distintos planogramas (Nayax les asigna NayaxProductIDs diferentes). */
   key: string;
-  nayax_product_id: number | null;
+  /** Todos los NayaxProductIDs detectados para este nombre (1..N planogramas) */
+  nayax_product_ids: number[];
   dex_name: string;
   pa_code_ejemplo: string | null;
   precio_sugerido: number | null;
@@ -65,8 +92,17 @@ export type ProductoNayax = {
   local_id: string | null;
   local_sku: string | null;
   match_razon: string | null;
+  /** Cuántos de nayax_product_ids ya están vinculados al producto local */
+  ya_vinculados: number;
   /** SKU candidato propuesto si no existe local */
   sku_sugerido: string;
+};
+
+export type ProductoLocal = {
+  id: string;
+  sku: string;
+  nombre: string;
+  nayax_product_ids: number[];
 };
 
 export type Snapshot = {
@@ -74,6 +110,7 @@ export type Snapshot = {
   maquinas_locales: SnapshotLocal[];
   ubicaciones: Ubicacion[];
   productos_nayax: ProductoNayax[];
+  productos_locales: ProductoLocal[];
 };
 
 /**
@@ -176,58 +213,100 @@ export async function obtenerSnapshot(): Promise<ActionResult<Snapshot>> {
     });
 
     // Productos locales actuales (para detectar matches)
-    const { data: productosLocales } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: productosLocalesRaw } = await (supabase as any)
       .from("productos")
-      .select("id, sku, nombre")
+      .select("id, sku, nombre, nayax_product_ids")
       .eq("activo", true);
+    const productosLocales = (productosLocalesRaw ?? []) as {
+      id: string;
+      sku: string;
+      nombre: string;
+      nayax_product_ids: number[] | null;
+    }[];
 
-    // Recolecta productos únicos de Nayax desde MachineProducts
-    const productosNayaxMap = new Map<string, ProductoNayax>();
+    // Recolecta productos únicos de Nayax, agrupando por nombre normalizado.
+    // Un mismo producto físico ("Vainilla Isopure") tiene NayaxProductID
+    // distinto en cada planograma; lo tratamos como UNA fila local con
+    // múltiples NayaxIDs.
+    type Acc = {
+      dex_name: string;
+      ids: Set<number>;
+      pa_code_ejemplo: string | null;
+      precios: number[];
+    };
+    const norm = (s: string) =>
+      s.toLowerCase().replace(/\s+/g, " ").trim();
+
+    const acc = new Map<string, Acc>();
     for (const mn of conProductos) {
       for (const p of mn.productos) {
-        // Identificador único: NayaxProductID si existe; sino DEXProductName + PACode
-        const key = p.NayaxProductID
-          ? `nayax-${p.NayaxProductID}`
-          : `name-${(p.DEXProductName ?? "").toLowerCase()}-${p.PACode ?? ""}`;
-        if (productosNayaxMap.has(key)) continue;
-
         const dexName = p.DEXProductName ?? "(sin nombre)";
-        const precio =
-          p.RetailPrice ?? p.MachinePrice ?? p.CashPrice ?? null;
-
-        // Match con producto local: por nombre exacto (case-insensitive)
-        const matchLocal = (productosLocales ?? []).find(
-          (pl) => pl.nombre.toLowerCase() === dexName.toLowerCase(),
-        );
-
-        // SKU candidato: prefijo NX-{id} o slug del nombre
-        let skuCandidato = "";
-        if (p.NayaxProductID) {
-          skuCandidato = `NX-${p.NayaxProductID}`;
-        } else {
-          skuCandidato = dexName
-            .toUpperCase()
-            .replace(/[^A-Z0-9]+/g, "-")
-            .replace(/^-|-$/g, "")
-            .slice(0, 20);
-        }
-
-        productosNayaxMap.set(key, {
-          key,
-          nayax_product_id: p.NayaxProductID ?? null,
-          dex_name: dexName,
-          pa_code_ejemplo: p.PACode ?? null,
-          precio_sugerido: precio != null ? Number(precio) : null,
-          local_id: matchLocal?.id ?? null,
-          local_sku: matchLocal?.sku ?? null,
-          match_razon: matchLocal ? "nombre coincide" : null,
-          sku_sugerido: skuCandidato,
-        });
+        const key = `name-${norm(dexName)}`;
+        const precio = p.RetailPrice ?? p.MachinePrice ?? p.CashPrice ?? null;
+        const entry =
+          acc.get(key) ?? {
+            dex_name: dexName,
+            ids: new Set<number>(),
+            pa_code_ejemplo: p.PACode ?? null,
+            precios: [],
+          };
+        if (p.NayaxProductID) entry.ids.add(p.NayaxProductID);
+        if (!entry.pa_code_ejemplo && p.PACode) entry.pa_code_ejemplo = p.PACode;
+        if (precio != null) entry.precios.push(Number(precio));
+        acc.set(key, entry);
       }
     }
-    const productos_nayax: ProductoNayax[] = Array.from(
-      productosNayaxMap.values(),
-    ).sort((a, b) => a.dex_name.localeCompare(b.dex_name));
+
+    const productos_nayax: ProductoNayax[] = Array.from(acc.entries())
+      .map(([key, v]) => {
+        const ids = Array.from(v.ids).sort((a, b) => a - b);
+
+        // Match local: 1) cualquier NayaxID en el array local; 2) nombre.
+        let matchLocal: typeof productosLocales[number] | undefined;
+        let matchRazon: string | null = null;
+        let yaVinculados = 0;
+        if (ids.length > 0) {
+          matchLocal = productosLocales.find((pl) =>
+            (pl.nayax_product_ids ?? []).some((id) => ids.includes(id)),
+          );
+          if (matchLocal) {
+            matchRazon = "NayaxProductID guardado";
+            yaVinculados = (matchLocal.nayax_product_ids ?? []).filter((id) =>
+              ids.includes(id),
+            ).length;
+          }
+        }
+        if (!matchLocal) {
+          matchLocal = productosLocales.find(
+            (pl) => pl.nombre.toLowerCase() === v.dex_name.toLowerCase(),
+          );
+          if (matchLocal) matchRazon = "nombre coincide";
+        }
+
+        const skuCandidato = v.dex_name
+          .toUpperCase()
+          .replace(/[^A-Z0-9]+/g, "-")
+          .replace(/^-|-$/g, "")
+          .slice(0, 20) || (ids[0] ? `NX-${ids[0]}` : "");
+
+        const precioSugerido =
+          v.precios.length > 0 ? v.precios[0] : null;
+
+        return {
+          key,
+          nayax_product_ids: ids,
+          dex_name: v.dex_name,
+          pa_code_ejemplo: v.pa_code_ejemplo,
+          precio_sugerido: precioSugerido,
+          local_id: matchLocal?.id ?? null,
+          local_sku: matchLocal?.sku ?? null,
+          match_razon: matchRazon,
+          ya_vinculados: yaVinculados,
+          sku_sugerido: skuCandidato,
+        };
+      })
+      .sort((a, b) => a.dex_name.localeCompare(b.dex_name));
 
     return {
       ok: true,
@@ -237,6 +316,12 @@ export async function obtenerSnapshot(): Promise<ActionResult<Snapshot>> {
         maquinas_locales: locales,
         ubicaciones,
         productos_nayax,
+        productos_locales: productosLocales.map((p) => ({
+          id: p.id,
+          sku: p.sku,
+          nombre: p.nombre,
+          nayax_product_ids: p.nayax_product_ids ?? [],
+        })),
       },
     };
   } catch (e) {
@@ -388,6 +473,7 @@ export async function autoCrearProductos(input: {
     gramaje_servicio_default: number | null;
     precio_venta_default: number | null;
     notas: string;
+    nayax_product_ids: number[];
   }[];
 }): Promise<ActionResult<{ creados: number; errores: string[] }>> {
   await requireRole("admin", "direccion");
@@ -410,6 +496,10 @@ export async function autoCrearProductos(input: {
       errores.push(`${it.sku}: producto polvo requiere gramaje > 0`);
       continue;
     }
+    if (it.nayax_product_ids.length > 4) {
+      errores.push(`${it.sku}: máximo 4 NayaxProductIDs por producto local`);
+      continue;
+    }
 
     const insert = {
       sku: it.sku.trim().toUpperCase(),
@@ -419,6 +509,7 @@ export async function autoCrearProductos(input: {
       precio_venta_default: it.precio_venta_default,
       activo: true,
       notas: it.notas || "Importado desde Nayax (Lynx)",
+      nayax_product_ids: it.nayax_product_ids,
     };
 
     const { error } = await supabaseAny.from("productos").insert(insert);
@@ -443,6 +534,70 @@ export async function autoCrearProductos(input: {
     ok: true,
     message: `${creados} producto(s) creado(s).`,
     data: { creados, errores },
+  };
+}
+
+/**
+ * Vincula productos LOCALES ya existentes a productos Nayax sin crear
+ * duplicados. Útil cuando Mariana ya creó un producto manualmente con
+ * un nombre ligeramente distinto al de Nayax.
+ */
+export async function vincularProductosExistentes(input: {
+  vinculos: { productoLocalId: string; nayaxProductIds: number[] }[];
+}): Promise<ActionResult<{ actualizados: number; errores: string[] }>> {
+  await requireRole("admin", "direccion");
+  if (input.vinculos.length === 0) {
+    return { ok: false, message: "Sin vínculos para procesar." };
+  }
+
+  const supabase = createAdminClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabaseAny = supabase as any;
+  let actualizados = 0;
+  const errores: string[] = [];
+
+  for (const v of input.vinculos) {
+    // Lee el array actual y haz merge (set union), respetando cap 4.
+    const { data: actual, error: e1 } = await supabaseAny
+      .from("productos")
+      .select("sku, nayax_product_ids")
+      .eq("id", v.productoLocalId)
+      .single();
+    if (e1 || !actual) {
+      errores.push(`Producto ${v.productoLocalId}: no encontrado`);
+      continue;
+    }
+
+    const existentes: number[] = actual.nayax_product_ids ?? [];
+    const merged = Array.from(new Set([...existentes, ...v.nayaxProductIds]));
+    if (merged.length > 4) {
+      errores.push(
+        `${actual.sku}: el vínculo excedería el máximo de 4 NayaxIDs (${existentes.length} ya, +${v.nayaxProductIds.length} nuevos)`,
+      );
+      continue;
+    }
+
+    const { error } = await supabaseAny
+      .from("productos")
+      .update({ nayax_product_ids: merged })
+      .eq("id", v.productoLocalId);
+    if (error) {
+      errores.push(`${actual.sku}: ${error.message}`);
+    } else {
+      actualizados += 1;
+    }
+  }
+
+  revalidatePath("/admin/productos", "layout");
+  revalidatePath("/admin/nayax", "layout");
+
+  if (errores.length > 0 && actualizados === 0) {
+    return { ok: false, message: errores.join(" · ") };
+  }
+  return {
+    ok: true,
+    message: `${actualizados} producto(s) vinculado(s) a NayaxID.`,
+    data: { actualizados, errores },
   };
 }
 

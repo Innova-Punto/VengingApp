@@ -63,12 +63,20 @@ export default async function NayaxPage() {
             de la tolva, calcula utilidad y registra kardex.
           </p>
         </div>
-        <Link
-          href="/admin/nayax/sincronizar"
-          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
-        >
-          Sincronizar con Nayax →
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/admin/nayax/errores"
+            className="rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50"
+          >
+            Ver errores →
+          </Link>
+          <Link
+            href="/admin/nayax/sincronizar"
+            className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+          >
+            Sincronizar con Nayax →
+          </Link>
+        </div>
       </div>
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">

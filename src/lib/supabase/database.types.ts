@@ -438,6 +438,10 @@ export type Database = {
           estado: Database["public"]["Enums"]["cierre_estado"]
           fecha_cierre: string | null
           fecha_inicio_cierre: string | null
+          gramos_almacen_fin: number | null
+          gramos_almacen_inicio: number | null
+          gramos_maquinas_fin: number | null
+          gramos_maquinas_inicio: number | null
           id: string
           maquinas_pesadas: number
           notas: string | null
@@ -445,6 +449,10 @@ export type Database = {
           periodo_mes: number
           total_maquinas_periodo: number | null
           updated_at: string
+          valor_almacen_fin: number | null
+          valor_almacen_inicio: number | null
+          valor_maquinas_fin: number | null
+          valor_maquinas_inicio: number | null
         }
         Insert: {
           cerrado_por?: string | null
@@ -453,6 +461,10 @@ export type Database = {
           estado?: Database["public"]["Enums"]["cierre_estado"]
           fecha_cierre?: string | null
           fecha_inicio_cierre?: string | null
+          gramos_almacen_fin?: number | null
+          gramos_almacen_inicio?: number | null
+          gramos_maquinas_fin?: number | null
+          gramos_maquinas_inicio?: number | null
           id?: string
           maquinas_pesadas?: number
           notas?: string | null
@@ -460,6 +472,10 @@ export type Database = {
           periodo_mes: number
           total_maquinas_periodo?: number | null
           updated_at?: string
+          valor_almacen_fin?: number | null
+          valor_almacen_inicio?: number | null
+          valor_maquinas_fin?: number | null
+          valor_maquinas_inicio?: number | null
         }
         Update: {
           cerrado_por?: string | null
@@ -468,6 +484,10 @@ export type Database = {
           estado?: Database["public"]["Enums"]["cierre_estado"]
           fecha_cierre?: string | null
           fecha_inicio_cierre?: string | null
+          gramos_almacen_fin?: number | null
+          gramos_almacen_inicio?: number | null
+          gramos_maquinas_fin?: number | null
+          gramos_maquinas_inicio?: number | null
           id?: string
           maquinas_pesadas?: number
           notas?: string | null
@@ -475,6 +495,10 @@ export type Database = {
           periodo_mes?: number
           total_maquinas_periodo?: number | null
           updated_at?: string
+          valor_almacen_fin?: number | null
+          valor_almacen_inicio?: number | null
+          valor_maquinas_fin?: number | null
+          valor_maquinas_inicio?: number | null
         }
         Relationships: [
           {
@@ -735,6 +759,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "cierres_mensuales"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conteos_almacen_cierre_id_fkey"
+            columns: ["cierre_id"]
+            isOneToOne: true
+            referencedRelation: "vista_reporte_cierre"
+            referencedColumns: ["cierre_id"]
           },
           {
             foreignKeyName: "conteos_almacen_realizado_por_fkey"
@@ -1605,6 +1636,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "movimientos_inventario_cierre_id_fkey"
+            columns: ["cierre_id"]
+            isOneToOne: false
+            referencedRelation: "vista_reporte_cierre"
+            referencedColumns: ["cierre_id"]
+          },
+          {
             foreignKeyName: "movimientos_inventario_cliente_id_fkey"
             columns: ["cliente_id"]
             isOneToOne: false
@@ -1710,6 +1748,27 @@ export type Database = {
           transacciones_duplicadas?: number
           transacciones_jaladas?: number
           transacciones_nuevas?: number
+        }
+        Relationships: []
+      }
+      nayax_token_cache: {
+        Row: {
+          expiration_utc: string
+          id: string
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          expiration_utc: string
+          id?: string
+          token: string
+          updated_at?: string
+        }
+        Update: {
+          expiration_utc?: string
+          id?: string
+          token?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1954,6 +2013,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "cierres_mensuales"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pesajes_maquina_cierre_id_fkey"
+            columns: ["cierre_id"]
+            isOneToOne: false
+            referencedRelation: "vista_reporte_cierre"
+            referencedColumns: ["cierre_id"]
           },
           {
             foreignKeyName: "pesajes_maquina_maquina_id_fkey"
@@ -2221,6 +2287,7 @@ export type Database = {
           gramaje_servicio_default: number | null
           id: string
           marca: string | null
+          nayax_product_ids: number[]
           nombre: string
           notas: string | null
           precio_venta_default: number | null
@@ -2242,6 +2309,7 @@ export type Database = {
           gramaje_servicio_default?: number | null
           id?: string
           marca?: string | null
+          nayax_product_ids?: number[]
           nombre: string
           notas?: string | null
           precio_venta_default?: number | null
@@ -2263,6 +2331,7 @@ export type Database = {
           gramaje_servicio_default?: number | null
           id?: string
           marca?: string | null
+          nayax_product_ids?: number[]
           nombre?: string
           notas?: string | null
           precio_venta_default?: number | null
@@ -2550,6 +2619,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "cierres_mensuales"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reportes_cliente_cierre_id_fkey"
+            columns: ["cierre_id"]
+            isOneToOne: false
+            referencedRelation: "vista_reporte_cierre"
+            referencedColumns: ["cierre_id"]
           },
           {
             foreignKeyName: "reportes_cliente_cliente_id_fkey"
@@ -3045,6 +3121,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "ventas_maquina_cierre_id_fkey"
+            columns: ["cierre_id"]
+            isOneToOne: false
+            referencedRelation: "vista_reporte_cierre"
+            referencedColumns: ["cierre_id"]
+          },
+          {
             foreignKeyName: "ventas_maquina_cliente_id_fkey"
             columns: ["cliente_id"]
             isOneToOne: false
@@ -3113,11 +3196,145 @@ export type Database = {
         }
         Relationships: []
       }
+      vista_reporte_cierre: {
+        Row: {
+          cierre_id: string | null
+          estado: Database["public"]["Enums"]["cierre_estado"] | null
+          fecha_cierre: string | null
+          fecha_inicio_cierre: string | null
+          gramos_ajuste_almacen: number | null
+          gramos_ajuste_pesaje: number | null
+          gramos_almacen_fin: number | null
+          gramos_almacen_inicio: number | null
+          gramos_consumo_calculado: number | null
+          gramos_devueltos: number | null
+          gramos_enviados_maquinas: number | null
+          gramos_maquinas_fin: number | null
+          gramos_maquinas_inicio: number | null
+          gramos_merma: number | null
+          gramos_venta_nayax: number | null
+          num_ventas_nayax: number | null
+          periodo_anio: number | null
+          periodo_mes: number | null
+          valor_ajuste_almacen: number | null
+          valor_ajuste_pesaje: number | null
+          valor_almacen_fin: number | null
+          valor_almacen_inicio: number | null
+          valor_consumo_calculado: number | null
+          valor_devuelto: number | null
+          valor_enviado_maquinas: number | null
+          valor_maquinas_fin: number | null
+          valor_maquinas_inicio: number | null
+          valor_merma: number | null
+          valor_total_fin: number | null
+          valor_total_inicio: number | null
+          valor_venta_nayax: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      _snapshot_inventario_mxn: {
+        Args: never
+        Returns: {
+          gramos_almacen: number
+          gramos_maquinas: number
+          valor_almacen: number
+          valor_maquinas: number
+        }[]
+      }
+      abrir_cierre_mensual:
+        | { Args: { p_anio: number; p_mes: number }; Returns: string }
+        | {
+            Args: { p_anio: number; p_force?: boolean; p_mes: number }
+            Returns: string
+          }
+      actualizar_pesaje_tolva_item: {
+        Args: { p_gramos_medidos: number; p_item_id: string; p_notas?: string }
+        Returns: undefined
+      }
+      aplicar_conteo_almacen: {
+        Args: { p_cartuchos: Json; p_conteo_id: string; p_granel: Json }
+        Returns: string
+      }
+      autorizar_merma_incidencia: {
+        Args: {
+          p_cerrar?: boolean
+          p_incidencia_id: string
+          p_notas_resolucion?: string
+        }
+        Returns: string
+      }
+      cerrar_cierre_mensual: {
+        Args: { p_cierre_id: string; p_force?: boolean }
+        Returns: string
+      }
+      cerrar_sync_log_nayax: {
+        Args: {
+          p_duplicadas: number
+          p_errores: number
+          p_id: string
+          p_jaladas: number
+          p_mensaje_error?: string
+          p_nuevas: number
+        }
+        Returns: undefined
+      }
+      cleanup_evidencias_viejas: { Args: never; Returns: number }
+      distancia_metros: {
+        Args: { lat1: number; lat2: number; lng1: number; lng2: number }
+        Returns: number
+      }
       gen_folio: {
         Args: { prefijo: string; seq_name: string }
         Returns: string
+      }
+      iniciar_conteo_almacen: { Args: { p_cierre_id: string }; Returns: string }
+      iniciar_sync_log_nayax: {
+        Args: { p_cursor_desde?: string; p_cursor_hasta?: string }
+        Returns: string
+      }
+      op_cerrar_check_in_sin_llenado: {
+        Args: { p_check_in_id: string; p_notas?: string }
+        Returns: string
+      }
+      op_check_in: {
+        Args: {
+          p_asignacion_id: string
+          p_foto_url?: string
+          p_lat?: number
+          p_lng?: number
+          p_maquina_id: string
+          p_metodo?: Database["public"]["Enums"]["checkin_metodo"]
+          p_notas?: string
+          p_precision_m?: number
+        }
+        Returns: string
+      }
+      op_iniciar_jornada: {
+        Args: { p_asignacion_id: string; p_lat?: number; p_lng?: number }
+        Returns: string
+      }
+      op_registrar_llenado: {
+        Args: {
+          p_check_in_id: string
+          p_evidencia_url?: string
+          p_items: Json
+          p_notas?: string
+        }
+        Returns: string
+      }
+      op_registrar_pesaje_maquina: {
+        Args: { p_check_in_id: string; p_items: Json; p_notas?: string }
+        Returns: string
+      }
+      pick_batch_peps_cartucho: {
+        Args: { p_cartuchos_requeridos: number; p_producto_id: string }
+        Returns: {
+          cantidad_tomar: number
+          costo_promedio_g: number
+          encartuchado_id: string
+        }[]
       }
       pick_lote_peps_granel: {
         Args: { p_gramos_requeridos: number; p_producto_id: string }
@@ -3126,6 +3343,36 @@ export type Database = {
           gramos_a_consumir: number
           lote_id: string
         }[]
+      }
+      pick_lote_peps_vaso: {
+        Args: { p_producto_id: string; p_unidades_requeridas: number }
+        Returns: {
+          cantidad_tomar: number
+          costo_por_unidad: number
+          lote_id: string
+        }[]
+      }
+      procesar_venta_nayax: {
+        Args: {
+          p_comision_pct?: number
+          p_fecha_transaccion: string
+          p_metodo_pago?: string
+          p_nayax_item_code: string
+          p_nayax_machine_id: string
+          p_nayax_transaction_id: string
+          p_precio_bruto: number
+          p_sync_log_id?: string
+          p_ticket_id?: string
+        }
+        Returns: string
+      }
+      recibir_devolucion: {
+        Args: {
+          p_cantidad_recibida: number
+          p_devolucion_id: string
+          p_notas?: string
+        }
+        Returns: string
       }
       user_has_role: {
         Args: { check_role: Database["public"]["Enums"]["app_role"] }
@@ -3182,6 +3429,8 @@ export type Database = {
         | "discrepancia_devolucion"
         | "desviacion_calibracion"
         | "otro"
+        | "vaso_atorado"
+        | "falta_de_agua"
       maquina_estado: "operativa" | "mantenimiento" | "baja"
       mov_presentacion: "granel" | "cartucho" | "polvo_en_tolva" | "vaso"
       movimiento_tipo:
@@ -3389,6 +3638,8 @@ export const Constants = {
         "discrepancia_devolucion",
         "desviacion_calibracion",
         "otro",
+        "vaso_atorado",
+        "falta_de_agua",
       ],
       maquina_estado: ["operativa", "mantenimiento", "baja"],
       mov_presentacion: ["granel", "cartucho", "polvo_en_tolva", "vaso"],

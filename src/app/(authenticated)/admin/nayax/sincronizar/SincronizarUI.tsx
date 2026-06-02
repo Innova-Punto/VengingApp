@@ -7,8 +7,10 @@ import {
   aplicarMapeo,
   autoCrearMaquinas,
   autoCrearProductos,
+  diagnosticarProductosLynx,
   obtenerSnapshot,
   probarConexionLynx,
+  vincularProductosExistentes,
   type Snapshot,
 } from "./actions";
 
@@ -35,7 +37,37 @@ export default function SincronizarUI() {
   const [crearSeleccionadas, setCrearSeleccionadas] = useState<Record<string, boolean>>({});
   // Productos: state por key Nayax
   const [productos, setProductos] = useState<Record<string, ProductoConfig>>({});
+  // Map opcional para vincular un producto Nayax a un producto local existente
+  // (Mariana creó uno con nombre distinto, no se hizo automatch)
+  const [vincularLocal, setVincularLocal] = useState<Record<string, string>>({});
+  // Diagnóstico de productos por máquina Nayax (raw response)
+  const [diagnostico, setDiagnostico] = useState<{
+    machineId: number;
+    raw: string;
+    count: number;
+  } | null>(null);
   const [, startTransition] = useTransition();
+
+  async function handleDiagnosticar(nayaxMachineId: number) {
+    setError(null);
+    setMensaje(null);
+    setDiagnostico(null);
+    setEstado("cargando");
+    startTransition(async () => {
+      const r = await diagnosticarProductosLynx(nayaxMachineId);
+      if (r.ok && r.data) {
+        setDiagnostico({
+          machineId: nayaxMachineId,
+          raw: r.data.raw,
+          count: r.data.productos.length,
+        });
+        setMensaje(r.message);
+      } else {
+        setError(r.ok ? "Sin datos" : r.message);
+      }
+      setEstado("idle");
+    });
+  }
 
   async function handleProbar() {
     setError(null);
@@ -93,36 +125,71 @@ export default function SincronizarUI() {
     setMensaje(null);
 
     const items = Object.entries(productos)
-      .filter(([, v]) => v.seleccionado)
-      .map(([, v]) => ({
-        sku: v.sku.trim(),
-        nombre: v.nombre.trim(),
-        tipo: v.tipo,
-        gramaje_servicio_default:
-          v.tipo === "polvo" && v.gramaje ? Number(v.gramaje) : null,
-        precio_venta_default: v.precio ? Number(v.precio) : null,
-        notas: "Importado desde Nayax (Lynx)",
-      }));
+      .filter(([key, v]) => v.seleccionado && !vincularLocal[key])
+      .map(([key, v]) => {
+        const pn = snapshot.productos_nayax.find((x) => x.key === key);
+        return {
+          sku: v.sku.trim(),
+          nombre: v.nombre.trim(),
+          tipo: v.tipo,
+          gramaje_servicio_default:
+            v.tipo === "polvo" && v.gramaje ? Number(v.gramaje) : null,
+          precio_venta_default: v.precio ? Number(v.precio) : null,
+          notas: "Importado desde Nayax (Lynx)",
+          nayax_product_ids: pn?.nayax_product_ids ?? [],
+        };
+      });
 
-    if (items.length === 0) {
-      setError("Selecciona al menos un producto.");
+    // Vínculos de productos Nayax a productos locales existentes
+    const vinculos = Object.entries(vincularLocal)
+      .filter(([, productoLocalId]) => !!productoLocalId)
+      .map(([nayaxKey, productoLocalId]) => {
+        const pn = snapshot.productos_nayax.find((x) => x.key === nayaxKey);
+        if (!pn || pn.nayax_product_ids.length === 0) return null;
+        return {
+          productoLocalId,
+          nayaxProductIds: pn.nayax_product_ids,
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => !!x);
+
+    if (items.length === 0 && vinculos.length === 0) {
+      setError("Selecciona al menos un producto a crear o a vincular.");
       return;
     }
 
     setEstado("aplicando");
     startTransition(async () => {
-      const r = await autoCrearProductos({ items });
-      if (r.ok) {
-        setMensaje(r.message);
-        if (r.data?.errores && r.data.errores.length > 0) {
-          setError(`Errores: ${r.data.errores.join(" · ")}`);
+      const mensajes: string[] = [];
+      const errs: string[] = [];
+
+      if (items.length > 0) {
+        const r = await autoCrearProductos({ items });
+        if (r.ok) {
+          mensajes.push(r.message);
+          if (r.data?.errores) errs.push(...r.data.errores);
+        } else {
+          errs.push(r.message);
         }
-        const r2 = await obtenerSnapshot();
-        if (r2.ok && r2.data) setSnapshot(r2.data);
-      } else {
-        setError(r.message);
       }
+      if (vinculos.length > 0) {
+        const r = await vincularProductosExistentes({ vinculos });
+        if (r.ok) {
+          mensajes.push(r.message);
+          if (r.data?.errores) errs.push(...r.data.errores);
+        } else {
+          errs.push(r.message);
+        }
+      }
+
+      const r2 = await obtenerSnapshot();
+      if (r2.ok && r2.data) setSnapshot(r2.data);
+
+      if (mensajes.length > 0) setMensaje(mensajes.join(" · "));
+      if (errs.length > 0) setError(errs.join(" · "));
       setEstado("idle");
+      // Limpia vincular después de aplicar
+      setVincularLocal({});
     });
   }
 
@@ -240,6 +307,44 @@ export default function SincronizarUI() {
 
       {snapshot && (
         <>
+          {/* Diagnóstico Lynx: ver productos en bruto por máquina */}
+          <section className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+            <h2 className="text-sm font-semibold tracking-tight text-amber-900">
+              Diagnóstico Lynx
+            </h2>
+            <p className="mt-1 text-xs text-amber-900">
+              Si no ves productos en la sección morada, prueba aquí con una
+              máquina específica. Si Lynx regresa <code>[]</code>, el
+              planograma en Nayax está vacío. Si regresa productos, hay un
+              bug y avisas.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {snapshot.maquinas_nayax.slice(0, 8).map((mn) => (
+                <button
+                  key={mn.nayax.MachineID}
+                  type="button"
+                  onClick={() => handleDiagnosticar(mn.nayax.MachineID)}
+                  disabled={estado !== "idle"}
+                  className="rounded-md border border-amber-300 bg-white px-2 py-1 text-xs font-mono text-amber-900 hover:bg-amber-100 disabled:opacity-60"
+                >
+                  #{mn.nayax.MachineID}
+                  {mn.nayax.MachineNumber ? ` · ${mn.nayax.MachineNumber}` : ""}
+                </button>
+              ))}
+            </div>
+            {diagnostico && (
+              <div className="mt-3">
+                <div className="text-xs font-medium text-amber-900">
+                  Respuesta cruda de Lynx /v1/machine/{diagnostico.machineId}/machineProducts
+                  ({diagnostico.count} productos):
+                </div>
+                <pre className="mt-1 max-h-80 overflow-auto rounded-md border border-amber-200 bg-white p-2 text-[10px] font-mono text-zinc-700">
+                  {diagnostico.raw}
+                </pre>
+              </div>
+            )}
+          </section>
+
           {/* Productos Nayax: auto-creación */}
           {snapshot.productos_nayax.length > 0 && (
             <section className="space-y-3 rounded-lg border border-purple-200 bg-purple-50 p-4">
@@ -248,11 +353,14 @@ export default function SincronizarUI() {
                   Productos en Nayax ({snapshot.productos_nayax.length} únicos)
                 </h2>
                 <p className="text-xs text-purple-900">
-                  Productos detectados en las máquinas Nayax. Los que ya
-                  existen localmente se muestran con su SKU. Selecciona los
-                  nuevos a crear, ajusta el tipo (polvo/vaso), gramaje y
-                  precio. <strong>Crea estos productos primero</strong>{" "}
-                  para poder asignarlos a las tolvas después.
+                  Productos detectados en las máquinas Nayax,{" "}
+                  <strong>agrupados por nombre</strong> (Nayax asigna un{" "}
+                  <code>NayaxProductID</code> distinto por planograma para el
+                  mismo producto físico). Cada producto local puede tener{" "}
+                  <strong>hasta 4 NayaxIDs</strong> vinculados. Selecciona los
+                  nuevos a crear, o vincúlalos a uno local ya existente.{" "}
+                  <strong>Crea estos productos primero</strong> para poder
+                  asignarlos a las tolvas después.
                 </p>
               </div>
               <div className="overflow-hidden rounded-md border border-purple-200 bg-white">
@@ -265,6 +373,9 @@ export default function SincronizarUI() {
                       <th className="px-2 py-2 font-medium">Tipo</th>
                       <th className="px-2 py-2 font-medium">Gramaje (g)</th>
                       <th className="px-2 py-2 font-medium">Precio</th>
+                      <th className="px-2 py-2 font-medium">
+                        o vincular a local
+                      </th>
                       <th className="px-2 py-2 font-medium">Estado</th>
                     </tr>
                   </thead>
@@ -273,13 +384,15 @@ export default function SincronizarUI() {
                       const cfg = productos[pn.key];
                       if (!cfg) return null;
                       const yaExiste = !!pn.local_id;
+                      const vinculadoA = vincularLocal[pn.key] ?? "";
                       return (
                         <tr key={pn.key} className={yaExiste ? "bg-zinc-50" : ""}>
                           <td className="px-2 py-2">
                             {!yaExiste && (
                               <input
                                 type="checkbox"
-                                checked={cfg.seleccionado}
+                                checked={cfg.seleccionado && !vinculadoA}
+                                disabled={!!vinculadoA}
                                 onChange={(e) =>
                                   setProductos((prev) => ({
                                     ...prev,
@@ -297,9 +410,15 @@ export default function SincronizarUI() {
                             <div className="font-medium text-zinc-900">
                               {pn.dex_name}
                             </div>
-                            {pn.nayax_product_id && (
+                            {pn.nayax_product_ids.length > 0 && (
                               <div className="font-mono text-[10px] text-zinc-500">
-                                NayaxID {pn.nayax_product_id}
+                                NayaxIDs:{" "}
+                                {pn.nayax_product_ids.join(", ")}
+                                {pn.nayax_product_ids.length > 1 && (
+                                  <span className="ml-1 text-zinc-400">
+                                    ({pn.nayax_product_ids.length} planogramas)
+                                  </span>
+                                )}
                               </div>
                             )}
                           </td>
@@ -392,11 +511,44 @@ export default function SincronizarUI() {
                               />
                             )}
                           </td>
+                          <td className="px-2 py-2">
+                            {!yaExiste && pn.nayax_product_ids.length > 0 && (
+                              <select
+                                value={vinculadoA}
+                                onChange={(e) =>
+                                  setVincularLocal((prev) => ({
+                                    ...prev,
+                                    [pn.key]: e.target.value,
+                                  }))
+                                }
+                                className="w-44 rounded-md border border-zinc-300 px-2 py-1 text-xs"
+                              >
+                                <option value="">— crear nuevo —</option>
+                                {snapshot.productos_locales
+                                  .filter(
+                                    (pl) =>
+                                      pl.nayax_product_ids.length + pn.nayax_product_ids.length <= 4,
+                                  )
+                                  .map((pl) => (
+                                    <option key={pl.id} value={pl.id}>
+                                      {pl.sku} · {pl.nombre}
+                                      {pl.nayax_product_ids.length > 0
+                                        ? ` (${pl.nayax_product_ids.length}/4)`
+                                        : ""}
+                                    </option>
+                                  ))}
+                              </select>
+                            )}
+                          </td>
                           <td className="px-2 py-2 text-xs">
                             {yaExiste ? (
                               <span className="inline-flex items-center gap-1 text-green-700">
-                                <Check className="h-3 w-3" /> ya existe
+                                <Check className="h-3 w-3" />
+                                vinculado ({pn.ya_vinculados}/
+                                {pn.nayax_product_ids.length})
                               </span>
+                            ) : vinculadoA ? (
+                              <span className="text-blue-700">vincular</span>
                             ) : (
                               <span className="text-zinc-500">nuevo</span>
                             )}
@@ -413,7 +565,7 @@ export default function SincronizarUI() {
                 disabled={estado !== "idle"}
                 className="inline-flex items-center gap-2 rounded-md bg-purple-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-purple-800 disabled:opacity-60"
               >
-                Crear productos seleccionados
+                Crear/vincular productos seleccionados
               </button>
             </section>
           )}
