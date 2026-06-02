@@ -48,9 +48,16 @@ export type SnapshotLocal = {
   tolvas: { id: string; numero: number; nayax_item_code: string | null }[];
 };
 
+export type Ubicacion = {
+  id: string;
+  nombre: string;
+  cliente_nombre: string;
+};
+
 export type Snapshot = {
   maquinas_nayax: SnapshotMaquina[];
   maquinas_locales: SnapshotLocal[];
+  ubicaciones: Ubicacion[];
 };
 
 /**
@@ -137,17 +144,119 @@ export async function obtenerSnapshot(): Promise<ActionResult<Snapshot>> {
       });
     }
 
+    // Ubicaciones disponibles (para crear máquinas nuevas)
+    const { data: ubicacionesRaw } = await supabase
+      .from("ubicaciones")
+      .select("id, nombre, cliente:clientes(nombre)")
+      .eq("activo", true)
+      .order("nombre");
+    const ubicaciones: Ubicacion[] = (ubicacionesRaw ?? []).map((u) => {
+      const cli = Array.isArray(u.cliente) ? u.cliente[0] : u.cliente;
+      return {
+        id: u.id,
+        nombre: u.nombre,
+        cliente_nombre: cli?.nombre ?? "(sin cliente)",
+      };
+    });
+
     return {
       ok: true,
       message: `${conProductos.length} máquinas Nayax · ${locales.length} máquinas locales.`,
       data: {
         maquinas_nayax: conProductos,
         maquinas_locales: locales,
+        ubicaciones,
       },
     };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };
   }
+}
+
+/**
+ * Crea localmente máquinas que existen en Nayax pero no aquí.
+ * Cada máquina queda en estado 'mantenimiento' con tolvas vacías
+ * (el trigger trg_maquina_create_tolvas las crea automáticamente).
+ * El admin completa producto/gramaje/precio por tolva después.
+ *
+ * Defaults configurables por la operación:
+ *   num_tolvas: 8
+ *   capacidad_max_tolva_g: 1500
+ *   frecuencia_visita_dias: 3 (≈ 2 veces por semana)
+ *   vaso_capacidad_max: 200
+ */
+export async function autoCrearMaquinas(input: {
+  items: {
+    nayaxMachineId: number;
+    machineNumber: string | null;
+    machineName: string | null;
+    serialNumber: string | null;
+    ubicacionId: string;
+  }[];
+}): Promise<ActionResult<{ creadas: number; errores: string[] }>> {
+  await requireRole("admin", "direccion");
+  if (input.items.length === 0) {
+    return { ok: false, message: "Selecciona al menos una máquina." };
+  }
+
+  const supabase = createAdminClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabaseAny = supabase as any;
+
+  let creadas = 0;
+  const errores: string[] = [];
+
+  for (const it of input.items) {
+    // Serie: MachineNumber, fallback SerialNumber, fallback NAYAX-{id}
+    let serie =
+      it.machineNumber?.trim() ||
+      it.serialNumber?.trim() ||
+      `NAYAX-${it.nayaxMachineId}`;
+
+    // Evita choque de UNIQUE serie
+    const { data: existing } = await supabaseAny
+      .from("maquinas")
+      .select("id")
+      .eq("serie", serie)
+      .maybeSingle();
+    if (existing) {
+      serie = `${serie}-${it.nayaxMachineId}`;
+    }
+
+    const insert = {
+      serie,
+      alias: it.machineName ?? null,
+      ubicacion_id: it.ubicacionId,
+      num_tolvas: 8,
+      capacidad_max_tolva_g: 1500,
+      frecuencia_visita_dias: 3,
+      vaso_capacidad_max: 200,
+      estado: "mantenimiento",
+      activo: true,
+      nayax_machine_id: String(it.nayaxMachineId),
+      nayax_serial: it.serialNumber ?? null,
+      notas: `Importada automáticamente desde Nayax (Lynx) el ${new Date().toISOString().slice(0, 10)}. Pendiente: asignar producto + gramaje + precio en cada tolva.`,
+    };
+
+    const { error } = await supabaseAny.from("maquinas").insert(insert);
+    if (error) {
+      errores.push(`#${it.nayaxMachineId} (${serie}): ${error.message}`);
+    } else {
+      creadas += 1;
+    }
+  }
+
+  revalidatePath("/admin/maquinas", "layout");
+  revalidatePath("/admin/nayax", "layout");
+
+  if (errores.length > 0 && creadas === 0) {
+    return { ok: false, message: errores.join(" · ") };
+  }
+  return {
+    ok: true,
+    message: `${creadas} máquina(s) creada(s) en estado mantenimiento. Completa producto y gramaje en cada tolva.`,
+    data: { creadas, errores },
+  };
 }
 
 /**

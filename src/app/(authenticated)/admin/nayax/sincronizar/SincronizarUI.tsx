@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 
 import {
   aplicarMapeo,
+  autoCrearMaquinas,
   obtenerSnapshot,
   probarConexionLynx,
   type Snapshot,
@@ -19,6 +20,9 @@ export default function SincronizarUI() {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [mapeoMaquinas, setMapeoMaquinas] = useState<Record<string, string>>({});
   const [mapeoTolvas, setMapeoTolvas] = useState<Record<string, string>>({});
+  // Para auto-creación: map { nayaxMachineId → ubicacion_id seleccionada }
+  const [crearUbicacion, setCrearUbicacion] = useState<Record<string, string>>({});
+  const [crearSeleccionadas, setCrearSeleccionadas] = useState<Record<string, boolean>>({});
   const [, startTransition] = useTransition();
 
   async function handleProbar() {
@@ -52,6 +56,55 @@ export default function SincronizarUI() {
         setMapeoMaquinas(m);
       } else {
         setError(r.ok ? "Sin datos" : r.message);
+      }
+      setEstado("idle");
+    });
+  }
+
+  async function handleAutoCrear() {
+    if (!snapshot) return;
+    setError(null);
+    setMensaje(null);
+
+    const items = Object.entries(crearSeleccionadas)
+      .filter(([, v]) => v)
+      .map(([nayaxId]) => {
+        const m = snapshot.maquinas_nayax.find(
+          (mn) => String(mn.nayax.MachineID) === nayaxId,
+        );
+        if (!m) return null;
+        const ubicacionId = crearUbicacion[nayaxId];
+        if (!ubicacionId) return null;
+        return {
+          nayaxMachineId: m.nayax.MachineID,
+          machineNumber: m.nayax.MachineNumber ?? null,
+          machineName: m.nayax.MachineName ?? null,
+          serialNumber: m.nayax.SerialNumber ?? m.nayax.DeviceSerialNumber ?? null,
+          ubicacionId,
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => !!x);
+
+    if (items.length === 0) {
+      setError(
+        "Selecciona al menos una máquina + elige ubicación para cada una.",
+      );
+      return;
+    }
+
+    setEstado("aplicando");
+    startTransition(async () => {
+      const r = await autoCrearMaquinas({ items });
+      if (r.ok) {
+        setMensaje(r.message);
+        if (r.data?.errores && r.data.errores.length > 0) {
+          setError(`Algunos errores: ${r.data.errores.join(" · ")}`);
+        }
+        // Refresca snapshot
+        const r2 = await obtenerSnapshot();
+        if (r2.ok && r2.data) setSnapshot(r2.data);
+      } else {
+        setError(r.message);
       }
       setEstado("idle");
     });
@@ -124,6 +177,109 @@ export default function SincronizarUI() {
 
       {snapshot && (
         <>
+          {/* Máquinas Nayax sin match local: oferta de auto-creación */}
+          {(() => {
+            const sinMatch = snapshot.maquinas_nayax.filter(
+              (mn) => !mn.sugerencia_local_id,
+            );
+            if (sinMatch.length === 0) return null;
+            return (
+              <section className="space-y-3 rounded-lg border border-blue-200 bg-blue-50 p-4">
+                <div>
+                  <h2 className="text-sm font-semibold tracking-tight text-blue-900">
+                    Máquinas en Nayax sin contraparte local ({sinMatch.length})
+                  </h2>
+                  <p className="text-xs text-blue-900">
+                    Marca las que quieres crear localmente. Se crearán en
+                    estado <strong>mantenimiento</strong> con tolvas vacías
+                    (8 tolvas, capacidad 1500g, frecuencia 3 días, vaso 200).
+                    Tienes que asignar producto + gramaje + precio a cada
+                    tolva después.
+                  </p>
+                </div>
+                <div className="overflow-hidden rounded-md border border-blue-200 bg-white">
+                  <table className="w-full text-sm">
+                    <thead className="border-b border-blue-100 bg-blue-50/50 text-left text-xs uppercase tracking-wide text-blue-900">
+                      <tr>
+                        <th className="w-10 px-3 py-2"></th>
+                        <th className="px-3 py-2 font-medium">Máquina Nayax</th>
+                        <th className="px-3 py-2 font-medium">Ubicación local</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-blue-50">
+                      {sinMatch.map((mn) => {
+                        const id = String(mn.nayax.MachineID);
+                        return (
+                          <tr key={id}>
+                            <td className="px-3 py-2">
+                              <input
+                                type="checkbox"
+                                checked={!!crearSeleccionadas[id]}
+                                onChange={(e) =>
+                                  setCrearSeleccionadas((prev) => ({
+                                    ...prev,
+                                    [id]: e.target.checked,
+                                  }))
+                                }
+                                className="h-4 w-4"
+                              />
+                            </td>
+                            <td className="px-3 py-2">
+                              <div className="font-mono text-xs font-medium">
+                                #{mn.nayax.MachineID}
+                                {mn.nayax.MachineNumber
+                                  ? ` · ${mn.nayax.MachineNumber}`
+                                  : ""}
+                              </div>
+                              {mn.nayax.MachineName && (
+                                <div className="text-xs text-zinc-600">
+                                  {mn.nayax.MachineName}
+                                </div>
+                              )}
+                              {mn.productos.length > 0 && (
+                                <div className="mt-0.5 text-[10px] text-zinc-500">
+                                  {mn.productos.length} productos configurados
+                                  en Nayax
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-3 py-2">
+                              <select
+                                value={crearUbicacion[id] ?? ""}
+                                onChange={(e) =>
+                                  setCrearUbicacion((prev) => ({
+                                    ...prev,
+                                    [id]: e.target.value,
+                                  }))
+                                }
+                                className="w-full rounded-md border border-zinc-300 px-2 py-1 text-xs shadow-sm"
+                              >
+                                <option value="">— Elige ubicación —</option>
+                                {snapshot.ubicaciones.map((u) => (
+                                  <option key={u.id} value={u.id}>
+                                    {u.cliente_nombre} · {u.nombre}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAutoCrear}
+                  disabled={estado !== "idle"}
+                  className="inline-flex items-center gap-2 rounded-md bg-blue-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-800 disabled:opacity-60"
+                >
+                  Crear máquinas seleccionadas
+                </button>
+              </section>
+            );
+          })()}
+
           <section className="space-y-3">
             <h2 className="text-sm font-semibold tracking-tight">
               1. Mapear máquinas
