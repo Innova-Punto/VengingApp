@@ -7,6 +7,7 @@ import {
   aplicarMapeo,
   autoCrearMaquinas,
   autoCrearProductos,
+  diagnosticarProductosLynx,
   obtenerSnapshot,
   probarConexionLynx,
   vincularProductosExistentes,
@@ -39,7 +40,34 @@ export default function SincronizarUI() {
   // Map opcional para vincular un producto Nayax a un producto local existente
   // (Mariana creó uno con nombre distinto, no se hizo automatch)
   const [vincularLocal, setVincularLocal] = useState<Record<string, string>>({});
+  // Diagnóstico de productos por máquina Nayax (raw response)
+  const [diagnostico, setDiagnostico] = useState<{
+    machineId: number;
+    raw: string;
+    count: number;
+  } | null>(null);
   const [, startTransition] = useTransition();
+
+  async function handleDiagnosticar(nayaxMachineId: number) {
+    setError(null);
+    setMensaje(null);
+    setDiagnostico(null);
+    setEstado("cargando");
+    startTransition(async () => {
+      const r = await diagnosticarProductosLynx(nayaxMachineId);
+      if (r.ok && r.data) {
+        setDiagnostico({
+          machineId: nayaxMachineId,
+          raw: r.data.raw,
+          count: r.data.productos.length,
+        });
+        setMensaje(r.message);
+      } else {
+        setError(r.ok ? "Sin datos" : r.message);
+      }
+      setEstado("idle");
+    });
+  }
 
   async function handleProbar() {
     setError(null);
@@ -279,6 +307,44 @@ export default function SincronizarUI() {
 
       {snapshot && (
         <>
+          {/* Diagnóstico Lynx: ver productos en bruto por máquina */}
+          <section className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+            <h2 className="text-sm font-semibold tracking-tight text-amber-900">
+              Diagnóstico Lynx
+            </h2>
+            <p className="mt-1 text-xs text-amber-900">
+              Si no ves productos en la sección morada, prueba aquí con una
+              máquina específica. Si Lynx regresa <code>[]</code>, el
+              planograma en Nayax está vacío. Si regresa productos, hay un
+              bug y avisas.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {snapshot.maquinas_nayax.slice(0, 8).map((mn) => (
+                <button
+                  key={mn.nayax.MachineID}
+                  type="button"
+                  onClick={() => handleDiagnosticar(mn.nayax.MachineID)}
+                  disabled={estado !== "idle"}
+                  className="rounded-md border border-amber-300 bg-white px-2 py-1 text-xs font-mono text-amber-900 hover:bg-amber-100 disabled:opacity-60"
+                >
+                  #{mn.nayax.MachineID}
+                  {mn.nayax.MachineNumber ? ` · ${mn.nayax.MachineNumber}` : ""}
+                </button>
+              ))}
+            </div>
+            {diagnostico && (
+              <div className="mt-3">
+                <div className="text-xs font-medium text-amber-900">
+                  Respuesta cruda de Lynx /v1/machine/{diagnostico.machineId}/machineProducts
+                  ({diagnostico.count} productos):
+                </div>
+                <pre className="mt-1 max-h-80 overflow-auto rounded-md border border-amber-200 bg-white p-2 text-[10px] font-mono text-zinc-700">
+                  {diagnostico.raw}
+                </pre>
+              </div>
+            )}
+          </section>
+
           {/* Productos Nayax: auto-creación */}
           {snapshot.productos_nayax.length > 0 && (
             <section className="space-y-3 rounded-lg border border-purple-200 bg-purple-50 p-4">

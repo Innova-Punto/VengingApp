@@ -32,6 +32,31 @@ export async function probarConexionLynx(): Promise<ActionResult> {
   }
 }
 
+/**
+ * Diagnóstico: llama Lynx /v1/machine/{id}/machineProducts y devuelve la
+ * respuesta cruda (o el error completo). Útil para saber si el planograma
+ * está vacío en Nayax vs. si nuestra llamada falla.
+ */
+export async function diagnosticarProductosLynx(
+  nayaxMachineId: number,
+): Promise<ActionResult<{ productos: LynxMachineProduct[]; raw: string }>> {
+  await requireRole("admin", "direccion");
+  try {
+    const token = await lynxGetToken();
+    const productos = await lynxListMachineProducts(token, nayaxMachineId);
+    return {
+      ok: true,
+      message: `Lynx regresó ${productos.length} producto(s) para máquina #${nayaxMachineId}.`,
+      data: { productos, raw: JSON.stringify(productos, null, 2) },
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      message: e instanceof Error ? e.message : String(e),
+    };
+  }
+}
+
 export type SnapshotMaquina = {
   nayax: LynxMachine;
   productos: LynxMachineProduct[];
