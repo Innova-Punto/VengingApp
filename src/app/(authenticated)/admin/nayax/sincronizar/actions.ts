@@ -262,7 +262,7 @@ export async function autoCrearMaquinas(input: {
     machineNumber: string | null;
     machineName: string | null;
     serialNumber: string | null;
-    ubicacionId: string;
+    ubicacionId: string | null;
   }[];
 }): Promise<ActionResult<{ creadas: number; errores: string[] }>> {
   await requireRole("admin", "direccion");
@@ -274,17 +274,50 @@ export async function autoCrearMaquinas(input: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabaseAny = supabase as any;
 
+  // Resolver ubicación placeholder "Por asignar" para máquinas sin ubicación
+  let placeholderUbicacionId: string | null = null;
+  const { data: placeholder } = await supabase
+    .from("ubicaciones")
+    .select("id")
+    .ilike("nombre", "%por asignar%")
+    .eq("activo", true)
+    .limit(1)
+    .maybeSingle();
+  if (placeholder) {
+    placeholderUbicacionId = placeholder.id;
+  } else {
+    // Si no existe, la creamos sobre el primer cliente activo
+    const { data: cliente } = await supabase
+      .from("clientes")
+      .select("id")
+      .eq("activo", true)
+      .limit(1)
+      .maybeSingle();
+    if (cliente) {
+      const { data: nueva } = await supabaseAny
+        .from("ubicaciones")
+        .insert({
+          cliente_id: cliente.id,
+          nombre: "⏳ Por asignar",
+          direccion: "Pendiente de definir",
+          activo: true,
+          notas: "Placeholder para máquinas importadas de Nayax.",
+        })
+        .select("id")
+        .single();
+      placeholderUbicacionId = nueva?.id ?? null;
+    }
+  }
+
   let creadas = 0;
   const errores: string[] = [];
 
   for (const it of input.items) {
-    // Serie: MachineNumber, fallback SerialNumber, fallback NAYAX-{id}
     let serie =
       it.machineNumber?.trim() ||
       it.serialNumber?.trim() ||
       `NAYAX-${it.nayaxMachineId}`;
 
-    // Evita choque de UNIQUE serie
     const { data: existing } = await supabaseAny
       .from("maquinas")
       .select("id")
@@ -294,10 +327,19 @@ export async function autoCrearMaquinas(input: {
       serie = `${serie}-${it.nayaxMachineId}`;
     }
 
+    // Si no se eligió ubicación, usa la placeholder
+    const ubicacionFinal = it.ubicacionId || placeholderUbicacionId;
+    if (!ubicacionFinal) {
+      errores.push(
+        `#${it.nayaxMachineId}: no hay ubicación ni placeholder disponible`,
+      );
+      continue;
+    }
+
     const insert = {
       serie,
       alias: it.machineName ?? null,
-      ubicacion_id: it.ubicacionId,
+      ubicacion_id: ubicacionFinal,
       num_tolvas: 8,
       capacidad_max_tolva_g: 1500,
       frecuencia_visita_dias: 3,
@@ -306,7 +348,11 @@ export async function autoCrearMaquinas(input: {
       activo: true,
       nayax_machine_id: String(it.nayaxMachineId),
       nayax_serial: it.serialNumber ?? null,
-      notas: `Importada automáticamente desde Nayax (Lynx) el ${new Date().toISOString().slice(0, 10)}. Pendiente: asignar producto + gramaje + precio en cada tolva.`,
+      notas:
+        `Importada automáticamente desde Nayax (Lynx) el ${new Date().toISOString().slice(0, 10)}. ` +
+        (it.ubicacionId
+          ? "Pendiente: asignar producto + gramaje + precio en cada tolva."
+          : "⚠ Ubicación SIN ASIGNAR · pendiente: ubicación + producto + gramaje + precio por tolva."),
     };
 
     const { error } = await supabaseAny.from("maquinas").insert(insert);
