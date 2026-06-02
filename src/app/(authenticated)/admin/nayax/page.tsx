@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
@@ -53,12 +55,20 @@ export default async function NayaxPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Nayax</h1>
-        <p className="text-sm text-zinc-600">
-          Ingesta de ventas desde Nayax. Cada venta descuenta el inventario
-          de la tolva, calcula utilidad y registra kardex.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Nayax</h1>
+          <p className="text-sm text-zinc-600">
+            Ingesta de ventas desde Nayax. Cada venta descuenta el inventario
+            de la tolva, calcula utilidad y registra kardex.
+          </p>
+        </div>
+        <Link
+          href="/admin/nayax/sincronizar"
+          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+        >
+          Sincronizar con Nayax →
+        </Link>
       </div>
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
