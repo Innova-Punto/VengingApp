@@ -81,11 +81,14 @@ export async function lynxGetToken(): Promise<string> {
   const supabase = createAdminClient();
 
   // 1. Intenta usar el cache si está vigente
-  const { data: cached } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: cached } = (await (supabase as any)
     .from("nayax_token_cache")
     .select("token, expiration_utc")
     .eq("id", "default")
-    .maybeSingle();
+    .maybeSingle()) as {
+    data: { token: string; expiration_utc: string } | null;
+  };
 
   if (cached?.token && cached.expiration_utc) {
     const expMs = new Date(cached.expiration_utc).getTime();
