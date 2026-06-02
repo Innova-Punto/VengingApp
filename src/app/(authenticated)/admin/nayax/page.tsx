@@ -50,9 +50,6 @@ export default async function NayaxPage() {
     nVentas30d += 1;
   }
 
-  const webhookUrl =
-    (process.env.NEXT_PUBLIC_APP_URL ?? "https://app.example.com") +
-    "/api/nayax/webhook";
 
   return (
     <div className="space-y-6">
@@ -83,30 +80,25 @@ export default async function NayaxPage() {
 
       <section className="rounded-lg border border-zinc-200 bg-white p-4 text-sm">
         <h2 className="text-sm font-semibold text-zinc-900">Configuración</h2>
-        <p className="mt-2 text-xs text-zinc-600">URL del webhook:</p>
-        <code className="mt-1 block break-all rounded bg-zinc-100 px-2 py-1 font-mono text-xs">
-          {webhookUrl}
-        </code>
-        <p className="mt-3 text-xs text-zinc-600">
-          Header requerido: <code className="font-mono">x-nayax-secret: {`{NAYAX_WEBHOOK_SECRET}`}</code> · Body JSON:
+        <p className="mt-2 text-xs text-zinc-600">
+          La ingesta es por <strong>Amazon SQS</strong>. Nayax publica cada
+          transacción en una cola; un cron de Vercel la consume cada 2
+          minutos en <code className="rounded bg-zinc-100 px-1">/api/nayax/poll</code>.
         </p>
-        <pre className="mt-1 overflow-x-auto rounded bg-zinc-100 px-2 py-1 text-[11px] leading-tight">
-          {`{
-  "cursor_desde": "2026-05-30T00:00:00Z",
-  "cursor_hasta": "2026-05-30T23:59:59Z",
-  "transactions": [
-    {
-      "transaction_id": "abc123",
-      "machine_id": "NAYAX-1001",
-      "item_code": "A1",
-      "fecha": "2026-05-30T14:30:00Z",
-      "precio_bruto": 35.00,
-      "metodo_pago": "tarjeta",
-      "ticket_id": "T-001"
-    }
-  ]
-}`}
-        </pre>
+        <ul className="mt-3 list-inside list-disc space-y-1 text-xs text-zinc-600">
+          <li>
+            Identificador único: <code>{"{TransactionId}-{PA Code}"}</code>{" "}
+            (soporta multivend).
+          </li>
+          <li>
+            Los mensajes con <code>Void = true</code> se descartan (no se
+            procesa cancelación todavía).
+          </li>
+          <li>
+            Si una transacción falla, el mensaje queda en la cola y se
+            reintenta automáticamente.
+          </li>
+        </ul>
       </section>
 
       <section className="space-y-3">

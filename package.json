@@ -19,6 +19,7 @@
     "db:types": "supabase gen types typescript --linked > src/lib/supabase/database.types.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-sqs": "^3.1058.0",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.106.1",
     "class-variance-authority": "^0.7.1",
