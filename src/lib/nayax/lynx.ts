@@ -12,7 +12,14 @@
  *   NAYAX_LYNX_BASE_URL (default: https://lynx.nayax.com/Operational)
  */
 
+import { createAdminClient } from "@/lib/supabase/admin";
+
 const DEFAULT_BASE = "https://lynx.nayax.com/Operational";
+
+/** TokenId fijo. Mandando el mismo valor en cada login, Lynx reusa el slot. */
+const TOKEN_ID = "INNOVAYPUNTO-APP";
+/** Cuántos minutos antes de la expiración consideramos que hay que renovar. */
+const REFRESH_MARGIN_MIN = 5;
 
 type Token = {
   Token: string;
@@ -61,13 +68,37 @@ function getCreds(): { usr: string; pwd: string } {
 }
 
 /**
- * Obtiene un token bearer de Lynx con 1 hora de expiración.
- * No cacheamos entre invocaciones: Next.js server actions son stateless
- * y un token nuevo es trivial (1 request).
+ * Obtiene un token bearer de Lynx con cache en BD.
+ *
+ * Lynx limita a 10 tokens concurrentes por usuario. Pedir uno nuevo en cada
+ * server action lleva al límite y bloquea. Por eso:
+ *   1. Cache en tabla nayax_token_cache: si hay uno vigente, se reutiliza.
+ *   2. TokenId fijo (INNOVAYPUNTO-APP): cuando pedimos uno nuevo, Lynx reusa
+ *      el slot del TokenId existente en lugar de crear otro.
+ *   3. Expiración 12h (cómoda y evita renovar mientras se usa).
  */
 export async function lynxGetToken(): Promise<string> {
+  const supabase = createAdminClient();
+
+  // 1. Intenta usar el cache si está vigente
+  const { data: cached } = await supabase
+    .from("nayax_token_cache")
+    .select("token, expiration_utc")
+    .eq("id", "default")
+    .maybeSingle();
+
+  if (cached?.token && cached.expiration_utc) {
+    const expMs = new Date(cached.expiration_utc).getTime();
+    const marginMs = REFRESH_MARGIN_MIN * 60 * 1000;
+    if (Date.now() < expMs - marginMs) {
+      return cached.token;
+    }
+  }
+
+  // 2. Cache vencido o vacío: pide token nuevo con TokenId fijo
   const { usr, pwd } = getCreds();
-  const expirationISO = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // +1h
+  const expDate = new Date(Date.now() + 12 * 60 * 60 * 1000); // 12h
+  const expirationISO = expDate.toISOString();
 
   const res = await fetch(`${baseUrl()}/v1/token/auth`, {
     method: "POST",
@@ -76,6 +107,7 @@ export async function lynxGetToken(): Promise<string> {
       Usr: usr,
       Pwd: pwd,
       ExpirationUTC: expirationISO,
+      TokenId: TOKEN_ID,
     }),
     cache: "no-store",
   });
@@ -91,7 +123,30 @@ export async function lynxGetToken(): Promise<string> {
   if (!body?.Token) {
     throw new Error("Lynx auth no regresó Token.");
   }
+
+  // 3. Guarda en cache para futuras invocaciones
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (supabase as any).from("nayax_token_cache").upsert({
+    id: "default",
+    token: body.Token,
+    expiration_utc: body.ExpirationUTC ?? expirationISO,
+    updated_at: new Date().toISOString(),
+  });
+
   return body.Token;
+}
+
+/**
+ * Borra el cache forzando que la próxima llamada pida un token nuevo.
+ * Útil si el token cacheado dejó de funcionar (revoke remoto, etc).
+ */
+export async function lynxClearTokenCache(): Promise<void> {
+  const supabase = createAdminClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (supabase as any)
+    .from("nayax_token_cache")
+    .delete()
+    .eq("id", "default");
 }
 
 async function lynxFetch<T>(
