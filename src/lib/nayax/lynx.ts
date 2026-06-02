@@ -99,10 +99,20 @@ async function lynxFetch<T>(
   path: string,
   init?: RequestInit,
 ): Promise<T> {
-  // Lynx acepta el token en header "Token" (no en Authorization: Bearer).
-  // Si retorna 401 con ese header, probamos Authorization: Bearer como fallback.
-  const tryFetch = async (headers: HeadersInit) => {
-    return fetch(`${baseUrl()}${path}`, {
+  // Lynx acepta el token bajo distintos nombres de header dependiendo de la
+  // versión / configuración. Probamos en orden hasta que uno responda 2xx.
+  const variantes: HeadersInit[] = [
+    { Token: token },
+    { Authorization: `Bearer ${token}` },
+    { Authorization: token },
+    { "X-Token": token },
+  ];
+
+  let lastStatus = 0;
+  let lastBody = "";
+
+  for (const headers of variantes) {
+    const res = await fetch(`${baseUrl()}${path}`, {
       ...init,
       headers: {
         ...(init?.headers ?? {}),
@@ -111,22 +121,22 @@ async function lynxFetch<T>(
       },
       cache: "no-store",
     });
-  };
-
-  let res = await tryFetch({ Token: token });
-
-  // Fallback: si Token header no funciona, probar Bearer
-  if (res.status === 401) {
-    res = await tryFetch({ Authorization: `Bearer ${token}` });
+    if (res.ok) {
+      return (await res.json()) as T;
+    }
+    lastStatus = res.status;
+    lastBody = await res.text().catch(() => "");
+    // Si es 401/403, intentamos siguiente variante. Si es otro error, paramos.
+    if (res.status !== 401 && res.status !== 403) {
+      throw new Error(
+        `Lynx ${path} falló (${res.status}): ${lastBody || res.statusText}`,
+      );
+    }
   }
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(
-      `Lynx ${path} falló (${res.status}): ${text || res.statusText}`,
-    );
-  }
-  return (await res.json()) as T;
+  throw new Error(
+    `Lynx ${path} sigue fallando después de probar todas las variantes de header (último ${lastStatus}): ${lastBody}`,
+  );
 }
 
 /**
