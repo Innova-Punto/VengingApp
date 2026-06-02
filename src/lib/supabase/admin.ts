@@ -28,5 +28,12 @@ export function createAdminClient() {
       autoRefreshToken: false,
       persistSession: false,
     },
+    global: {
+      // Next.js parchea fetch y cachea POST en algunos casos. Forzamos
+      // no-store para que los RPC contra Supabase siempre toquen la BD
+      // (crítico para iniciar_sync_log_nayax que debe insertar nuevo).
+      fetch: (input, init) =>
+        fetch(input, { ...(init ?? {}), cache: "no-store" }),
+    },
   });
 }
