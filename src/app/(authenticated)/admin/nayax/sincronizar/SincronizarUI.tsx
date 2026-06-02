@@ -138,8 +138,8 @@ export default function SincronizarUI() {
           (mn) => String(mn.nayax.MachineID) === nayaxId,
         );
         if (!m) return null;
-        const ubicacionId = crearUbicacion[nayaxId];
-        if (!ubicacionId) return null;
+        // Si no eligen ubicación, se queda en "Por asignar" (server lo resuelve)
+        const ubicacionId = crearUbicacion[nayaxId] || null;
         return {
           nayaxMachineId: m.nayax.MachineID,
           machineNumber: m.nayax.MachineNumber ?? null,
@@ -151,9 +151,7 @@ export default function SincronizarUI() {
       .filter((x): x is NonNullable<typeof x> => !!x);
 
     if (items.length === 0) {
-      setError(
-        "Selecciona al menos una máquina + elige ubicación para cada una.",
-      );
+      setError("Selecciona al menos una máquina.");
       return;
     }
 
@@ -436,8 +434,9 @@ export default function SincronizarUI() {
                     Marca las que quieres crear localmente. Se crearán en
                     estado <strong>mantenimiento</strong> con tolvas vacías
                     (8 tolvas, capacidad 1500g, frecuencia 3 días, vaso 200).
-                    Tienes que asignar producto + gramaje + precio a cada
-                    tolva después.
+                    La ubicación es <strong>opcional</strong>: si la dejas
+                    en &quot;Por asignar&quot;, Mariana podrá moverla a la
+                    correcta después desde <code>/admin/maquinas</code>.
                   </p>
                 </div>
                 <div className="overflow-hidden rounded-md border border-blue-200 bg-white">
@@ -497,12 +496,19 @@ export default function SincronizarUI() {
                                 }
                                 className="w-full rounded-md border border-zinc-300 px-2 py-1 text-xs shadow-sm"
                               >
-                                <option value="">— Elige ubicación —</option>
-                                {snapshot.ubicaciones.map((u) => (
-                                  <option key={u.id} value={u.id}>
-                                    {u.cliente_nombre} · {u.nombre}
-                                  </option>
-                                ))}
+                                <option value="">⏳ Por asignar (Mariana después)</option>
+                                {snapshot.ubicaciones
+                                  .filter(
+                                    (u) =>
+                                      !u.nombre
+                                        .toLowerCase()
+                                        .includes("por asignar"),
+                                  )
+                                  .map((u) => (
+                                    <option key={u.id} value={u.id}>
+                                      {u.cliente_nombre} · {u.nombre}
+                                    </option>
+                                  ))}
                               </select>
                             </td>
                           </tr>
