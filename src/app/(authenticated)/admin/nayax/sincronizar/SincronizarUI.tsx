@@ -9,6 +9,7 @@ import {
   autoCrearProductos,
   obtenerSnapshot,
   probarConexionLynx,
+  vincularProductosExistentes,
   type Snapshot,
 } from "./actions";
 
@@ -35,6 +36,9 @@ export default function SincronizarUI() {
   const [crearSeleccionadas, setCrearSeleccionadas] = useState<Record<string, boolean>>({});
   // Productos: state por key Nayax
   const [productos, setProductos] = useState<Record<string, ProductoConfig>>({});
+  // Map opcional para vincular un producto Nayax a un producto local existente
+  // (Mariana creó uno con nombre distinto, no se hizo automatch)
+  const [vincularLocal, setVincularLocal] = useState<Record<string, string>>({});
   const [, startTransition] = useTransition();
 
   async function handleProbar() {
@@ -93,36 +97,68 @@ export default function SincronizarUI() {
     setMensaje(null);
 
     const items = Object.entries(productos)
-      .filter(([, v]) => v.seleccionado)
-      .map(([, v]) => ({
-        sku: v.sku.trim(),
-        nombre: v.nombre.trim(),
-        tipo: v.tipo,
-        gramaje_servicio_default:
-          v.tipo === "polvo" && v.gramaje ? Number(v.gramaje) : null,
-        precio_venta_default: v.precio ? Number(v.precio) : null,
-        notas: "Importado desde Nayax (Lynx)",
-      }));
+      .filter(([key, v]) => v.seleccionado && !vincularLocal[key])
+      .map(([key, v]) => {
+        const pn = snapshot.productos_nayax.find((x) => x.key === key);
+        return {
+          sku: v.sku.trim(),
+          nombre: v.nombre.trim(),
+          tipo: v.tipo,
+          gramaje_servicio_default:
+            v.tipo === "polvo" && v.gramaje ? Number(v.gramaje) : null,
+          precio_venta_default: v.precio ? Number(v.precio) : null,
+          notas: "Importado desde Nayax (Lynx)",
+          nayax_product_id: pn?.nayax_product_id ?? null,
+        };
+      });
 
-    if (items.length === 0) {
-      setError("Selecciona al menos un producto.");
+    // Vínculos de productos Nayax a productos locales existentes
+    const vinculos = Object.entries(vincularLocal)
+      .filter(([, productoLocalId]) => !!productoLocalId)
+      .map(([nayaxKey, productoLocalId]) => {
+        const pn = snapshot.productos_nayax.find((x) => x.key === nayaxKey);
+        if (!pn?.nayax_product_id) return null;
+        return { productoLocalId, nayaxProductId: pn.nayax_product_id };
+      })
+      .filter((x): x is NonNullable<typeof x> => !!x);
+
+    if (items.length === 0 && vinculos.length === 0) {
+      setError("Selecciona al menos un producto a crear o a vincular.");
       return;
     }
 
     setEstado("aplicando");
     startTransition(async () => {
-      const r = await autoCrearProductos({ items });
-      if (r.ok) {
-        setMensaje(r.message);
-        if (r.data?.errores && r.data.errores.length > 0) {
-          setError(`Errores: ${r.data.errores.join(" · ")}`);
+      let mensajes: string[] = [];
+      let errs: string[] = [];
+
+      if (items.length > 0) {
+        const r = await autoCrearProductos({ items });
+        if (r.ok) {
+          mensajes.push(r.message);
+          if (r.data?.errores) errs.push(...r.data.errores);
+        } else {
+          errs.push(r.message);
         }
-        const r2 = await obtenerSnapshot();
-        if (r2.ok && r2.data) setSnapshot(r2.data);
-      } else {
-        setError(r.message);
       }
+      if (vinculos.length > 0) {
+        const r = await vincularProductosExistentes({ vinculos });
+        if (r.ok) {
+          mensajes.push(r.message);
+          if (r.data?.errores) errs.push(...r.data.errores);
+        } else {
+          errs.push(r.message);
+        }
+      }
+
+      const r2 = await obtenerSnapshot();
+      if (r2.ok && r2.data) setSnapshot(r2.data);
+
+      if (mensajes.length > 0) setMensaje(mensajes.join(" · "));
+      if (errs.length > 0) setError(errs.join(" · "));
       setEstado("idle");
+      // Limpia vincular después de aplicar
+      setVincularLocal({});
     });
   }
 
@@ -265,6 +301,9 @@ export default function SincronizarUI() {
                       <th className="px-2 py-2 font-medium">Tipo</th>
                       <th className="px-2 py-2 font-medium">Gramaje (g)</th>
                       <th className="px-2 py-2 font-medium">Precio</th>
+                      <th className="px-2 py-2 font-medium">
+                        o vincular a local
+                      </th>
                       <th className="px-2 py-2 font-medium">Estado</th>
                     </tr>
                   </thead>
@@ -273,13 +312,15 @@ export default function SincronizarUI() {
                       const cfg = productos[pn.key];
                       if (!cfg) return null;
                       const yaExiste = !!pn.local_id;
+                      const vinculadoA = vincularLocal[pn.key] ?? "";
                       return (
                         <tr key={pn.key} className={yaExiste ? "bg-zinc-50" : ""}>
                           <td className="px-2 py-2">
                             {!yaExiste && (
                               <input
                                 type="checkbox"
-                                checked={cfg.seleccionado}
+                                checked={cfg.seleccionado && !vinculadoA}
+                                disabled={!!vinculadoA}
                                 onChange={(e) =>
                                   setProductos((prev) => ({
                                     ...prev,
@@ -392,11 +433,38 @@ export default function SincronizarUI() {
                               />
                             )}
                           </td>
+                          <td className="px-2 py-2">
+                            {!yaExiste && pn.nayax_product_id && (
+                              <select
+                                value={vinculadoA}
+                                onChange={(e) =>
+                                  setVincularLocal((prev) => ({
+                                    ...prev,
+                                    [pn.key]: e.target.value,
+                                  }))
+                                }
+                                className="w-44 rounded-md border border-zinc-300 px-2 py-1 text-xs"
+                              >
+                                <option value="">— crear nuevo —</option>
+                                {snapshot.productos_locales
+                                  .filter(
+                                    (pl) => pl.nayax_product_id == null,
+                                  )
+                                  .map((pl) => (
+                                    <option key={pl.id} value={pl.id}>
+                                      {pl.sku} · {pl.nombre}
+                                    </option>
+                                  ))}
+                              </select>
+                            )}
+                          </td>
                           <td className="px-2 py-2 text-xs">
                             {yaExiste ? (
                               <span className="inline-flex items-center gap-1 text-green-700">
                                 <Check className="h-3 w-3" /> ya existe
                               </span>
+                            ) : vinculadoA ? (
+                              <span className="text-blue-700">vincular</span>
                             ) : (
                               <span className="text-zinc-500">nuevo</span>
                             )}
@@ -413,7 +481,7 @@ export default function SincronizarUI() {
                 disabled={estado !== "idle"}
                 className="inline-flex items-center gap-2 rounded-md bg-purple-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-purple-800 disabled:opacity-60"
               >
-                Crear productos seleccionados
+                Crear/vincular productos seleccionados
               </button>
             </section>
           )}
