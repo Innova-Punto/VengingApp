@@ -99,15 +99,26 @@ async function lynxFetch<T>(
   path: string,
   init?: RequestInit,
 ): Promise<T> {
-  const res = await fetch(`${baseUrl()}${path}`, {
-    ...init,
-    headers: {
-      ...(init?.headers ?? {}),
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    cache: "no-store",
-  });
+  // Lynx acepta el token en header "Token" (no en Authorization: Bearer).
+  // Si retorna 401 con ese header, probamos Authorization: Bearer como fallback.
+  const tryFetch = async (headers: HeadersInit) => {
+    return fetch(`${baseUrl()}${path}`, {
+      ...init,
+      headers: {
+        ...(init?.headers ?? {}),
+        ...headers,
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    });
+  };
+
+  let res = await tryFetch({ Token: token });
+
+  // Fallback: si Token header no funciona, probar Bearer
+  if (res.status === 401) {
+    res = await tryFetch({ Authorization: `Bearer ${token}` });
+  }
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
