@@ -5,7 +5,7 @@ import { useFormState, useFormStatus } from "react-dom";
 
 import { actualizarReceta, crearReceta, type RecetaResult } from "./actions";
 
-const MAX_ITEMS = 16;
+const MAX_ITEMS = 30;
 
 type ItemConfig = {
   pa_code: string;
