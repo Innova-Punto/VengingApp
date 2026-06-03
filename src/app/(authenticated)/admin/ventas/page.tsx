@@ -1,0 +1,540 @@
+import { requireRole } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
+
+import VentasFilters from "./VentasFilters";
+import { IngresosPorDiaChart, MixMetodoPagoChart } from "./Charts";
+
+export const metadata = { title: "Ventas · MuscleUp" };
+
+type SearchParams = {
+  rango?: string;
+  desde?: string;
+  hasta?: string;
+  maquina?: string;
+  cliente?: string;
+  ubicacion?: string;
+  producto?: string;
+  metodo?: string;
+  utilidad?: "todas" | "negativas";
+  page?: string;
+};
+
+const PAGE_SIZE = 50;
+
+const RANGOS: Record<string, { label: string; dias: number }> = {
+  hoy: { label: "Hoy", dias: 1 },
+  "7d": { label: "Últimos 7 días", dias: 7 },
+  "30d": { label: "Últimos 30 días", dias: 30 },
+  "90d": { label: "Últimos 90 días", dias: 90 },
+};
+
+function rangoFechas(sp: SearchParams): { desde: Date; hasta: Date; label: string } {
+  if (sp.desde && sp.hasta) {
+    return {
+      desde: new Date(sp.desde),
+      hasta: new Date(sp.hasta),
+      label: "Personalizado",
+    };
+  }
+  const key = sp.rango ?? "hoy";
+  const r = RANGOS[key] ?? RANGOS["hoy"];
+  const hasta = new Date();
+  const desde =
+    key === "hoy"
+      ? new Date(new Date().setHours(0, 0, 0, 0))
+      : new Date(Date.now() - r.dias * 86400000);
+  return { desde, hasta, label: r.label };
+}
+
+function fmtMxn(n: number) {
+  return `$${n.toLocaleString("es-MX", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+export default async function VentasPage({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
+  await requireRole("admin", "direccion");
+  const supabase = createClient();
+
+  const { desde, hasta, label: rangoLabel } = rangoFechas(searchParams);
+  const desdeISO = desde.toISOString();
+  const hastaISO = hasta.toISOString();
+  const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
+  const offset = (page - 1) * PAGE_SIZE;
+  const utilidadFilter = searchParams.utilidad ?? "todas";
+
+  // Catálogos para los filtros
+  const [{ data: maquinasCat }, { data: productosCat }, { data: clientesCat }] =
+    await Promise.all([
+      supabase
+        .from("maquinas")
+        .select("id, serie, alias, ubicacion:ubicaciones(id, nombre, cliente:clientes(id, nombre))")
+        .eq("activo", true)
+        .order("alias"),
+      supabase
+        .from("productos")
+        .select("id, sku, nombre")
+        .eq("activo", true)
+        .order("nombre"),
+      supabase.from("clientes").select("id, nombre").eq("activo", true).order("nombre"),
+    ]);
+
+  // Query base de ventas con joins
+  let q = supabase
+    .from("ventas_maquina")
+    .select(
+      `id, fecha_transaccion, gramos_dispensados, precio_bruto,
+       comision_nayax_estimada, precio_neto, costo_polvo, costo_vaso,
+       utilidad_bruta, margen_porcentaje, metodo_pago, ticket_id_nayax,
+       maquina:maquinas(id, serie, alias,
+         ubicacion:ubicaciones(nombre, cliente:clientes(id, nombre))),
+       producto:productos(id, sku, nombre),
+       tolva:tolvas(numero)`,
+      { count: "exact" },
+    )
+    .gte("fecha_transaccion", desdeISO)
+    .lte("fecha_transaccion", hastaISO);
+
+  if (searchParams.maquina) q = q.eq("maquina_id", searchParams.maquina);
+  if (searchParams.producto) q = q.eq("producto_id", searchParams.producto);
+  if (searchParams.metodo) q = q.eq("metodo_pago", searchParams.metodo);
+  if (utilidadFilter === "negativas") q = q.lt("utilidad_bruta", 0);
+
+  const { data: ventas, count } = await q
+    .order("fecha_transaccion", { ascending: false })
+    .range(offset, offset + PAGE_SIZE - 1);
+
+  // KPIs y agregaciones requieren TODAS las ventas del rango (no paginadas).
+  let qAgg = supabase
+    .from("ventas_maquina")
+    .select(
+      `precio_neto, utilidad_bruta, margen_porcentaje, gramos_dispensados,
+       fecha_transaccion, metodo_pago, maquina_id, producto_id,
+       maquina:maquinas(serie, alias,
+         ubicacion:ubicaciones(cliente:clientes(id, nombre))),
+       producto:productos(sku, nombre)`,
+    )
+    .gte("fecha_transaccion", desdeISO)
+    .lte("fecha_transaccion", hastaISO);
+
+  if (searchParams.maquina) qAgg = qAgg.eq("maquina_id", searchParams.maquina);
+  if (searchParams.producto) qAgg = qAgg.eq("producto_id", searchParams.producto);
+  if (searchParams.metodo) qAgg = qAgg.eq("metodo_pago", searchParams.metodo);
+  if (utilidadFilter === "negativas") qAgg = qAgg.lt("utilidad_bruta", 0);
+
+  const { data: allVentas } = await qAgg;
+
+  // Filtros por cliente/ubicación se hacen en JS (no se pueden hacer por
+  // FK en la query Supabase v2 con joins sin RPC custom).
+  type AggRow = NonNullable<typeof allVentas>[number];
+  const filtraClienteUbicacion = (rows: AggRow[]) =>
+    rows.filter((v) => {
+      const maq = Array.isArray(v.maquina) ? v.maquina[0] : v.maquina;
+      const ubi = Array.isArray(maq?.ubicacion) ? maq?.ubicacion[0] : maq?.ubicacion;
+      const cli = Array.isArray(ubi?.cliente) ? ubi?.cliente[0] : ubi?.cliente;
+      if (searchParams.cliente && cli?.id !== searchParams.cliente) return false;
+      return true;
+    });
+
+  const aggFiltradas = filtraClienteUbicacion(allVentas ?? []);
+
+  // KPIs
+  const nVentas = aggFiltradas.length;
+  const ingresoNeto = aggFiltradas.reduce((s, v) => s + Number(v.precio_neto ?? 0), 0);
+  const utilidad = aggFiltradas.reduce((s, v) => s + Number(v.utilidad_bruta ?? 0), 0);
+  const gramos = aggFiltradas.reduce((s, v) => s + (v.gramos_dispensados ?? 0), 0);
+  const margenProm =
+    nVentas > 0
+      ? aggFiltradas.reduce((s, v) => s + Number(v.margen_porcentaje ?? 0), 0) / nVentas
+      : 0;
+  const ticketProm = nVentas > 0 ? ingresoNeto / nVentas : 0;
+
+  // Ingresos por día (últimos 30 puntos del rango activo)
+  const porDia = new Map<string, { ingresos: number; utilidad: number }>();
+  for (const v of aggFiltradas) {
+    const dia = new Date(v.fecha_transaccion).toISOString().slice(0, 10);
+    const cur = porDia.get(dia) ?? { ingresos: 0, utilidad: 0 };
+    cur.ingresos += Number(v.precio_neto ?? 0);
+    cur.utilidad += Number(v.utilidad_bruta ?? 0);
+    porDia.set(dia, cur);
+  }
+  const dataPorDia = Array.from(porDia.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([fecha, vals]) => ({ fecha, ...vals }));
+
+  // Top máquinas por ingreso
+  type TopRow = { key: string; label: string; sublabel?: string; ingresos: number; ventas: number; utilidad: number };
+  const porMaquina = new Map<string, TopRow>();
+  for (const v of aggFiltradas) {
+    const maq = Array.isArray(v.maquina) ? v.maquina[0] : v.maquina;
+    if (!maq) continue;
+    const key = maq.serie ?? v.maquina_id;
+    const cur =
+      porMaquina.get(key) ??
+      {
+        key,
+        label: maq.alias ?? maq.serie,
+        sublabel: `#${maq.serie}`,
+        ingresos: 0,
+        ventas: 0,
+        utilidad: 0,
+      };
+    cur.ingresos += Number(v.precio_neto ?? 0);
+    cur.utilidad += Number(v.utilidad_bruta ?? 0);
+    cur.ventas += 1;
+    porMaquina.set(key, cur);
+  }
+  const topMaquinas = Array.from(porMaquina.values())
+    .sort((a, b) => b.ingresos - a.ingresos)
+    .slice(0, 10);
+
+  // Top productos por ingreso
+  const porProducto = new Map<string, TopRow>();
+  for (const v of aggFiltradas) {
+    const prod = Array.isArray(v.producto) ? v.producto[0] : v.producto;
+    if (!prod) continue;
+    const key = prod.sku;
+    const cur =
+      porProducto.get(key) ??
+      { key, label: prod.nombre, sublabel: prod.sku, ingresos: 0, ventas: 0, utilidad: 0 };
+    cur.ingresos += Number(v.precio_neto ?? 0);
+    cur.utilidad += Number(v.utilidad_bruta ?? 0);
+    cur.ventas += 1;
+    porProducto.set(key, cur);
+  }
+  const topProductos = Array.from(porProducto.values())
+    .sort((a, b) => b.ingresos - a.ingresos)
+    .slice(0, 10);
+
+  // Mix por método de pago
+  const porMetodo = new Map<string, number>();
+  for (const v of aggFiltradas) {
+    const m = v.metodo_pago ?? "(sin método)";
+    porMetodo.set(m, (porMetodo.get(m) ?? 0) + Number(v.precio_neto ?? 0));
+  }
+  const mixMetodos = Array.from(porMetodo.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([metodo, valor]) => ({ metodo, valor }));
+
+  const totalPaginas = Math.max(1, Math.ceil((count ?? 0) / PAGE_SIZE));
+
+  // Métodos disponibles (para el filtro)
+  const metodosDisponibles = Array.from(
+    new Set((allVentas ?? []).map((v) => v.metodo_pago).filter(Boolean) as string[]),
+  ).sort();
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Ventas</h1>
+        <p className="text-sm text-zinc-600">
+          Análisis de ventas Nayax — {rangoLabel.toLowerCase()}.
+        </p>
+      </div>
+
+      <VentasFilters
+        rango={searchParams.rango ?? "hoy"}
+        maquina={searchParams.maquina ?? ""}
+        cliente={searchParams.cliente ?? ""}
+        producto={searchParams.producto ?? ""}
+        metodo={searchParams.metodo ?? ""}
+        utilidad={utilidadFilter}
+        maquinas={(maquinasCat ?? []).map((m) => ({
+          id: m.id,
+          label: `${m.alias ?? m.serie} (#${m.serie})`,
+        }))}
+        clientes={(clientesCat ?? []).map((c) => ({ id: c.id, label: c.nombre }))}
+        productos={(productosCat ?? []).map((p) => ({
+          id: p.id,
+          label: `${p.nombre} · ${p.sku}`,
+        }))}
+        metodos={metodosDisponibles}
+      />
+
+      {/* KPIs */}
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+        <Kpi label="Ventas" value={nVentas.toLocaleString("es-MX")} />
+        <Kpi label="Ingreso neto" value={fmtMxn(ingresoNeto)} />
+        <Kpi label="Utilidad" value={fmtMxn(utilidad)} tone="green" />
+        <Kpi
+          label="Margen promedio"
+          value={`${margenProm.toFixed(1)}%`}
+          tone={margenProm < 0 ? "red" : "green"}
+        />
+        <Kpi label="Ticket promedio" value={fmtMxn(ticketProm)} />
+        <Kpi label="Gramos" value={`${(gramos / 1000).toFixed(1)} kg`} />
+      </section>
+
+      {/* Gráficas */}
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="rounded-lg border border-zinc-200 bg-white p-4 lg:col-span-2">
+          <h3 className="text-sm font-semibold text-zinc-700">Ingresos por día</h3>
+          <IngresosPorDiaChart data={dataPorDia} />
+        </div>
+        <div className="rounded-lg border border-zinc-200 bg-white p-4">
+          <h3 className="text-sm font-semibold text-zinc-700">Mix método de pago</h3>
+          <MixMetodoPagoChart data={mixMetodos} />
+        </div>
+      </section>
+
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <TopTabla titulo="Top 10 máquinas" rows={topMaquinas} />
+        <TopTabla titulo="Top 10 productos" rows={topProductos} />
+      </section>
+
+      {/* Tabla detalle */}
+      <section className="space-y-2">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold tracking-tight">
+            Detalle ({(count ?? 0).toLocaleString("es-MX")} ventas)
+          </h2>
+          <span className="text-xs text-zinc-500">
+            Página {page} de {totalPaginas}
+          </span>
+        </div>
+        <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
+          <table className="w-full text-sm">
+            <thead className="border-b border-zinc-200 bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
+              <tr>
+                <th className="px-3 py-2 font-medium">Fecha</th>
+                <th className="px-3 py-2 font-medium">Máquina</th>
+                <th className="px-3 py-2 font-medium">Ubicación</th>
+                <th className="px-3 py-2 font-medium">Tolva</th>
+                <th className="px-3 py-2 font-medium">Producto</th>
+                <th className="px-3 py-2 text-right font-medium">g</th>
+                <th className="px-3 py-2 text-right font-medium">Bruto</th>
+                <th className="px-3 py-2 text-right font-medium">Comisión</th>
+                <th className="px-3 py-2 text-right font-medium">Neto</th>
+                <th className="px-3 py-2 text-right font-medium">Costo</th>
+                <th className="px-3 py-2 text-right font-medium">Utilidad</th>
+                <th className="px-3 py-2 text-right font-medium">Margen</th>
+                <th className="px-3 py-2 font-medium">Método</th>
+                <th className="px-3 py-2 font-medium">Ticket</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-100">
+              {(ventas ?? []).map((v) => {
+                const maq = Array.isArray(v.maquina) ? v.maquina[0] : v.maquina;
+                const prod = Array.isArray(v.producto) ? v.producto[0] : v.producto;
+                const tol = Array.isArray(v.tolva) ? v.tolva[0] : v.tolva;
+                const ubi = Array.isArray(maq?.ubicacion)
+                  ? maq?.ubicacion[0]
+                  : maq?.ubicacion;
+                const cli = Array.isArray(ubi?.cliente) ? ubi?.cliente[0] : ubi?.cliente;
+                const costo =
+                  Number(v.costo_polvo ?? 0) + Number(v.costo_vaso ?? 0);
+                const util = Number(v.utilidad_bruta ?? 0);
+                return (
+                  <tr key={v.id} className="hover:bg-zinc-50">
+                    <td className="px-3 py-2 text-xs text-zinc-700">
+                      {new Date(v.fecha_transaccion).toLocaleString("es-MX", {
+                        day: "2-digit",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="text-xs font-medium">
+                        {maq?.alias ?? "—"}
+                      </div>
+                      <div className="font-mono text-[10px] text-zinc-500">
+                        #{maq?.serie}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-xs">
+                      <div>{ubi?.nombre ?? "—"}</div>
+                      <div className="text-[10px] text-zinc-500">
+                        {cli?.nombre ?? "—"}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 font-mono text-xs">
+                      #{tol?.numero ?? "—"}
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="text-xs">{prod?.nombre ?? "—"}</div>
+                      <div className="font-mono text-[10px] text-zinc-500">
+                        {prod?.sku ?? "—"}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums text-xs">
+                      {v.gramos_dispensados}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {fmtMxn(Number(v.precio_bruto))}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums text-xs text-zinc-500">
+                      {fmtMxn(Number(v.comision_nayax_estimada))}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {fmtMxn(Number(v.precio_neto))}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums text-xs text-zinc-500">
+                      {fmtMxn(costo)}
+                    </td>
+                    <td
+                      className={`px-3 py-2 text-right tabular-nums font-medium ${
+                        util < 0 ? "text-red-700" : "text-green-700"
+                      }`}
+                    >
+                      {fmtMxn(util)}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums text-xs text-zinc-500">
+                      {v.margen_porcentaje != null ? `${v.margen_porcentaje}%` : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-xs">{v.metodo_pago ?? "—"}</td>
+                    <td className="px-3 py-2 font-mono text-[10px] text-zinc-500">
+                      {v.ticket_id_nayax ?? "—"}
+                    </td>
+                  </tr>
+                );
+              })}
+              {(ventas ?? []).length === 0 && (
+                <tr>
+                  <td colSpan={14} className="px-3 py-8 text-center text-sm text-zinc-500">
+                    Sin ventas en el período/filtros seleccionados.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Paginación simple */}
+        {totalPaginas > 1 && (
+          <PaginacionLinks searchParams={searchParams} page={page} totalPaginas={totalPaginas} />
+        )}
+      </section>
+    </div>
+  );
+}
+
+function Kpi({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone?: "green" | "red";
+}) {
+  const color =
+    tone === "green"
+      ? "text-green-700"
+      : tone === "red"
+        ? "text-red-700"
+        : "text-zinc-900";
+  return (
+    <div className="rounded-lg border border-zinc-200 bg-white p-3">
+      <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+        {label}
+      </div>
+      <div className={`mt-1 text-lg font-semibold tabular-nums ${color}`}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function TopTabla({
+  titulo,
+  rows,
+}: {
+  titulo: string;
+  rows: { key: string; label: string; sublabel?: string; ingresos: number; ventas: number; utilidad: number }[];
+}) {
+  return (
+    <div className="rounded-lg border border-zinc-200 bg-white p-4">
+      <h3 className="mb-2 text-sm font-semibold text-zinc-700">{titulo}</h3>
+      <table className="w-full text-sm">
+        <thead className="text-left text-xs uppercase tracking-wide text-zinc-500">
+          <tr>
+            <th className="py-1 font-medium">Concepto</th>
+            <th className="py-1 text-right font-medium">Ventas</th>
+            <th className="py-1 text-right font-medium">Ingreso</th>
+            <th className="py-1 text-right font-medium">Utilidad</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-zinc-100">
+          {rows.map((r) => (
+            <tr key={r.key}>
+              <td className="py-1.5">
+                <div className="text-xs font-medium">{r.label}</div>
+                {r.sublabel && (
+                  <div className="font-mono text-[10px] text-zinc-500">
+                    {r.sublabel}
+                  </div>
+                )}
+              </td>
+              <td className="py-1.5 text-right tabular-nums text-xs">
+                {r.ventas.toLocaleString("es-MX")}
+              </td>
+              <td className="py-1.5 text-right tabular-nums">{fmtMxn(r.ingresos)}</td>
+              <td
+                className={`py-1.5 text-right tabular-nums ${
+                  r.utilidad < 0 ? "text-red-700" : "text-green-700"
+                }`}
+              >
+                {fmtMxn(r.utilidad)}
+              </td>
+            </tr>
+          ))}
+          {rows.length === 0 && (
+            <tr>
+              <td colSpan={4} className="py-4 text-center text-xs text-zinc-500">
+                Sin datos.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function PaginacionLinks({
+  searchParams,
+  page,
+  totalPaginas,
+}: {
+  searchParams: SearchParams;
+  page: number;
+  totalPaginas: number;
+}) {
+  const buildHref = (p: number) => {
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(searchParams)) {
+      if (v && k !== "page") params.set(k, String(v));
+    }
+    params.set("page", String(p));
+    return `/admin/ventas?${params.toString()}`;
+  };
+  return (
+    <div className="flex justify-center gap-2 pt-2">
+      {page > 1 && (
+        <a
+          href={buildHref(page - 1)}
+          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs hover:bg-zinc-50"
+        >
+          ← Anterior
+        </a>
+      )}
+      <span className="rounded-md bg-zinc-100 px-3 py-1.5 text-xs text-zinc-700">
+        {page} / {totalPaginas}
+      </span>
+      {page < totalPaginas && (
+        <a
+          href={buildHref(page + 1)}
+          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs hover:bg-zinc-50"
+        >
+          Siguiente →
+        </a>
+      )}
+    </div>
+  );
+}

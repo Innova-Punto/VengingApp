@@ -68,6 +68,7 @@ const NAV_GROUPS: GroupDef[] = [
       { label: "Jornadas (auditoría)", href: "/admin/jornadas" },
       { label: "Incidencias", href: "/admin/incidencias" },
       { label: "Cierres mensuales", href: "/admin/cierres" },
+      { label: "Ventas", href: "/admin/ventas" },
       { label: "Nayax", href: "/admin/nayax" },
     ],
   },
