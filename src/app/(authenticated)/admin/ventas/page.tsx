@@ -8,7 +8,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 
 import VentasFilters from "./VentasFilters";
-import { IngresosPorDiaChart, MixMetodoPagoChart } from "./Charts";
+import { IngresosPorDiaChart, VentasPorClienteChart } from "./Charts";
 
 export const metadata = { title: "Ventas · MuscleUp" };
 
@@ -36,13 +36,21 @@ const RANGOS: Record<string, { label: string; dias: number }> = {
 
 function rangoFechas(sp: SearchParams): { desde: Date; hasta: Date; label: string } {
   if (sp.desde && sp.hasta) {
+    // Rangos personalizados (YYYY-MM-DD) en CDMX: desde 00:00 a 23:59 CDMX
     return {
-      desde: new Date(sp.desde),
-      hasta: new Date(sp.hasta),
+      desde: new Date(`${sp.desde}T00:00:00-06:00`),
+      hasta: new Date(`${sp.hasta}T23:59:59-06:00`),
       label: "Personalizado",
     };
   }
   const key = sp.rango ?? "hoy";
+  if (key === "ayer") {
+    const hoyInicio = startOfTodayCDMX();
+    const ayerInicio = new Date(hoyInicio);
+    ayerInicio.setUTCDate(ayerInicio.getUTCDate() - 1);
+    const ayerFin = new Date(hoyInicio.getTime() - 1);
+    return { desde: ayerInicio, hasta: ayerFin, label: "Ayer" };
+  }
   const r = RANGOS[key] ?? RANGOS["hoy"];
   const hasta = new Date();
   const desde =
@@ -104,6 +112,7 @@ export default async function VentasPage({
     .gte("fecha_transaccion", desdeISO)
     .lte("fecha_transaccion", hastaISO);
 
+  if (searchParams.cliente) q = q.eq("cliente_id", searchParams.cliente);
   if (searchParams.maquina) q = q.eq("maquina_id", searchParams.maquina);
   if (searchParams.producto) q = q.eq("producto_id", searchParams.producto);
   if (searchParams.metodo) q = q.eq("metodo_pago", searchParams.metodo);
@@ -118,35 +127,24 @@ export default async function VentasPage({
     .from("ventas_maquina")
     .select(
       `precio_bruto, comision_nayax_estimada, precio_neto, utilidad_bruta,
+       costo_polvo, costo_vaso,
        margen_porcentaje, gramos_dispensados,
-       fecha_transaccion, metodo_pago, maquina_id, producto_id,
-       maquina:maquinas(serie, alias,
-         ubicacion:ubicaciones(cliente:clientes(id, nombre))),
+       fecha_transaccion, metodo_pago, maquina_id, producto_id, cliente_id,
+       cliente:clientes(id, nombre),
+       maquina:maquinas(serie, alias),
        producto:productos(sku, nombre)`,
     )
     .gte("fecha_transaccion", desdeISO)
     .lte("fecha_transaccion", hastaISO);
 
+  if (searchParams.cliente) qAgg = qAgg.eq("cliente_id", searchParams.cliente);
   if (searchParams.maquina) qAgg = qAgg.eq("maquina_id", searchParams.maquina);
   if (searchParams.producto) qAgg = qAgg.eq("producto_id", searchParams.producto);
   if (searchParams.metodo) qAgg = qAgg.eq("metodo_pago", searchParams.metodo);
   if (utilidadFilter === "negativas") qAgg = qAgg.lt("utilidad_bruta", 0);
 
   const { data: allVentas } = await qAgg;
-
-  // Filtros por cliente/ubicación se hacen en JS (no se pueden hacer por
-  // FK en la query Supabase v2 con joins sin RPC custom).
-  type AggRow = NonNullable<typeof allVentas>[number];
-  const filtraClienteUbicacion = (rows: AggRow[]) =>
-    rows.filter((v) => {
-      const maq = Array.isArray(v.maquina) ? v.maquina[0] : v.maquina;
-      const ubi = Array.isArray(maq?.ubicacion) ? maq?.ubicacion[0] : maq?.ubicacion;
-      const cli = Array.isArray(ubi?.cliente) ? ubi?.cliente[0] : ubi?.cliente;
-      if (searchParams.cliente && cli?.id !== searchParams.cliente) return false;
-      return true;
-    });
-
-  const aggFiltradas = filtraClienteUbicacion(allVentas ?? []);
+  const aggFiltradas = allVentas ?? [];
 
   // KPIs
   const nVentas = aggFiltradas.length;
@@ -156,6 +154,8 @@ export default async function VentasPage({
     0,
   );
   const ventaBruta = aggFiltradas.reduce((s, v) => s + Number(v.precio_neto ?? 0), 0);
+  const costoPolvo = aggFiltradas.reduce((s, v) => s + Number(v.costo_polvo ?? 0), 0);
+  const costoVaso = aggFiltradas.reduce((s, v) => s + Number(v.costo_vaso ?? 0), 0);
   const utilidad = aggFiltradas.reduce((s, v) => s + Number(v.utilidad_bruta ?? 0), 0);
   const gramos = aggFiltradas.reduce((s, v) => s + (v.gramos_dispensados ?? 0), 0);
   const margenProm =
@@ -164,18 +164,28 @@ export default async function VentasPage({
       : 0;
   const ticketProm = nVentas > 0 ? ventaBruta / nVentas : 0;
 
-  // Ingresos por día (últimos 30 puntos del rango activo)
-  const porDia = new Map<string, { ingresos: number; utilidad: number }>();
+  // Ingresos por día (solo venta bruta)
+  const porDia = new Map<string, { ingresos: number }>();
   for (const v of aggFiltradas) {
     const dia = isoFechaCDMX(v.fecha_transaccion);
-    const cur = porDia.get(dia) ?? { ingresos: 0, utilidad: 0 };
+    const cur = porDia.get(dia) ?? { ingresos: 0 };
     cur.ingresos += Number(v.precio_neto ?? 0);
-    cur.utilidad += Number(v.utilidad_bruta ?? 0);
     porDia.set(dia, cur);
   }
   const dataPorDia = Array.from(porDia.entries())
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([fecha, vals]) => ({ fecha, ...vals }));
+
+  // Ventas por cliente
+  const porCliente = new Map<string, number>();
+  for (const v of aggFiltradas) {
+    const cli = Array.isArray(v.cliente) ? v.cliente[0] : v.cliente;
+    const nombre = cli?.nombre ?? "(sin cliente)";
+    porCliente.set(nombre, (porCliente.get(nombre) ?? 0) + Number(v.precio_neto ?? 0));
+  }
+  const dataPorCliente = Array.from(porCliente.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([cliente, valor]) => ({ cliente, valor }));
 
   // Top máquinas por ingreso
   type TopRow = { key: string; label: string; sublabel?: string; ingresos: number; ventas: number; utilidad: number };
@@ -221,16 +231,6 @@ export default async function VentasPage({
     .sort((a, b) => b.ingresos - a.ingresos)
     .slice(0, 10);
 
-  // Mix por método de pago
-  const porMetodo = new Map<string, number>();
-  for (const v of aggFiltradas) {
-    const m = v.metodo_pago ?? "(sin método)";
-    porMetodo.set(m, (porMetodo.get(m) ?? 0) + Number(v.precio_neto ?? 0));
-  }
-  const mixMetodos = Array.from(porMetodo.entries())
-    .sort((a, b) => b[1] - a[1])
-    .map(([metodo, valor]) => ({ metodo, valor }));
-
   const totalPaginas = Math.max(1, Math.ceil((count ?? 0) / PAGE_SIZE));
 
   // Métodos disponibles (para el filtro)
@@ -249,6 +249,8 @@ export default async function VentasPage({
 
       <VentasFilters
         rango={searchParams.rango ?? "hoy"}
+        desde={searchParams.desde ?? ""}
+        hasta={searchParams.hasta ?? ""}
         maquina={searchParams.maquina ?? ""}
         cliente={searchParams.cliente ?? ""}
         producto={searchParams.producto ?? ""}
@@ -287,8 +289,10 @@ export default async function VentasPage({
         <h2 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
           Operación
         </h2>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-7">
           <Kpi label="Ventas" value={nVentas.toLocaleString("es-MX")} />
+          <Kpi label="Costo polvo" value={fmtMxn(costoPolvo)} tone="red" />
+          <Kpi label="Costo vaso" value={fmtMxn(costoVaso)} tone="red" />
           <Kpi label="Utilidad" value={fmtMxn(utilidad)} tone="green" />
           <Kpi
             label="Margen promedio"
@@ -303,12 +307,12 @@ export default async function VentasPage({
       {/* Gráficas */}
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="rounded-lg border border-zinc-200 bg-white p-4 lg:col-span-2">
-          <h3 className="text-sm font-semibold text-zinc-700">Ingresos por día</h3>
+          <h3 className="text-sm font-semibold text-zinc-700">Venta bruta por día</h3>
           <IngresosPorDiaChart data={dataPorDia} />
         </div>
         <div className="rounded-lg border border-zinc-200 bg-white p-4">
-          <h3 className="text-sm font-semibold text-zinc-700">Mix método de pago</h3>
-          <MixMetodoPagoChart data={mixMetodos} />
+          <h3 className="text-sm font-semibold text-zinc-700">Ventas por cliente</h3>
+          <VentasPorClienteChart data={dataPorCliente} />
         </div>
       </section>
 
