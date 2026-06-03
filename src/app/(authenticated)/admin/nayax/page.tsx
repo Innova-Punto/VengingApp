@@ -83,7 +83,7 @@ export default async function NayaxPage() {
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label="Ventas 30d" value={nVentas30d.toLocaleString("es-MX")} />
         <Stat
-          label="Ingresos netos 30d"
+          label="Venta bruta 30d"
           value={`$${ingresos30d.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
         />
         <Stat
@@ -195,7 +195,7 @@ export default async function NayaxPage() {
                 <th className="px-3 py-2 font-medium">Máquina</th>
                 <th className="px-3 py-2 font-medium">Producto</th>
                 <th className="px-3 py-2 text-right font-medium">g</th>
-                <th className="px-3 py-2 text-right font-medium">Neto</th>
+                <th className="px-3 py-2 text-right font-medium">Venta bruta</th>
                 <th className="px-3 py-2 text-right font-medium">Util.</th>
                 <th className="px-3 py-2 text-right font-medium">Margen</th>
               </tr>
