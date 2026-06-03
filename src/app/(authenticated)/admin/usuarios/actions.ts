@@ -20,7 +20,7 @@ const VALID_ROLES: AppRole[] = [
 ];
 
 export type InviteResult =
-  | { ok: true; message: string }
+  | { ok: true; message: string; link?: string }
   | { ok: false; message: string };
 
 function appUrl(): string {
@@ -28,6 +28,28 @@ function appUrl(): string {
     process.env.NEXT_PUBLIC_APP_URL ||
     `${headers().get("x-forwarded-proto") ?? "http"}://${headers().get("host") ?? "localhost:3000"}`
   );
+}
+
+async function asignarPerfilYRoles(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  admin: any,
+  userId: string,
+  fullName: string,
+  phone: string | null,
+  roles: AppRole[],
+  createdBy: string,
+): Promise<string | null> {
+  await admin
+    .from("profiles")
+    .update({ full_name: fullName, phone })
+    .eq("id", userId);
+  const rolesRows = roles.map((role) => ({
+    user_id: userId,
+    role,
+    created_by: createdBy,
+  }));
+  const { error: rolesErr } = await admin.from("user_roles").insert(rolesRows);
+  return rolesErr?.message ?? null;
 }
 
 export async function invitarUsuario(
@@ -40,6 +62,7 @@ export async function invitarUsuario(
   const fullName = String(formData.get("full_name") ?? "").trim();
   const phone = String(formData.get("phone") ?? "").trim() || null;
   const roles = formData.getAll("roles").map(String) as AppRole[];
+  const soloLink = formData.get("solo_link") === "true";
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { ok: false, message: "Email inválido." };
@@ -56,11 +79,48 @@ export async function invitarUsuario(
   }
 
   const admin = createAdminClient();
+  const redirectTo = `${appUrl()}/auth/callback?next=/set-password`;
+
+  if (soloLink) {
+    // Bypass SMTP: genera el link sin mandar correo.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (admin.auth.admin as any).generateLink({
+      type: "invite",
+      email,
+      options: {
+        data: { full_name: fullName, phone },
+        redirectTo,
+      },
+    });
+    if (error || !data?.user) {
+      return {
+        ok: false,
+        message: error?.message ?? "No se pudo generar el link.",
+      };
+    }
+    const rolesErr = await asignarPerfilYRoles(
+      admin,
+      data.user.id,
+      fullName,
+      phone,
+      roles,
+      current.id,
+    );
+    if (rolesErr) return { ok: false, message: `Roles: ${rolesErr}` };
+
+    revalidatePath("/admin/usuarios");
+    return {
+      ok: true,
+      message:
+        "Link generado (no se envió correo). Cópialo y compártelo manualmente.",
+      link: data.properties?.action_link as string | undefined,
+    };
+  }
 
   const { data: invited, error: inviteErr } =
     await admin.auth.admin.inviteUserByEmail(email, {
       data: { full_name: fullName, phone },
-      redirectTo: `${appUrl()}/auth/callback?next=/set-password`,
+      redirectTo,
     });
 
   if (inviteErr || !invited.user) {
@@ -70,23 +130,15 @@ export async function invitarUsuario(
     };
   }
 
-  // El trigger handle_new_auth_user ya creó el profile. Asegúrate de que
-  // refleje el nombre/teléfono enviados (puede haber ganado el default).
-  await admin
-    .from("profiles")
-    .update({ full_name: fullName, phone })
-    .eq("id", invited.user.id);
-
-  // Asigna roles.
-  const rolesRows = roles.map((role) => ({
-    user_id: invited.user!.id,
-    role,
-    created_by: current.id,
-  }));
-  const { error: rolesErr } = await admin.from("user_roles").insert(rolesRows);
-  if (rolesErr) {
-    return { ok: false, message: `Roles: ${rolesErr.message}` };
-  }
+  const rolesErr = await asignarPerfilYRoles(
+    admin,
+    invited.user.id,
+    fullName,
+    phone,
+    roles,
+    current.id,
+  );
+  if (rolesErr) return { ok: false, message: `Roles: ${rolesErr}` };
 
   revalidatePath("/admin/usuarios");
   return { ok: true, message: `Invitación enviada a ${email}.` };
