@@ -192,7 +192,12 @@ export default async function EditarMaquinaPage({
         <div className="max-w-3xl rounded-lg border border-zinc-200 bg-white p-6">
           <MaquinaForm
             mode="editar"
-            maquina={maquina}
+            maquina={{
+              ...maquina,
+              tipo: (maquina.tipo === "preparado"
+                ? "preparado"
+                : "polvo_directo") as "polvo_directo" | "preparado",
+            }}
             ubicaciones={ubicaciones}
             vasos={vasos ?? []}
           />
@@ -257,10 +262,16 @@ export default async function EditarMaquinaPage({
           </p>
         </div>
 
-        <AplicarPlanograma maquinaId={maquina.id} planogramas={planogramas} />
-        <AplicarReceta maquinaId={maquina.id} recetas={recetas} />
+        {maquina.tipo === "preparado" ? (
+          <AplicarReceta maquinaId={maquina.id} recetas={recetas} />
+        ) : (
+          <AplicarPlanograma
+            maquinaId={maquina.id}
+            planogramas={planogramas}
+          />
+        )}
 
-        {tieneRecetas && (
+        {maquina.tipo === "preparado" && tieneRecetas && (
           <div className="rounded-lg border border-amber-200 bg-white p-4">
             <h3 className="mb-2 text-sm font-semibold text-amber-900">
               Bebidas configuradas en esta máquina ({(maquinaItems as MaquinaItemRow[]).length})
@@ -322,6 +333,7 @@ export default async function EditarMaquinaPage({
                   maquinaId={maquina.id}
                   tolva={t}
                   productos={productos ?? []}
+                  tipo={maquina.tipo as "polvo_directo" | "preparado"}
                 />
               ))}
               {(tolvas ?? []).length === 0 && (

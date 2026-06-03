@@ -29,6 +29,7 @@ type Maquina = {
   frecuencia_visita_dias: number;
   qr_codigo: string | null;
   estado: "operativa" | "mantenimiento" | "baja";
+  tipo: "polvo_directo" | "preparado";
   fecha_instalacion: string | null;
   notas: string | null;
   vaso_producto_id: string | null;
@@ -121,6 +122,20 @@ export default function MaquinaForm({
             <option value="operativa">Operativa</option>
             <option value="mantenimiento">Mantenimiento</option>
             <option value="baja">Baja</option>
+          </select>
+        </Field>
+
+        <Field
+          label="Tipo de máquina"
+          hint="Polvo directo: 1 tolva = 1 venta (Smart Fit). Preparado: 1 venta combina varias tolvas vía receta (café Planet Fitness)."
+        >
+          <select
+            name="tipo"
+            defaultValue={maquina?.tipo ?? "polvo_directo"}
+            className="input"
+          >
+            <option value="polvo_directo">Polvo directo (planograma)</option>
+            <option value="preparado">Preparado (receta)</option>
           </select>
         </Field>
 
