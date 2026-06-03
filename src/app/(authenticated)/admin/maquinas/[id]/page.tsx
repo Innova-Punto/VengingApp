@@ -8,6 +8,7 @@ import { duplicarMaquina } from "../actions";
 import MaquinaForm from "../MaquinaForm";
 import TolvaRow from "../TolvaRow";
 import AplicarPlanograma from "../AplicarPlanograma";
+import AplicarReceta from "../AplicarReceta";
 
 export const metadata = { title: "Editar máquina · MuscleUp" };
 
@@ -33,6 +34,8 @@ export default async function EditarMaquinaPage({
     { data: ubicacionesRaw },
     { data: planogramasRaw },
     { data: vasos },
+    { data: recetasRaw },
+    { data: maquinaItems },
   ] = await Promise.all([
     supabase
       .from("maquinas")
@@ -69,6 +72,23 @@ export default async function EditarMaquinaPage({
       .eq("activo", true)
       .eq("tipo", "vaso")
       .order("nombre"),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
+      .from("recetas")
+      .select("id, nombre, items:receta_items(id)")
+      .eq("activo", true)
+      .order("nombre"),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
+      .from("maquina_items")
+      .select(
+        `id, nayax_item_code, nombre, precio_venta,
+         ingredientes:maquina_item_ingredientes(
+           gramos, tolva:tolvas(numero)
+         )`,
+      )
+      .eq("maquina_id", params.id)
+      .order("nayax_item_code"),
   ]);
 
   if (error) {
@@ -95,6 +115,23 @@ export default async function EditarMaquinaPage({
     num_tolvas: p.num_tolvas,
     items_count: Array.isArray(p.items) ? p.items.length : 0,
   }));
+
+  const recetas = (recetasRaw ?? []).map(
+    (r: { id: string; nombre: string; items: { id: string }[] }) => ({
+      id: r.id,
+      nombre: r.nombre,
+      items_count: Array.isArray(r.items) ? r.items.length : 0,
+    }),
+  );
+
+  type MaquinaItemRow = {
+    id: string;
+    nayax_item_code: string;
+    nombre: string;
+    precio_venta: number | null;
+    ingredientes: { gramos: number; tolva: { numero: number } | { numero: number }[] | null }[];
+  };
+  const tieneRecetas = Array.isArray(maquinaItems) && maquinaItems.length > 0;
 
   const ubic = Array.isArray(maquina.ubicacion)
     ? maquina.ubicacion[0]
@@ -221,6 +258,54 @@ export default async function EditarMaquinaPage({
         </div>
 
         <AplicarPlanograma maquinaId={maquina.id} planogramas={planogramas} />
+        <AplicarReceta maquinaId={maquina.id} recetas={recetas} />
+
+        {tieneRecetas && (
+          <div className="rounded-lg border border-amber-200 bg-white p-4">
+            <h3 className="mb-2 text-sm font-semibold text-amber-900">
+              Bebidas configuradas en esta máquina ({(maquinaItems as MaquinaItemRow[]).length})
+            </h3>
+            <p className="mb-3 text-xs text-zinc-500">
+              Cuando llegue una venta de Nayax con uno de estos PA Codes, se
+              descontará proporcionalmente de las tolvas listadas.
+            </p>
+            <table className="w-full text-sm">
+              <thead className="text-left text-xs uppercase tracking-wide text-zinc-500">
+                <tr>
+                  <th className="px-2 py-1 font-medium">PA Code</th>
+                  <th className="px-2 py-1 font-medium">Bebida</th>
+                  <th className="px-2 py-1 text-right font-medium">Precio</th>
+                  <th className="px-2 py-1 font-medium">Ingredientes</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100">
+                {(maquinaItems as MaquinaItemRow[]).map((mi) => (
+                  <tr key={mi.id}>
+                    <td className="px-2 py-1 font-mono text-xs">
+                      {mi.nayax_item_code}
+                    </td>
+                    <td className="px-2 py-1 text-xs">{mi.nombre}</td>
+                    <td className="px-2 py-1 text-right tabular-nums text-xs">
+                      {mi.precio_venta != null
+                        ? `$${Number(mi.precio_venta).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                        : "—"}
+                    </td>
+                    <td className="px-2 py-1 text-xs text-zinc-700">
+                      {mi.ingredientes
+                        .map((ing) => {
+                          const tol = Array.isArray(ing.tolva)
+                            ? ing.tolva[0]
+                            : ing.tolva;
+                          return `Tolva #${tol?.numero ?? "?"}: ${ing.gramos}g`;
+                        })
+                        .join(" · ")}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
           <table className="w-full text-sm">
