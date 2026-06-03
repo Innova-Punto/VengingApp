@@ -1,5 +1,7 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 
 import {
@@ -37,6 +39,13 @@ export default function AplicarPlanograma({
   planogramas: PlanogramaOpt[];
 }) {
   const [state, action] = useFormState(aplicarPlanograma, initial);
+  const router = useRouter();
+
+  // Refrescar la página tras un apply exitoso para que las filas de tolva
+  // (componentes con defaultValue) muestren los productos recién asignados.
+  useEffect(() => {
+    if (state?.ok) router.refresh();
+  }, [state, router]);
 
   return (
     <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
