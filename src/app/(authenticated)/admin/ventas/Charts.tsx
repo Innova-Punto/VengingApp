@@ -5,7 +5,6 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  Legend,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -15,17 +14,19 @@ import {
 } from "recharts";
 
 const BRAND = "#1B3548";
-const ACCENT = "#38BDF8";
 
-const METODO_COLORS: Record<string, string> = {
-  VISA: "#1A1F71",
-  MASTERCARD: "#EB001B",
-  AMERICAN: "#016FD0",
-  EFECTIVO: "#16A34A",
-  CASH: "#16A34A",
-  CRYPTO: "#F7931A",
-  "(sin método)": "#94A3B8",
-};
+const CLIENTE_PALETTE = [
+  "#1B3548", // brand
+  "#38BDF8", // sky
+  "#16A34A", // green
+  "#F59E0B", // amber
+  "#A855F7", // purple
+  "#EC4899", // pink
+  "#0EA5E9",
+  "#84CC16",
+  "#F97316",
+  "#64748B",
+];
 
 function fmtMxnShort(n: number) {
   if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
@@ -33,19 +34,10 @@ function fmtMxnShort(n: number) {
   return `$${Math.round(n)}`;
 }
 
-function colorMetodo(metodo: string, fallbackIdx: number) {
-  const upper = metodo.toUpperCase();
-  for (const key in METODO_COLORS) {
-    if (upper.includes(key)) return METODO_COLORS[key];
-  }
-  const palette = ["#3B82F6", "#F59E0B", "#A855F7", "#EC4899", "#64748B"];
-  return palette[fallbackIdx % palette.length];
-}
-
 export function IngresosPorDiaChart({
   data,
 }: {
-  data: { fecha: string; ingresos: number; utilidad: number }[];
+  data: { fecha: string; ingresos: number }[];
 }) {
   if (data.length === 0) {
     return (
@@ -62,7 +54,6 @@ export function IngresosPorDiaChart({
           <XAxis
             dataKey="fecha"
             tickFormatter={(v) =>
-              // v ya viene como YYYY-MM-DD en CDMX, mostrar día/mes
               new Date(`${v}T12:00:00-06:00`).toLocaleDateString("es-MX", {
                 timeZone: "America/Mexico_City",
                 day: "2-digit",
@@ -73,10 +64,9 @@ export function IngresosPorDiaChart({
           />
           <YAxis tickFormatter={fmtMxnShort} tick={{ fontSize: 10, fill: "#71717A" }} />
           <Tooltip
-            formatter={(v, name) => [
-              `$${Number(v).toLocaleString("es-MX", { minimumFractionDigits: 2 })}`,
-              name === "ingresos" ? "Venta bruta" : "Utilidad",
-            ]}
+            formatter={(v) =>
+              `$${Number(v).toLocaleString("es-MX", { minimumFractionDigits: 2 })}`
+            }
             labelFormatter={(v) =>
               new Date(`${v}T12:00:00-06:00`).toLocaleDateString("es-MX", {
                 timeZone: "America/Mexico_City",
@@ -86,19 +76,17 @@ export function IngresosPorDiaChart({
               })
             }
           />
-          <Legend wrapperStyle={{ fontSize: 11 }} />
           <Bar dataKey="ingresos" fill={BRAND} name="Venta bruta" />
-          <Bar dataKey="utilidad" fill={ACCENT} name="Utilidad" />
         </BarChart>
       </ResponsiveContainer>
     </div>
   );
 }
 
-export function MixMetodoPagoChart({
+export function VentasPorClienteChart({
   data,
 }: {
-  data: { metodo: string; valor: number }[];
+  data: { cliente: string; valor: number }[];
 }) {
   if (data.length === 0) {
     return (
@@ -114,7 +102,7 @@ export function MixMetodoPagoChart({
           <Pie
             data={data}
             dataKey="valor"
-            nameKey="metodo"
+            nameKey="cliente"
             cx="50%"
             cy="50%"
             outerRadius={75}
@@ -125,7 +113,10 @@ export function MixMetodoPagoChart({
             style={{ fontSize: 10 }}
           >
             {data.map((entry, idx) => (
-              <Cell key={entry.metodo} fill={colorMetodo(entry.metodo, idx)} />
+              <Cell
+                key={entry.cliente}
+                fill={CLIENTE_PALETTE[idx % CLIENTE_PALETTE.length]}
+              />
             ))}
           </Pie>
           <Tooltip

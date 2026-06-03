@@ -1,12 +1,13 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 
 type Option = { id: string; label: string };
 
 const RANGOS = [
   { key: "hoy", label: "Hoy" },
+  { key: "ayer", label: "Ayer" },
   { key: "7d", label: "7 días" },
   { key: "30d", label: "30 días" },
   { key: "90d", label: "90 días" },
@@ -14,6 +15,8 @@ const RANGOS = [
 
 export default function VentasFilters({
   rango,
+  desde,
+  hasta,
   maquina,
   cliente,
   producto,
@@ -25,6 +28,8 @@ export default function VentasFilters({
   metodos,
 }: {
   rango: string;
+  desde: string;
+  hasta: string;
   maquina: string;
   cliente: string;
   producto: string;
@@ -38,6 +43,8 @@ export default function VentasFilters({
   const router = useRouter();
   const currentParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
+  const [desdeLocal, setDesdeLocal] = useState(desde);
+  const [hastaLocal, setHastaLocal] = useState(hasta);
 
   function update(key: string, value: string) {
     const params = new URLSearchParams(currentParams.toString());
@@ -47,27 +54,47 @@ export default function VentasFilters({
     startTransition(() => router.push(`/admin/ventas?${params.toString()}`));
   }
 
+  function setRangoPreset(key: string) {
+    const params = new URLSearchParams(currentParams.toString());
+    params.set("rango", key);
+    params.delete("desde");
+    params.delete("hasta");
+    params.delete("page");
+    startTransition(() => router.push(`/admin/ventas?${params.toString()}`));
+  }
+
+  function aplicarRangoCustom() {
+    if (!desdeLocal || !hastaLocal) return;
+    const params = new URLSearchParams(currentParams.toString());
+    params.delete("rango");
+    params.set("desde", desdeLocal);
+    params.set("hasta", hastaLocal);
+    params.delete("page");
+    startTransition(() => router.push(`/admin/ventas?${params.toString()}`));
+  }
+
   function clearAll() {
     startTransition(() => router.push("/admin/ventas?rango=hoy"));
   }
 
+  const isCustom = !!desde && !!hasta;
+
   return (
     <div className="rounded-lg border border-zinc-200 bg-white p-3">
       <div className="flex flex-wrap items-end gap-2">
-        {/* Rango */}
         <div className="flex flex-col">
           <label className="text-[10px] uppercase tracking-wide text-zinc-500">
             Rango
           </label>
-          <div className="mt-0.5 flex gap-1">
+          <div className="mt-0.5 flex flex-wrap gap-1">
             {RANGOS.map((r) => (
               <button
                 key={r.key}
                 type="button"
-                onClick={() => update("rango", r.key)}
+                onClick={() => setRangoPreset(r.key)}
                 disabled={isPending}
                 className={`rounded-md border px-2 py-1 text-xs ${
-                  rango === r.key
+                  !isCustom && rango === r.key
                     ? "border-brand bg-brand text-white"
                     : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
                 }`}
@@ -78,27 +105,39 @@ export default function VentasFilters({
           </div>
         </div>
 
-        {/* Máquina */}
-        <div className="flex min-w-[200px] flex-col">
+        <div className="flex flex-col">
           <label className="text-[10px] uppercase tracking-wide text-zinc-500">
-            Máquina
+            Rango personalizado
           </label>
-          <select
-            value={maquina}
-            onChange={(e) => update("maquina", e.target.value)}
-            disabled={isPending}
-            className="mt-0.5 rounded-md border border-zinc-300 px-2 py-1 text-xs shadow-sm"
-          >
-            <option value="">Todas</option>
-            {maquinas.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.label}
-              </option>
-            ))}
-          </select>
+          <div className="mt-0.5 flex items-center gap-1">
+            <input
+              type="date"
+              value={desdeLocal}
+              onChange={(e) => setDesdeLocal(e.target.value)}
+              className="rounded-md border border-zinc-300 px-2 py-1 text-xs"
+            />
+            <span className="text-xs text-zinc-400">→</span>
+            <input
+              type="date"
+              value={hastaLocal}
+              onChange={(e) => setHastaLocal(e.target.value)}
+              className="rounded-md border border-zinc-300 px-2 py-1 text-xs"
+            />
+            <button
+              type="button"
+              onClick={aplicarRangoCustom}
+              disabled={isPending || !desdeLocal || !hastaLocal}
+              className={`rounded-md border px-2 py-1 text-xs ${
+                isCustom
+                  ? "border-brand bg-brand text-white"
+                  : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
+              } disabled:opacity-50`}
+            >
+              Aplicar
+            </button>
+          </div>
         </div>
 
-        {/* Cliente */}
         <div className="flex min-w-[150px] flex-col">
           <label className="text-[10px] uppercase tracking-wide text-zinc-500">
             Cliente
@@ -118,7 +157,25 @@ export default function VentasFilters({
           </select>
         </div>
 
-        {/* Producto */}
+        <div className="flex min-w-[200px] flex-col">
+          <label className="text-[10px] uppercase tracking-wide text-zinc-500">
+            Máquina
+          </label>
+          <select
+            value={maquina}
+            onChange={(e) => update("maquina", e.target.value)}
+            disabled={isPending}
+            className="mt-0.5 rounded-md border border-zinc-300 px-2 py-1 text-xs shadow-sm"
+          >
+            <option value="">Todas</option>
+            {maquinas.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
         <div className="flex min-w-[200px] flex-col">
           <label className="text-[10px] uppercase tracking-wide text-zinc-500">
             Producto
@@ -138,7 +195,6 @@ export default function VentasFilters({
           </select>
         </div>
 
-        {/* Método */}
         <div className="flex min-w-[120px] flex-col">
           <label className="text-[10px] uppercase tracking-wide text-zinc-500">
             Método pago
@@ -158,7 +214,6 @@ export default function VentasFilters({
           </select>
         </div>
 
-        {/* Utilidad */}
         <div className="flex flex-col">
           <label className="text-[10px] uppercase tracking-wide text-zinc-500">
             Utilidad
