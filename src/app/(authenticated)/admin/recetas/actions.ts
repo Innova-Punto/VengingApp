@@ -19,7 +19,7 @@ type ParsedItem = {
   ingredientes: { tolva_numero: number; gramos: number }[];
 };
 
-const MAX_ITEMS = 16;
+const MAX_ITEMS = 30;
 
 function parseItems(
   formData: FormData,
