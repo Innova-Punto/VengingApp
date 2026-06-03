@@ -1,4 +1,10 @@
 import { requireRole } from "@/lib/auth";
+import {
+  fmtCDMXFechaHora,
+  isoFechaCDMX,
+  startOfNDaysAgoCDMX,
+  startOfTodayCDMX,
+} from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
 
 import VentasFilters from "./VentasFilters";
@@ -40,9 +46,7 @@ function rangoFechas(sp: SearchParams): { desde: Date; hasta: Date; label: strin
   const r = RANGOS[key] ?? RANGOS["hoy"];
   const hasta = new Date();
   const desde =
-    key === "hoy"
-      ? new Date(new Date().setHours(0, 0, 0, 0))
-      : new Date(Date.now() - r.dias * 86400000);
+    key === "hoy" ? startOfTodayCDMX() : startOfNDaysAgoCDMX(r.dias);
   return { desde, hasta, label: r.label };
 }
 
@@ -157,7 +161,7 @@ export default async function VentasPage({
   // Ingresos por día (últimos 30 puntos del rango activo)
   const porDia = new Map<string, { ingresos: number; utilidad: number }>();
   for (const v of aggFiltradas) {
-    const dia = new Date(v.fecha_transaccion).toISOString().slice(0, 10);
+    const dia = isoFechaCDMX(v.fecha_transaccion);
     const cur = porDia.get(dia) ?? { ingresos: 0, utilidad: 0 };
     cur.ingresos += Number(v.precio_neto ?? 0);
     cur.utilidad += Number(v.utilidad_bruta ?? 0);
@@ -332,12 +336,7 @@ export default async function VentasPage({
                 return (
                   <tr key={v.id} className="hover:bg-zinc-50">
                     <td className="px-3 py-2 text-xs text-zinc-700">
-                      {new Date(v.fecha_transaccion).toLocaleString("es-MX", {
-                        day: "2-digit",
-                        month: "short",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      {fmtCDMXFechaHora(v.fecha_transaccion)}
                     </td>
                     <td className="px-3 py-2">
                       <div className="text-xs font-medium">

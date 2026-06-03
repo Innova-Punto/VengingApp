@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { requireRole } from "@/lib/auth";
+import { fmtCDMXFechaHora } from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Errores Nayax · MuscleUp" };
@@ -223,12 +224,7 @@ export default async function ErroresNayaxPage() {
                     {g.count}
                   </td>
                   <td className="px-3 py-2 text-xs text-zinc-600">
-                    {g.ultimo_visto.toLocaleString("es-MX", {
-                      day: "2-digit",
-                      month: "short",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+                    {fmtCDMXFechaHora(g.ultimo_visto)}
                   </td>
                   <td className="px-3 py-2 text-xs text-zinc-700">
                     {g.sugerencia}
