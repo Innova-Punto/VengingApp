@@ -1463,6 +1463,77 @@ export type Database = {
           },
         ]
       }
+      maquina_item_ingredientes: {
+        Row: {
+          gramos: number
+          maquina_item_id: string
+          tolva_id: string
+        }
+        Insert: {
+          gramos: number
+          maquina_item_id: string
+          tolva_id: string
+        }
+        Update: {
+          gramos?: number
+          maquina_item_id?: string
+          tolva_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maquina_item_ingredientes_maquina_item_id_fkey"
+            columns: ["maquina_item_id"]
+            isOneToOne: false
+            referencedRelation: "maquina_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maquina_item_ingredientes_tolva_id_fkey"
+            columns: ["tolva_id"]
+            isOneToOne: false
+            referencedRelation: "tolvas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      maquina_items: {
+        Row: {
+          created_at: string
+          id: string
+          maquina_id: string
+          nayax_item_code: string
+          nombre: string
+          precio_venta: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          maquina_id: string
+          nayax_item_code: string
+          nombre: string
+          precio_venta?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          maquina_id?: string
+          nayax_item_code?: string
+          nombre?: string
+          precio_venta?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maquina_items_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "maquinas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       maquinas: {
         Row: {
           activo: boolean
@@ -1481,6 +1552,7 @@ export type Database = {
           proxima_calibracion_fecha: string | null
           qr_codigo: string | null
           serie: string
+          tipo: string
           ubicacion_id: string
           updated_at: string
           vaso_capacidad_max: number
@@ -1504,6 +1576,7 @@ export type Database = {
           proxima_calibracion_fecha?: string | null
           qr_codigo?: string | null
           serie: string
+          tipo?: string
           ubicacion_id: string
           updated_at?: string
           vaso_capacidad_max?: number
@@ -1527,6 +1600,7 @@ export type Database = {
           proxima_calibracion_fecha?: string | null
           qr_codigo?: string | null
           serie?: string
+          tipo?: string
           ubicacion_id?: string
           updated_at?: string
           vaso_capacidad_max?: number
@@ -2538,6 +2612,97 @@ export type Database = {
           },
         ]
       }
+      receta_item_ingredientes: {
+        Row: {
+          gramos: number
+          receta_item_id: string
+          tolva_numero: number
+        }
+        Insert: {
+          gramos: number
+          receta_item_id: string
+          tolva_numero: number
+        }
+        Update: {
+          gramos?: number
+          receta_item_id?: string
+          tolva_numero?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receta_item_ingredientes_receta_item_id_fkey"
+            columns: ["receta_item_id"]
+            isOneToOne: false
+            referencedRelation: "receta_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      receta_items: {
+        Row: {
+          created_at: string
+          id: string
+          nayax_item_code: string
+          nombre: string
+          precio_venta: number | null
+          receta_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nayax_item_code: string
+          nombre: string
+          precio_venta?: number | null
+          receta_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nayax_item_code?: string
+          nombre?: string
+          precio_venta?: number | null
+          receta_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receta_items_receta_id_fkey"
+            columns: ["receta_id"]
+            isOneToOne: false
+            referencedRelation: "recetas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recetas: {
+        Row: {
+          activo: boolean
+          created_at: string
+          descripcion: string | null
+          id: string
+          nombre: string
+          num_tolvas: number
+          updated_at: string
+        }
+        Insert: {
+          activo?: boolean
+          created_at?: string
+          descripcion?: string | null
+          id?: string
+          nombre: string
+          num_tolvas?: number
+          updated_at?: string
+        }
+        Update: {
+          activo?: boolean
+          created_at?: string
+          descripcion?: string | null
+          id?: string
+          nombre?: string
+          num_tolvas?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       reportes_cliente: {
         Row: {
           aprobado_por: string | null
@@ -3038,6 +3203,65 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      venta_ingredientes: {
+        Row: {
+          costo: number
+          created_at: string
+          gramos: number
+          id: string
+          producto_id: string | null
+          tolva_id: string
+          venta_id: string
+        }
+        Insert: {
+          costo?: number
+          created_at?: string
+          gramos: number
+          id?: string
+          producto_id?: string | null
+          tolva_id: string
+          venta_id: string
+        }
+        Update: {
+          costo?: number
+          created_at?: string
+          gramos?: number
+          id?: string
+          producto_id?: string | null
+          tolva_id?: string
+          venta_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venta_ingredientes_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: false
+            referencedRelation: "productos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venta_ingredientes_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: false
+            referencedRelation: "v_inventario_producto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venta_ingredientes_tolva_id_fkey"
+            columns: ["tolva_id"]
+            isOneToOne: false
+            referencedRelation: "tolvas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venta_ingredientes_venta_id_fkey"
+            columns: ["venta_id"]
+            isOneToOne: false
+            referencedRelation: "ventas_maquina"
             referencedColumns: ["id"]
           },
         ]

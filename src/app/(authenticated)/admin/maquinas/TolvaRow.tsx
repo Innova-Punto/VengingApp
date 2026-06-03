@@ -62,13 +62,16 @@ export default function TolvaRow({
   maquinaId,
   tolva,
   productos,
+  tipo,
 }: {
   maquinaId: string;
   tolva: Tolva;
   productos: Producto[];
+  tipo?: "polvo_directo" | "preparado";
 }) {
   const [state, action] = useFormState(actualizarTolva, initial);
   const productoActual = productos.find((p) => p.id === tolva.producto_id);
+  const esPreparado = tipo === "preparado";
 
   return (
     <tr className="align-top">
@@ -134,16 +137,18 @@ export default function TolvaRow({
             />
           </div>
 
-          <div className="w-32">
-            <label className="text-[10px] uppercase tracking-wide text-zinc-500">
-              Nayax code
-            </label>
-            <input
-              name="nayax_item_code"
-              defaultValue={tolva.nayax_item_code ?? ""}
-              className="mt-0.5 w-full rounded-md border border-zinc-300 px-2 py-1 text-sm shadow-sm focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900"
-            />
-          </div>
+          {!esPreparado && (
+            <div className="w-32">
+              <label className="text-[10px] uppercase tracking-wide text-zinc-500">
+                Nayax code
+              </label>
+              <input
+                name="nayax_item_code"
+                defaultValue={tolva.nayax_item_code ?? ""}
+                className="mt-0.5 w-full rounded-md border border-zinc-300 px-2 py-1 text-sm shadow-sm focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900"
+              />
+            </div>
+          )}
 
           <div className="flex w-44 flex-col">
             <div className="flex items-baseline justify-between text-[10px] uppercase tracking-wide text-zinc-500">
