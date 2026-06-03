@@ -62,7 +62,9 @@ export function IngresosPorDiaChart({
           <XAxis
             dataKey="fecha"
             tickFormatter={(v) =>
-              new Date(v).toLocaleDateString("es-MX", {
+              // v ya viene como YYYY-MM-DD en CDMX, mostrar día/mes
+              new Date(`${v}T12:00:00-06:00`).toLocaleDateString("es-MX", {
+                timeZone: "America/Mexico_City",
                 day: "2-digit",
                 month: "short",
               })
@@ -76,7 +78,8 @@ export function IngresosPorDiaChart({
               name === "ingresos" ? "Ingreso neto" : "Utilidad",
             ]}
             labelFormatter={(v) =>
-              new Date(v as string).toLocaleDateString("es-MX", {
+              new Date(`${v}T12:00:00-06:00`).toLocaleDateString("es-MX", {
+                timeZone: "America/Mexico_City",
                 weekday: "short",
                 day: "2-digit",
                 month: "short",

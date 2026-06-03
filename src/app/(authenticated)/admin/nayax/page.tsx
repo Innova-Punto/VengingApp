@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { requireRole } from "@/lib/auth";
+import { fmtCDMXFechaHora } from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Nayax · MuscleUp" };
@@ -138,12 +139,7 @@ export default async function NayaxPage() {
               {(logs ?? []).map((l) => (
                 <tr key={l.id}>
                   <td className="px-3 py-2 text-xs text-zinc-700">
-                    {new Date(l.inicio).toLocaleString("es-MX", {
-                      day: "2-digit",
-                      month: "short",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+                    {fmtCDMXFechaHora(l.inicio)}
                   </td>
                   <td className="px-3 py-2">
                     <span
@@ -214,12 +210,7 @@ export default async function NayaxPage() {
                 return (
                   <tr key={v.id} className="hover:bg-zinc-50">
                     <td className="px-3 py-2 text-xs text-zinc-700">
-                      {new Date(v.fecha_transaccion).toLocaleString("es-MX", {
-                        day: "2-digit",
-                        month: "short",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      {fmtCDMXFechaHora(v.fecha_transaccion)}
                     </td>
                     <td className="px-3 py-2">
                       <div className="font-mono text-xs">{maq?.serie}</div>
