@@ -117,7 +117,8 @@ export default async function VentasPage({
   let qAgg = supabase
     .from("ventas_maquina")
     .select(
-      `precio_neto, utilidad_bruta, margen_porcentaje, gramos_dispensados,
+      `precio_bruto, comision_nayax_estimada, precio_neto, utilidad_bruta,
+       margen_porcentaje, gramos_dispensados,
        fecha_transaccion, metodo_pago, maquina_id, producto_id,
        maquina:maquinas(serie, alias,
          ubicacion:ubicaciones(cliente:clientes(id, nombre))),
@@ -149,14 +150,19 @@ export default async function VentasPage({
 
   // KPIs
   const nVentas = aggFiltradas.length;
-  const ingresoNeto = aggFiltradas.reduce((s, v) => s + Number(v.precio_neto ?? 0), 0);
+  const ventaPublico = aggFiltradas.reduce((s, v) => s + Number(v.precio_bruto ?? 0), 0);
+  const comisionNayax = aggFiltradas.reduce(
+    (s, v) => s + Number(v.comision_nayax_estimada ?? 0),
+    0,
+  );
+  const ventaBruta = aggFiltradas.reduce((s, v) => s + Number(v.precio_neto ?? 0), 0);
   const utilidad = aggFiltradas.reduce((s, v) => s + Number(v.utilidad_bruta ?? 0), 0);
   const gramos = aggFiltradas.reduce((s, v) => s + (v.gramos_dispensados ?? 0), 0);
   const margenProm =
     nVentas > 0
       ? aggFiltradas.reduce((s, v) => s + Number(v.margen_porcentaje ?? 0), 0) / nVentas
       : 0;
-  const ticketProm = nVentas > 0 ? ingresoNeto / nVentas : 0;
+  const ticketProm = nVentas > 0 ? ventaBruta / nVentas : 0;
 
   // Ingresos por día (últimos 30 puntos del rango activo)
   const porDia = new Map<string, { ingresos: number; utilidad: number }>();
@@ -260,18 +266,38 @@ export default async function VentasPage({
         metodos={metodosDisponibles}
       />
 
-      {/* KPIs */}
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-        <Kpi label="Ventas" value={nVentas.toLocaleString("es-MX")} />
-        <Kpi label="Ingreso neto" value={fmtMxn(ingresoNeto)} />
-        <Kpi label="Utilidad" value={fmtMxn(utilidad)} tone="green" />
-        <Kpi
-          label="Margen promedio"
-          value={`${margenProm.toFixed(1)}%`}
-          tone={margenProm < 0 ? "red" : "green"}
-        />
-        <Kpi label="Ticket promedio" value={fmtMxn(ticketProm)} />
-        <Kpi label="Gramos" value={`${(gramos / 1000).toFixed(1)} kg`} />
+      {/* KPIs - desglose Nayax */}
+      <section className="space-y-2">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          Desglose Nayax
+        </h2>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <Kpi label="Venta al público" value={fmtMxn(ventaPublico)} />
+          <Kpi
+            label="Comisión Nayax (3.4% + IVA)"
+            value={fmtMxn(comisionNayax)}
+            tone="red"
+          />
+          <Kpi label="Venta bruta (neto en banco)" value={fmtMxn(ventaBruta)} tone="green" />
+        </div>
+      </section>
+
+      {/* KPIs - operación */}
+      <section className="space-y-2">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          Operación
+        </h2>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+          <Kpi label="Ventas" value={nVentas.toLocaleString("es-MX")} />
+          <Kpi label="Utilidad" value={fmtMxn(utilidad)} tone="green" />
+          <Kpi
+            label="Margen promedio"
+            value={`${margenProm.toFixed(1)}%`}
+            tone={margenProm < 0 ? "red" : "green"}
+          />
+          <Kpi label="Ticket promedio" value={fmtMxn(ticketProm)} />
+          <Kpi label="Gramos" value={`${(gramos / 1000).toFixed(1)} kg`} />
+        </div>
       </section>
 
       {/* Gráficas */}
@@ -311,9 +337,9 @@ export default async function VentasPage({
                 <th className="px-3 py-2 font-medium">Tolva</th>
                 <th className="px-3 py-2 font-medium">Producto</th>
                 <th className="px-3 py-2 text-right font-medium">g</th>
-                <th className="px-3 py-2 text-right font-medium">Bruto</th>
-                <th className="px-3 py-2 text-right font-medium">Comisión</th>
-                <th className="px-3 py-2 text-right font-medium">Neto</th>
+                <th className="px-3 py-2 text-right font-medium">Venta al público</th>
+                <th className="px-3 py-2 text-right font-medium">Comisión Nayax</th>
+                <th className="px-3 py-2 text-right font-medium">Venta bruta</th>
                 <th className="px-3 py-2 text-right font-medium">Costo</th>
                 <th className="px-3 py-2 text-right font-medium">Utilidad</th>
                 <th className="px-3 py-2 text-right font-medium">Margen</th>
@@ -455,7 +481,7 @@ function TopTabla({
           <tr>
             <th className="py-1 font-medium">Concepto</th>
             <th className="py-1 text-right font-medium">Ventas</th>
-            <th className="py-1 text-right font-medium">Ingreso</th>
+            <th className="py-1 text-right font-medium">Venta bruta</th>
             <th className="py-1 text-right font-medium">Utilidad</th>
           </tr>
         </thead>

@@ -75,7 +75,7 @@ export function IngresosPorDiaChart({
           <Tooltip
             formatter={(v, name) => [
               `$${Number(v).toLocaleString("es-MX", { minimumFractionDigits: 2 })}`,
-              name === "ingresos" ? "Ingreso neto" : "Utilidad",
+              name === "ingresos" ? "Venta bruta" : "Utilidad",
             ]}
             labelFormatter={(v) =>
               new Date(`${v}T12:00:00-06:00`).toLocaleDateString("es-MX", {
@@ -87,7 +87,7 @@ export function IngresosPorDiaChart({
             }
           />
           <Legend wrapperStyle={{ fontSize: 11 }} />
-          <Bar dataKey="ingresos" fill={BRAND} name="Ingreso neto" />
+          <Bar dataKey="ingresos" fill={BRAND} name="Venta bruta" />
           <Bar dataKey="utilidad" fill={ACCENT} name="Utilidad" />
         </BarChart>
       </ResponsiveContainer>
