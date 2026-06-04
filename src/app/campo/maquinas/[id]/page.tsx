@@ -168,37 +168,53 @@ export default async function MaquinaCampoPage({
   const tolvasPolvo = tolvas.filter((t) => t.producto_id !== null);
   type TolvaInfo = (typeof tolvasPolvo)[number];
 
-  // Surtido items con info derivada (qué tolvas son candidatas para cada producto).
-  // Solo incluye los que traen cartuchos; los puramente vaso se manejan abajo.
-  const surtidoItemsInfo = (surtidoItems ?? [])
-    .filter((si) => (si.cartuchos_entregados ?? 0) > 0)
-    .map((si) => {
-      const tolvasCandidatas = tolvasPolvo.filter(
-        (t: TolvaInfo) => t.producto_id === si.producto_id,
-      );
-      const prod = Array.isArray(si.producto) ? si.producto[0] : si.producto;
-      return {
+  // Surtido items con info derivada. Unifica:
+  //   - items de cartuchos (cada uno tiene tolvas_candidatas)
+  //   - items de vasos (sin tolva, se descuentan a nivel máquina)
+  // El LlenadoForm los renderiza igual visualmente.
+  type ItemInfo = {
+    id: string;
+    producto_id: string;
+    cartuchos_entregados: number;
+    encartuchado_id: string | null;
+    producto: { sku: string; nombre: string; tipo: string } | null;
+    tolvas_candidatas: { id: string; numero: number; gramaje_servicio: number | null }[];
+    es_vaso: boolean;
+  };
+  const surtidoItemsInfo: ItemInfo[] = (surtidoItems ?? []).flatMap((si): ItemInfo[] => {
+    const prod = Array.isArray(si.producto) ? si.producto[0] : si.producto;
+    const esVaso = prod?.tipo === "vaso";
+    if (esVaso) {
+      const item: ItemInfo = {
         id: si.id,
         producto_id: si.producto_id,
-        cartuchos_entregados: si.cartuchos_entregados,
-        encartuchado_id: si.encartuchado_id,
+        cartuchos_entregados: si.vasos_entregados ?? 0,
+        encartuchado_id: null,
         producto: prod,
-        tolvas_candidatas: tolvasCandidatas.map((t: TolvaInfo) => ({
-          id: t.id,
-          numero: t.numero,
-          gramaje_servicio: t.gramaje_servicio,
-        })),
+        tolvas_candidatas: [],
+        es_vaso: true,
       };
-    });
-
-  // Vasos a entregar en esta máquina (suma de surtido_items.vasos_entregados)
-  const vasosPlaneados = (surtidoItems ?? []).reduce(
-    (s, si) => s + (si.vasos_entregados ?? 0),
-    0,
-  );
-  const vasoProd = Array.isArray(maquina.vaso_producto)
-    ? maquina.vaso_producto[0]
-    : maquina.vaso_producto;
+      return [item];
+    }
+    if ((si.cartuchos_entregados ?? 0) === 0) return [];
+    const tolvasCandidatas = tolvasPolvo.filter(
+      (t: TolvaInfo) => t.producto_id === si.producto_id,
+    );
+    const item: ItemInfo = {
+      id: si.id,
+      producto_id: si.producto_id,
+      cartuchos_entregados: si.cartuchos_entregados,
+      encartuchado_id: si.encartuchado_id,
+      producto: prod,
+      tolvas_candidatas: tolvasCandidatas.map((t: TolvaInfo) => ({
+        id: t.id,
+        numero: t.numero,
+        gramaje_servicio: t.gramaje_servicio,
+      })),
+      es_vaso: false,
+    };
+    return [item];
+  });
 
   return (
     <div className="space-y-5">
@@ -318,14 +334,12 @@ export default async function MaquinaCampoPage({
                     {cierreActivo.periodo_anio}.
                   </div>
                 )}
-                {surtidoItemsInfo.length > 0 || vasosPlaneados > 0 ? (
+                {surtidoItemsInfo.length > 0 ? (
                   <LlenadoForm
                     checkInId={checkIn.id}
                     maquinaId={maquina.id}
                     asignacionId={asignacionId}
                     items={surtidoItemsInfo}
-                    vasosPlaneados={vasosPlaneados}
-                    vasoProductoNombre={vasoProd?.nombre ?? null}
                   />
                 ) : (
                   <CerrarSinLlenadoForm
