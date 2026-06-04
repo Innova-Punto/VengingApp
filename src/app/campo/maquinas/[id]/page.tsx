@@ -67,13 +67,14 @@ export default async function MaquinaCampoPage({
   const { data: maquina } = await supabase
     .from("maquinas")
     .select(
-      `id, serie, alias,
+      `id, serie, alias, vaso_producto_id, vaso_capacidad_max, vaso_inventario_actual,
        ubicacion:ubicaciones(nombre, lat, lng, cliente:clientes(nombre)),
        tolvas:tolvas(
          id, numero, producto_id, gramaje_servicio,
          inventario_actual_g, capacidad_max_g,
          producto:productos(sku, nombre)
-       )`,
+       ),
+       vaso_producto:productos!maquinas_vaso_producto_id_fkey(sku, nombre)`,
     )
     .eq("id", params.id)
     .maybeSingle();
@@ -101,12 +102,12 @@ export default async function MaquinaCampoPage({
     ? await supabase
         .from("surtido_items")
         .select(
-          `id, producto_id, cartuchos_entregados, encartuchado_id,
+          `id, producto_id, cartuchos_entregados, vasos_entregados, encartuchado_id,
            producto:productos(sku, nombre, tipo)`,
         )
         .eq("surtido_id", surtido.id)
         .eq("maquina_id", maquina.id)
-        .gt("cartuchos_entregados", 0)
+        .or("cartuchos_entregados.gt.0,vasos_entregados.gt.0")
     : { data: [] };
 
   // Check-in existente
@@ -115,7 +116,7 @@ export default async function MaquinaCampoPage({
     .select(
       `id, fecha_entrada, fecha_salida, lat, lng, metodo, foto_evidencia_url,
        llenado:llenados(
-         id, fecha,
+         id, fecha, vasos_planeados, vasos_cargados,
          items:llenado_items(
            id, tolva_id, cartuchos_planeados, cartuchos_cargados,
            gramos_cargados
@@ -167,25 +168,37 @@ export default async function MaquinaCampoPage({
   const tolvasPolvo = tolvas.filter((t) => t.producto_id !== null);
   type TolvaInfo = (typeof tolvasPolvo)[number];
 
-  // Surtido items con info derivada (qué tolvas son candidatas para cada producto)
-  const surtidoItemsInfo = (surtidoItems ?? []).map((si) => {
-    const tolvasCandidatas = tolvasPolvo.filter(
-      (t: TolvaInfo) => t.producto_id === si.producto_id,
-    );
-    const prod = Array.isArray(si.producto) ? si.producto[0] : si.producto;
-    return {
-      id: si.id,
-      producto_id: si.producto_id,
-      cartuchos_entregados: si.cartuchos_entregados,
-      encartuchado_id: si.encartuchado_id,
-      producto: prod,
-      tolvas_candidatas: tolvasCandidatas.map((t: TolvaInfo) => ({
-        id: t.id,
-        numero: t.numero,
-        gramaje_servicio: t.gramaje_servicio,
-      })),
-    };
-  });
+  // Surtido items con info derivada (qué tolvas son candidatas para cada producto).
+  // Solo incluye los que traen cartuchos; los puramente vaso se manejan abajo.
+  const surtidoItemsInfo = (surtidoItems ?? [])
+    .filter((si) => (si.cartuchos_entregados ?? 0) > 0)
+    .map((si) => {
+      const tolvasCandidatas = tolvasPolvo.filter(
+        (t: TolvaInfo) => t.producto_id === si.producto_id,
+      );
+      const prod = Array.isArray(si.producto) ? si.producto[0] : si.producto;
+      return {
+        id: si.id,
+        producto_id: si.producto_id,
+        cartuchos_entregados: si.cartuchos_entregados,
+        encartuchado_id: si.encartuchado_id,
+        producto: prod,
+        tolvas_candidatas: tolvasCandidatas.map((t: TolvaInfo) => ({
+          id: t.id,
+          numero: t.numero,
+          gramaje_servicio: t.gramaje_servicio,
+        })),
+      };
+    });
+
+  // Vasos a entregar en esta máquina (suma de surtido_items.vasos_entregados)
+  const vasosPlaneados = (surtidoItems ?? []).reduce(
+    (s, si) => s + (si.vasos_entregados ?? 0),
+    0,
+  );
+  const vasoProd = Array.isArray(maquina.vaso_producto)
+    ? maquina.vaso_producto[0]
+    : maquina.vaso_producto;
 
   return (
     <div className="space-y-5">
@@ -305,12 +318,14 @@ export default async function MaquinaCampoPage({
                     {cierreActivo.periodo_anio}.
                   </div>
                 )}
-                {surtidoItemsInfo.length > 0 ? (
+                {surtidoItemsInfo.length > 0 || vasosPlaneados > 0 ? (
                   <LlenadoForm
                     checkInId={checkIn.id}
                     maquinaId={maquina.id}
                     asignacionId={asignacionId}
                     items={surtidoItemsInfo}
+                    vasosPlaneados={vasosPlaneados}
+                    vasoProductoNombre={vasoProd?.nombre ?? null}
                   />
                 ) : (
                   <CerrarSinLlenadoForm
@@ -419,6 +434,18 @@ export default async function MaquinaCampoPage({
                   })}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {llenado && (llenado.vasos_planeados ?? 0) > 0 && (
+            <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
+              <div className="font-semibold uppercase tracking-wide">Vasos</div>
+              <div className="mt-1">
+                Planeado: {llenado.vasos_planeados} · Cargado:{" "}
+                <span className="font-semibold">
+                  {llenado.vasos_cargados ?? 0}
+                </span>
+              </div>
             </div>
           )}
         </div>

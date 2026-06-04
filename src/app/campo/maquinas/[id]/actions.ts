@@ -105,6 +105,10 @@ export async function registrarLlenado(
   const maquina_id = String(formData.get("maquina_id") ?? "");
   const itemsRaw = String(formData.get("items") ?? "[]");
   const notas = String(formData.get("notas") ?? "") || null;
+  const vasosCargadosRaw = formData.get("vasos_cargados");
+  const vasos_cargados = vasosCargadosRaw
+    ? Math.max(0, Number(vasosCargadosRaw) || 0)
+    : 0;
   const foto = formData.get("foto");
 
   if (!check_in_id) return { ok: false, message: "Falta check-in." };
@@ -140,6 +144,7 @@ export async function registrarLlenado(
     p_items: items,
     p_evidencia_url: foto_url,
     p_notas: notas,
+    p_vasos_cargados: vasos_cargados,
   });
 
   if (error) return { ok: false, message: error.message };

@@ -30,11 +30,15 @@ export default function LlenadoForm({
   maquinaId,
   asignacionId,
   items,
+  vasosPlaneados = 0,
+  vasoProductoNombre = null,
 }: {
   checkInId: string;
   maquinaId: string;
   asignacionId: string;
   items: Item[];
+  vasosPlaneados?: number;
+  vasoProductoNombre?: string | null;
 }) {
   const [lineas, setLineas] = useState<Record<string, Linea>>(() => {
     const init: Record<string, Linea> = {};
@@ -47,6 +51,7 @@ export default function LlenadoForm({
     }
     return init;
   });
+  const [vasosCargados, setVasosCargados] = useState<number>(vasosPlaneados);
   const [foto, setFoto] = useState<File | null>(null);
   const [notas, setNotas] = useState("");
   const [estado, setEstado] = useState<"idle" | "enviando" | "error">("idle");
@@ -84,6 +89,7 @@ export default function LlenadoForm({
       fd.set("asignacion_id", asignacionId);
       fd.set("maquina_id", maquinaId);
       fd.set("items", JSON.stringify(payload));
+      fd.set("vasos_cargados", String(vasosCargados));
       if (foto) fd.set("foto", foto);
       if (notas) fd.set("notas", notas);
       const r = await registrarLlenado(fd);
@@ -167,6 +173,43 @@ export default function LlenadoForm({
           );
         })}
       </div>
+
+      {vasosPlaneados > 0 && (
+        <div className="rounded-md border border-blue-200 bg-blue-50 p-3">
+          <div className="text-sm font-medium text-blue-900">
+            Vasos {vasoProductoNombre ? `(${vasoProductoNombre})` : ""}
+          </div>
+          <div className="mt-1 text-xs text-blue-800">
+            Planeado: {vasosPlaneados} vaso(s)
+          </div>
+          <div className="mt-2">
+            <label className="text-[10px] uppercase tracking-wide text-blue-900">
+              Cargados
+            </label>
+            <input
+              type="number"
+              min={0}
+              max={vasosPlaneados}
+              step={1}
+              value={vasosCargados}
+              onChange={(e) =>
+                setVasosCargados(
+                  Math.max(
+                    0,
+                    Math.min(vasosPlaneados, Number(e.target.value) || 0),
+                  ),
+                )
+              }
+              className="mt-0.5 w-full rounded-md border border-blue-300 bg-white px-2 py-1 text-right text-sm shadow-sm focus:border-blue-700 focus:outline-none"
+            />
+          </div>
+          {vasosCargados < vasosPlaneados && (
+            <p className="mt-1 text-[11px] text-amber-800">
+              {vasosPlaneados - vasosCargados} vaso(s) sin usar.
+            </p>
+          )}
+        </div>
+      )}
 
       <div>
         <label className="text-xs font-medium uppercase tracking-wide text-zinc-500">
