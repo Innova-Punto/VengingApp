@@ -105,6 +105,7 @@ export default async function VentasPage({
       `id, fecha_transaccion, gramos_dispensados, precio_bruto,
        comision_nayax_estimada, precio_neto, costo_polvo, costo_vaso,
        utilidad_bruta, margen_porcentaje, metodo_pago, ticket_id_nayax,
+       notas,
        maquina:maquinas(id, serie, alias,
          ubicacion:ubicaciones(nombre, cliente:clientes(id, nombre))),
        producto:productos(id, sku, nombre),
@@ -132,6 +133,7 @@ export default async function VentasPage({
        costo_polvo, costo_vaso,
        margen_porcentaje, gramos_dispensados,
        fecha_transaccion, metodo_pago, maquina_id, producto_id, cliente_id,
+       notas,
        cliente:clientes(id, nombre),
        maquina:maquinas(serie, alias),
        producto:productos(sku, nombre)`,
@@ -233,19 +235,32 @@ export default async function VentasPage({
   const porProducto = new Map<string, TopRow>();
   for (const v of aggFiltradas) {
     const prod = Array.isArray(v.producto) ? v.producto[0] : v.producto;
-    if (!prod || !v.producto_id) continue;
-    const key = prod.sku;
+
+    let key: string;
+    let label: string;
+    let sublabel: string;
+    let filterId: string;
+
+    if (prod && v.producto_id) {
+      // Venta de producto directo (polvo_directo)
+      key = prod.sku;
+      label = prod.nombre;
+      sublabel = prod.sku;
+      filterId = v.producto_id;
+    } else {
+      // Venta de receta (máquina preparado) — agrupar por nombre de bebida
+      const notas = (v.notas as string | null) ?? "";
+      const m = notas.match(/^Receta:\s*(.+)$/);
+      if (!m) continue; // sin producto ni receta identificable
+      key = `receta:${m[1]}`;
+      label = m[1];
+      sublabel = "receta";
+      filterId = ""; // no se puede filtrar por producto_id, queda sin link
+    }
+
     const cur =
       porProducto.get(key) ??
-      {
-        key,
-        label: prod.nombre,
-        sublabel: prod.sku,
-        ingresos: 0,
-        ventas: 0,
-        utilidad: 0,
-        filterId: v.producto_id,
-      };
+      { key, label, sublabel, ingresos: 0, ventas: 0, utilidad: 0, filterId };
     cur.ingresos += Number(v.precio_neto ?? 0);
     cur.utilidad += Number(v.utilidad_bruta ?? 0);
     cur.ventas += 1;
@@ -438,10 +453,31 @@ export default async function VentasPage({
                       #{tol?.numero ?? "—"}
                     </td>
                     <td className="px-3 py-2">
-                      <div className="text-xs">{prod?.nombre ?? "—"}</div>
-                      <div className="font-mono text-[10px] text-zinc-500">
-                        {prod?.sku ?? "—"}
-                      </div>
+                      {prod ? (
+                        <>
+                          <div className="text-xs">{prod.nombre}</div>
+                          <div className="font-mono text-[10px] text-zinc-500">
+                            {prod.sku}
+                          </div>
+                        </>
+                      ) : (
+                        // Venta de receta (máquina preparado) — el nombre de la
+                        // bebida vive en notas con prefijo "Receta: ".
+                        (() => {
+                          const notas =
+                            (v.notas as string | null) ?? "";
+                          const m = notas.match(/^Receta:\s*(.+)$/);
+                          const bebida = m ? m[1] : "—";
+                          return (
+                            <>
+                              <div className="text-xs">{bebida}</div>
+                              <div className="text-[10px] text-amber-700">
+                                receta
+                              </div>
+                            </>
+                          );
+                        })()
+                      )}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums text-xs">
                       {v.gramos_dispensados}
@@ -622,13 +658,22 @@ function TopTabla({
                 {fmtMxn(r.utilidad)}
               </td>
               <td className="py-1.5 text-right">
-                <a
-                  href={buildFilterHref(searchParams, filterParam, r.filterId)}
-                  className="text-xs font-medium text-blue-700 hover:underline"
-                  title={`Ver detalle de ${r.label}`}
-                >
-                  Ver detalle →
-                </a>
+                {r.filterId ? (
+                  <a
+                    href={buildFilterHref(searchParams, filterParam, r.filterId)}
+                    className="text-xs font-medium text-blue-700 hover:underline"
+                    title={`Ver detalle de ${r.label}`}
+                  >
+                    Ver detalle →
+                  </a>
+                ) : (
+                  <span
+                    className="text-xs text-zinc-400"
+                    title="Las ventas de receta no se pueden filtrar por producto"
+                  >
+                    —
+                  </span>
+                )}
               </td>
             </tr>
           ))}
