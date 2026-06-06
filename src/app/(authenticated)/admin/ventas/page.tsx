@@ -147,7 +147,9 @@ export default async function VentasPage({
   if (searchParams.metodo) qAgg = qAgg.eq("metodo_pago", searchParams.metodo);
   if (utilidadFilter === "negativas") qAgg = qAgg.lt("utilidad_bruta", 0);
 
-  const { data: allVentas } = await qAgg;
+  // Sin range Supabase limita a 1000 → KPIs y agregados quedan truncados.
+  // Subimos a 100k para que entren todas las ventas del rango.
+  const { data: allVentas } = await qAgg.range(0, 99999);
   const aggFiltradas = allVentas ?? [];
 
   // KPIs
