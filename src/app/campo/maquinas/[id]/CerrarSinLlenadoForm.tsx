@@ -2,6 +2,10 @@
 
 import { useState, useTransition } from "react";
 
+import CheckoutSheet, {
+  type CheckoutData,
+  validateCheckout,
+} from "./CheckoutSheet";
 import { cerrarVisitaSinLlenado } from "./actions";
 
 export default function CerrarSinLlenadoForm({
@@ -14,12 +18,26 @@ export default function CerrarSinLlenadoForm({
   maquinaId: string;
 }) {
   const [notas, setNotas] = useState("");
+  const [checkout, setCheckout] = useState<CheckoutData>({
+    foto: null,
+    nayax_ok: null,
+    maquina_limpia: null,
+    productos_ok: null,
+  });
   const [estado, setEstado] = useState<"idle" | "enviando" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
   function cerrar() {
     setError(null);
+
+    const checkoutErr = validateCheckout(checkout);
+    if (checkoutErr) {
+      setError(checkoutErr);
+      setEstado("error");
+      return;
+    }
+
     setEstado("enviando");
     startTransition(async () => {
       const r = await cerrarVisitaSinLlenado({
@@ -27,6 +45,10 @@ export default function CerrarSinLlenadoForm({
         asignacionId,
         maquinaId,
         notas: notas || null,
+        fotoSalida: checkout.foto,
+        checkoutNayaxOk: checkout.nayax_ok,
+        checkoutMaquinaLimpia: checkout.maquina_limpia,
+        checkoutProductosOk: checkout.productos_ok,
       });
       if (!r.ok) {
         setError(r.message);
@@ -52,6 +74,13 @@ export default function CerrarSinLlenadoForm({
         placeholder="Notas (opcional)"
         className="w-full rounded-md border border-zinc-300 px-2 py-1 text-sm shadow-sm focus:border-zinc-900 focus:outline-none"
       />
+
+      <CheckoutSheet
+        data={checkout}
+        onChange={(patch) => setCheckout((p) => ({ ...p, ...patch }))}
+        reportarIncidenciaHref={`/campo/maquinas/${maquinaId}?asignacion=${asignacionId}#incidencia`}
+      />
+
       <button
         type="button"
         onClick={cerrar}

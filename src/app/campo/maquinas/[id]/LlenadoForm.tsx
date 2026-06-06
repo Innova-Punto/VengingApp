@@ -2,6 +2,10 @@
 
 import { useState, useTransition } from "react";
 
+import CheckoutSheet, {
+  type CheckoutData,
+  validateCheckout,
+} from "./CheckoutSheet";
 import { registrarLlenado } from "./actions";
 
 type TolvaCandidata = {
@@ -50,6 +54,12 @@ export default function LlenadoForm({
   });
   const [foto, setFoto] = useState<File | null>(null);
   const [notas, setNotas] = useState("");
+  const [checkout, setCheckout] = useState<CheckoutData>({
+    foto: null,
+    nayax_ok: null,
+    maquina_limpia: null,
+    productos_ok: null,
+  });
   const [estado, setEstado] = useState<"idle" | "enviando" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
@@ -63,6 +73,14 @@ export default function LlenadoForm({
 
   function finalizar() {
     setError(null);
+
+    const checkoutErr = validateCheckout(checkout);
+    if (checkoutErr) {
+      setError(checkoutErr);
+      setEstado("error");
+      return;
+    }
+
     setEstado("enviando");
 
     // Separar items de cartucho (con tolva) y de vasos
@@ -102,6 +120,11 @@ export default function LlenadoForm({
       fd.set("vasos_cargados", String(vasosCargados));
       if (foto) fd.set("foto", foto);
       if (notas) fd.set("notas", notas);
+      // Checkout
+      if (checkout.foto) fd.set("foto_salida", checkout.foto);
+      fd.set("checkout_nayax_ok", String(checkout.nayax_ok));
+      fd.set("checkout_maquina_limpia", String(checkout.maquina_limpia));
+      fd.set("checkout_productos_ok", String(checkout.productos_ok));
       const r = await registrarLlenado(fd);
       if (!r.ok) {
         setError(r.message);
@@ -191,7 +214,7 @@ export default function LlenadoForm({
 
       <div>
         <label className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-          Foto evidencia (opcional)
+          Foto del llenado (opcional)
         </label>
         <input
           type="file"
@@ -213,6 +236,12 @@ export default function LlenadoForm({
           className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-1 text-sm shadow-sm focus:border-zinc-900 focus:outline-none"
         />
       </div>
+
+      <CheckoutSheet
+        data={checkout}
+        onChange={(patch) => setCheckout((p) => ({ ...p, ...patch }))}
+        reportarIncidenciaHref={`/campo/maquinas/${maquinaId}?asignacion=${asignacionId}#incidencia`}
+      />
 
       <button
         type="button"

@@ -197,6 +197,7 @@ export default async function EditarMaquinaPage({
               tipo: (maquina.tipo === "preparado"
                 ? "preparado"
                 : "polvo_directo") as "polvo_directo" | "preparado",
+              requiere_pesaje: (maquina as { requiere_pesaje?: boolean }).requiere_pesaje ?? false,
             }}
             ubicaciones={ubicaciones}
             vasos={vasos ?? []}
