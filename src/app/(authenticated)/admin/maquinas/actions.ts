@@ -32,6 +32,7 @@ type ParsedMaquina = {
   qr_codigo: string | null;
   estado: MaquinaEstado;
   tipo: "polvo_directo" | "preparado";
+  requiere_pesaje: boolean;
   fecha_instalacion: string | null;
   notas: string | null;
   vaso_producto_id: string | null;
@@ -56,6 +57,7 @@ function parseMaquina(
   const qr_codigo = String(formData.get("qr_codigo") ?? "").trim() || null;
   const estadoRaw = String(formData.get("estado") ?? "operativa");
   const tipoRaw = String(formData.get("tipo") ?? "polvo_directo");
+  const requiere_pesaje = formData.get("requiere_pesaje") === "true";
   const fechaInst =
     String(formData.get("fecha_instalacion") ?? "").trim() || null;
   const notas = String(formData.get("notas") ?? "").trim() || null;
@@ -123,6 +125,7 @@ function parseMaquina(
     qr_codigo,
     estado: estadoRaw,
     tipo: tipoRaw,
+    requiere_pesaje,
     fecha_instalacion: fechaInst,
     notas,
     vaso_producto_id: vasoProductoRaw,

@@ -30,6 +30,7 @@ type Maquina = {
   qr_codigo: string | null;
   estado: "operativa" | "mantenimiento" | "baja";
   tipo: "polvo_directo" | "preparado";
+  requiere_pesaje: boolean;
   fecha_instalacion: string | null;
   notas: string | null;
   vaso_producto_id: string | null;
@@ -137,6 +138,22 @@ export default function MaquinaForm({
             <option value="polvo_directo">Polvo directo (planograma)</option>
             <option value="preparado">Preparado (receta)</option>
           </select>
+        </Field>
+
+        <Field
+          label="Pesaje obligatorio cada visita"
+          hint="Marca esto si la máquina no tiene internet/Nayax. El operador estará obligado a pesar las tolvas antes de poder cerrar la visita."
+        >
+          <label className="mt-1 flex items-center gap-2 rounded-md border border-zinc-300 px-3 py-2">
+            <input
+              type="checkbox"
+              name="requiere_pesaje"
+              value="true"
+              defaultChecked={maquina?.requiere_pesaje ?? false}
+              className="h-4 w-4"
+            />
+            <span className="text-sm">Sí, esta máquina requiere pesaje siempre</span>
+          </label>
         </Field>
 
         <Field

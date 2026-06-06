@@ -354,10 +354,14 @@ export type Database = {
       check_ins: {
         Row: {
           asignacion_id: string
+          checkout_maquina_limpia: boolean | null
+          checkout_nayax_ok: boolean | null
+          checkout_productos_ok: boolean | null
           created_at: string
           fecha_entrada: string
           fecha_salida: string | null
           foto_evidencia_url: string | null
+          foto_salida_url: string | null
           id: string
           lat: number | null
           lng: number | null
@@ -372,10 +376,14 @@ export type Database = {
         }
         Insert: {
           asignacion_id: string
+          checkout_maquina_limpia?: boolean | null
+          checkout_nayax_ok?: boolean | null
+          checkout_productos_ok?: boolean | null
           created_at?: string
           fecha_entrada?: string
           fecha_salida?: string | null
           foto_evidencia_url?: string | null
+          foto_salida_url?: string | null
           id?: string
           lat?: number | null
           lng?: number | null
@@ -390,10 +398,14 @@ export type Database = {
         }
         Update: {
           asignacion_id?: string
+          checkout_maquina_limpia?: boolean | null
+          checkout_nayax_ok?: boolean | null
+          checkout_productos_ok?: boolean | null
           created_at?: string
           fecha_entrada?: string
           fecha_salida?: string | null
           foto_evidencia_url?: string | null
+          foto_salida_url?: string | null
           id?: string
           lat?: number | null
           lng?: number | null
@@ -1325,6 +1337,8 @@ export type Database = {
           maquina_id: string
           notas: string | null
           operador_id: string
+          vasos_cargados: number
+          vasos_planeados: number
         }
         Insert: {
           check_in_id: string
@@ -1335,6 +1349,8 @@ export type Database = {
           maquina_id: string
           notas?: string | null
           operador_id: string
+          vasos_cargados?: number
+          vasos_planeados?: number
         }
         Update: {
           check_in_id?: string
@@ -1345,6 +1361,8 @@ export type Database = {
           maquina_id?: string
           notas?: string | null
           operador_id?: string
+          vasos_cargados?: number
+          vasos_planeados?: number
         }
         Relationships: [
           {
@@ -1551,6 +1569,7 @@ export type Database = {
           num_tolvas: number
           proxima_calibracion_fecha: string | null
           qr_codigo: string | null
+          requiere_pesaje: boolean
           serie: string
           tipo: string
           ubicacion_id: string
@@ -1575,6 +1594,7 @@ export type Database = {
           num_tolvas?: number
           proxima_calibracion_fecha?: string | null
           qr_codigo?: string | null
+          requiere_pesaje?: boolean
           serie: string
           tipo?: string
           ubicacion_id: string
@@ -1599,6 +1619,7 @@ export type Database = {
           num_tolvas?: number
           proxima_calibracion_fecha?: string | null
           qr_codigo?: string | null
+          requiere_pesaje?: boolean
           serie?: string
           tipo?: string
           ubicacion_id?: string
@@ -3518,10 +3539,19 @@ export type Database = {
         Args: { p_cursor_desde?: string; p_cursor_hasta?: string }
         Returns: string
       }
-      op_cerrar_check_in_sin_llenado: {
-        Args: { p_check_in_id: string; p_notas?: string }
-        Returns: string
-      }
+      op_cerrar_check_in_sin_llenado:
+        | { Args: { p_check_in_id: string; p_notas?: string }; Returns: string }
+        | {
+            Args: {
+              p_check_in_id: string
+              p_checkout_maquina_limpia?: boolean
+              p_checkout_nayax_ok?: boolean
+              p_checkout_productos_ok?: boolean
+              p_foto_salida_url?: string
+              p_notas?: string
+            }
+            Returns: undefined
+          }
       op_check_in: {
         Args: {
           p_asignacion_id: string
@@ -3539,15 +3569,40 @@ export type Database = {
         Args: { p_asignacion_id: string; p_lat?: number; p_lng?: number }
         Returns: string
       }
-      op_registrar_llenado: {
-        Args: {
-          p_check_in_id: string
-          p_evidencia_url?: string
-          p_items: Json
-          p_notas?: string
-        }
-        Returns: string
-      }
+      op_registrar_llenado:
+        | {
+            Args: {
+              p_check_in_id: string
+              p_evidencia_url?: string
+              p_items: Json
+              p_notas?: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_check_in_id: string
+              p_evidencia_url?: string
+              p_items: Json
+              p_notas?: string
+              p_vasos_cargados?: number
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_check_in_id: string
+              p_checkout_maquina_limpia?: boolean
+              p_checkout_nayax_ok?: boolean
+              p_checkout_productos_ok?: boolean
+              p_evidencia_url?: string
+              p_foto_salida_url?: string
+              p_items: Json
+              p_notas?: string
+              p_vasos_cargados?: number
+            }
+            Returns: string
+          }
       op_registrar_pesaje_maquina: {
         Args: { p_check_in_id: string; p_items: Json; p_notas?: string }
         Returns: string

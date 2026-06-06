@@ -68,6 +68,7 @@ export default async function MaquinaCampoPage({
     .from("maquinas")
     .select(
       `id, serie, alias, vaso_producto_id, vaso_capacidad_max, vaso_inventario_actual,
+       requiere_pesaje,
        ubicacion:ubicaciones(nombre, lat, lng, cliente:clientes(nombre)),
        tolvas:tolvas(
          id, numero, producto_id, gramaje_servicio,
@@ -283,20 +284,35 @@ export default async function MaquinaCampoPage({
           </div>
 
           {(() => {
-            const requierePesaje =
-              !!cierreActivo &&
-              !pesajeExistente &&
-              tolvasPolvo.filter((t) => t.producto_id).length > 0;
+            const maquinaRequierePesaje =
+              (maquina as { requiere_pesaje?: boolean }).requiere_pesaje ?? false;
+            const tolvasConProducto = tolvasPolvo.filter(
+              (t) => t.producto_id,
+            ).length;
 
-            if (requierePesaje) {
+            // Caso especial: máquina con flag pero sin cierre activo
+            if (maquinaRequierePesaje && !cierreActivo && !pesajeExistente) {
+              return (
+                <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-900">
+                  ⚠ Esta máquina requiere pesaje en cada visita pero no hay
+                  cierre mensual abierto. Avisa a dirección para que abra el
+                  cierre antes de continuar.
+                </div>
+              );
+            }
+
+            // Si hay cierre activo (con o sin flag) y aún no se pesa
+            if (cierreActivo && !pesajeExistente && tolvasConProducto > 0) {
               return (
                 <>
                   <div className="rounded-md border border-blue-300 bg-blue-50 px-3 py-2 text-sm text-blue-900">
-                    📋 Hay un cierre mensual abierto ({String(
-                      cierreActivo.periodo_mes,
-                    ).padStart(2, "0")}/{cierreActivo.periodo_anio}). Debes
-                    pesar las tolvas <strong>antes</strong> de llenar o cerrar
-                    la visita.
+                    📋 Debes pesar las tolvas <strong>antes</strong> de llenar
+                    o cerrar la visita (cierre{" "}
+                    {String(cierreActivo.periodo_mes).padStart(2, "0")}/
+                    {cierreActivo.periodo_anio})
+                    {maquinaRequierePesaje
+                      ? " — esta máquina lo requiere siempre."
+                      : "."}
                   </div>
                   <PesajeForm
                     checkInId={checkIn.id}
