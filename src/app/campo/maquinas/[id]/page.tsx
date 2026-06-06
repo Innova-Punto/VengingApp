@@ -289,39 +289,36 @@ export default async function MaquinaCampoPage({
             const tolvasConProducto = tolvasPolvo.filter(
               (t) => t.producto_id,
             ).length;
+            const requierePesaje =
+              (!!cierreActivo || maquinaRequierePesaje) &&
+              !pesajeExistente &&
+              tolvasConProducto > 0;
 
-            // Caso especial: máquina con flag pero sin cierre activo
-            if (maquinaRequierePesaje && !cierreActivo && !pesajeExistente) {
-              return (
-                <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-900">
-                  ⚠ Esta máquina requiere pesaje en cada visita pero no hay
-                  cierre mensual abierto. Avisa a dirección para que abra el
-                  cierre antes de continuar.
-                </div>
-              );
-            }
-
-            // Si hay cierre activo (con o sin flag) y aún no se pesa
-            if (cierreActivo && !pesajeExistente && tolvasConProducto > 0) {
+            if (requierePesaje) {
               return (
                 <>
                   <div className="rounded-md border border-blue-300 bg-blue-50 px-3 py-2 text-sm text-blue-900">
                     📋 Debes pesar las tolvas <strong>antes</strong> de llenar
-                    o cerrar la visita (cierre{" "}
-                    {String(cierreActivo.periodo_mes).padStart(2, "0")}/
-                    {cierreActivo.periodo_anio})
+                    o cerrar la visita
+                    {cierreActivo
+                      ? ` (cierre ${String(cierreActivo.periodo_mes).padStart(2, "0")}/${cierreActivo.periodo_anio})`
+                      : ""}
                     {maquinaRequierePesaje
-                      ? " — esta máquina lo requiere siempre."
+                      ? " — esta máquina lo requiere en cada visita."
                       : "."}
                   </div>
                   <PesajeForm
                     checkInId={checkIn.id}
                     asignacionId={asignacionId}
                     maquinaId={maquina.id}
-                    cierrePeriodo={{
-                      mes: cierreActivo.periodo_mes,
-                      anio: cierreActivo.periodo_anio,
-                    }}
+                    cierrePeriodo={
+                      cierreActivo
+                        ? {
+                            mes: cierreActivo.periodo_mes,
+                            anio: cierreActivo.periodo_anio,
+                          }
+                        : null
+                    }
                     tolvas={tolvasPolvo
                       .filter((t) => t.producto_id)
                       .map((t) => {
