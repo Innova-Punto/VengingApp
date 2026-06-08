@@ -173,10 +173,16 @@ export default async function JornadaDetallePage({
   for (const t of tolvas ?? []) tolvaNumeroById.set(t.id, t.numero);
 
   // Para el botón "Nuevo error operativo"
-  const [{ data: operadores }, { data: rutasAll }] = await Promise.all([
-    supabase.from("profiles").select("id, full_name").order("full_name"),
-    supabase.from("rutas").select("id, nombre").order("nombre"),
-  ]);
+  const [{ data: operadores }, { data: rutasAll }, { data: maquinasAll }] =
+    await Promise.all([
+      supabase.from("profiles").select("id, full_name").order("full_name"),
+      supabase.from("rutas").select("id, nombre").order("nombre"),
+      supabase
+        .from("maquinas")
+        .select("id, serie, alias")
+        .eq("activo", true)
+        .order("serie"),
+    ]);
 
   // Totales
   let totalCartuchos = 0;
@@ -237,6 +243,11 @@ export default async function JornadaDetallePage({
             rutas={(rutasAll ?? []).map((r) => ({
               id: r.id,
               nombre: r.nombre,
+            }))}
+            maquinas={(maquinasAll ?? []).map((m) => ({
+              id: m.id,
+              serie: m.serie,
+              alias: m.alias,
             }))}
             prefill={{
               operador_id: jornada.operador_id,

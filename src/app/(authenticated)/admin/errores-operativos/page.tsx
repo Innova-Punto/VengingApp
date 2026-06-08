@@ -72,13 +72,16 @@ export default async function ErroresOperativosPage({
     .length;
 
   // Para los selects
-  const [{ data: operadores }, { data: rutas }] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("id, full_name")
-      .order("full_name"),
-    supabase.from("rutas").select("id, nombre").order("nombre"),
-  ]);
+  const [{ data: operadores }, { data: rutas }, { data: maquinas }] =
+    await Promise.all([
+      supabase.from("profiles").select("id, full_name").order("full_name"),
+      supabase.from("rutas").select("id, nombre").order("nombre"),
+      supabase
+        .from("maquinas")
+        .select("id, serie, alias")
+        .eq("activo", true)
+        .order("serie"),
+    ]);
 
   return (
     <div className="space-y-6">
@@ -99,6 +102,11 @@ export default async function ErroresOperativosPage({
             full_name: o.full_name ?? "",
           }))}
           rutas={(rutas ?? []).map((r) => ({ id: r.id, nombre: r.nombre }))}
+          maquinas={(maquinas ?? []).map((m) => ({
+            id: m.id,
+            serie: m.serie,
+            alias: m.alias,
+          }))}
         />
       </div>
 
