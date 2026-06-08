@@ -1071,6 +1071,103 @@ export type Database = {
           },
         ]
       }
+      errores_operativos: {
+        Row: {
+          asignacion_id: string | null
+          created_at: string
+          descripcion: string | null
+          estado: Database["public"]["Enums"]["error_op_estado"]
+          fecha: string
+          id: string
+          levantado_por: string
+          maquina_id: string | null
+          motivo: Database["public"]["Enums"]["error_op_motivo"]
+          nota_resolucion: string | null
+          operador_id: string
+          resuelto_at: string | null
+          resuelto_por: string | null
+          ruta_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          asignacion_id?: string | null
+          created_at?: string
+          descripcion?: string | null
+          estado?: Database["public"]["Enums"]["error_op_estado"]
+          fecha?: string
+          id?: string
+          levantado_por: string
+          maquina_id?: string | null
+          motivo: Database["public"]["Enums"]["error_op_motivo"]
+          nota_resolucion?: string | null
+          operador_id: string
+          resuelto_at?: string | null
+          resuelto_por?: string | null
+          ruta_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          asignacion_id?: string | null
+          created_at?: string
+          descripcion?: string | null
+          estado?: Database["public"]["Enums"]["error_op_estado"]
+          fecha?: string
+          id?: string
+          levantado_por?: string
+          maquina_id?: string | null
+          motivo?: Database["public"]["Enums"]["error_op_motivo"]
+          nota_resolucion?: string | null
+          operador_id?: string
+          resuelto_at?: string | null
+          resuelto_por?: string | null
+          ruta_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "errores_operativos_asignacion_id_fkey"
+            columns: ["asignacion_id"]
+            isOneToOne: false
+            referencedRelation: "asignaciones_diarias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "errores_operativos_levantado_por_fkey"
+            columns: ["levantado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "errores_operativos_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "maquinas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "errores_operativos_operador_id_fkey"
+            columns: ["operador_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "errores_operativos_resuelto_por_fkey"
+            columns: ["resuelto_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "errores_operativos_ruta_id_fkey"
+            columns: ["ruta_id"]
+            isOneToOne: false
+            referencedRelation: "rutas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       incidencias: {
         Row: {
           autorizada_por: string | null
@@ -3690,6 +3787,14 @@ export type Database = {
         | "pendiente_devolucion"
         | "recibida_ok"
         | "recibida_con_diferencia"
+      error_op_estado: "abierto" | "resuelto" | "descartado"
+      error_op_motivo:
+        | "omision_carga"
+        | "omision_llenado"
+        | "no_registro_visita"
+        | "llegada_tarde"
+        | "carga_destiempo"
+        | "maquina_error_post_visita"
       excepcion_motivo:
         | "ausencia_operador"
         | "emergencia"
@@ -3897,6 +4002,15 @@ export const Constants = {
         "pendiente_devolucion",
         "recibida_ok",
         "recibida_con_diferencia",
+      ],
+      error_op_estado: ["abierto", "resuelto", "descartado"],
+      error_op_motivo: [
+        "omision_carga",
+        "omision_llenado",
+        "no_registro_visita",
+        "llegada_tarde",
+        "carga_destiempo",
+        "maquina_error_post_visita",
       ],
       excepcion_motivo: [
         "ausencia_operador",

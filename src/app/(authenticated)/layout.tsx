@@ -73,6 +73,11 @@ const NAV_GROUPS: GroupDef[] = [
         href: "/admin/incidencias",
         roles: ["admin", "direccion"],
       },
+      {
+        label: "Errores operativos",
+        href: "/admin/errores-operativos",
+        roles: ["admin", "direccion"],
+      },
     ],
   },
   {

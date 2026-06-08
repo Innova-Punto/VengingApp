@@ -5,6 +5,8 @@ import { requireRole } from "@/lib/auth";
 import { fmtCDMX } from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
 
+import { NuevoErrorButton } from "../../errores-operativos/NuevoErrorButton";
+
 export const metadata = { title: "Detalle jornada · MuscleUp" };
 
 const ESTADO_BADGE: Record<string, string> = {
@@ -47,9 +49,10 @@ export default async function JornadaDetallePage({
     .from("jornadas")
     .select(
       `id, hora_inicio, lat_inicio, lng_inicio, hora_ultima_actividad,
+       operador_id,
        asignacion:asignaciones_diarias!jornadas_asignacion_id_fkey(
          id, fecha, estado,
-         ruta:rutas(nombre, color_hex)
+         ruta:rutas(id, nombre, color_hex)
        ),
        operador:profiles!jornadas_operador_id_fkey(full_name)`,
     )
@@ -169,6 +172,12 @@ export default async function JornadaDetallePage({
   const tolvaNumeroById = new Map<string, number>();
   for (const t of tolvas ?? []) tolvaNumeroById.set(t.id, t.numero);
 
+  // Para el botón "Nuevo error operativo"
+  const [{ data: operadores }, { data: rutasAll }] = await Promise.all([
+    supabase.from("profiles").select("id, full_name").order("full_name"),
+    supabase.from("rutas").select("id, nombre").order("nombre"),
+  ]);
+
   // Totales
   let totalCartuchos = 0;
   let totalGramos = 0;
@@ -220,6 +229,23 @@ export default async function JornadaDetallePage({
           >
             {asig?.estado}
           </span>
+          <NuevoErrorButton
+            operadores={(operadores ?? []).map((o) => ({
+              id: o.id,
+              full_name: o.full_name ?? "",
+            }))}
+            rutas={(rutasAll ?? []).map((r) => ({
+              id: r.id,
+              nombre: r.nombre,
+            }))}
+            prefill={{
+              operador_id: jornada.operador_id,
+              ruta_id: ruta?.id,
+              asignacion_id: asig?.id,
+            }}
+            variant="outline"
+            label="+ Error operativo"
+          />
         </div>
       </div>
 
