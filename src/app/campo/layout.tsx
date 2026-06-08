@@ -1,3 +1,4 @@
+import { HelpCircle } from "lucide-react";
 import Link from "next/link";
 
 import { requireRole } from "@/lib/auth";
@@ -24,6 +25,13 @@ export default async function CampoLayout({
             </span>
           </Link>
           <div className="flex items-center gap-2">
+            <Link
+              href="/campo/ayuda"
+              className="flex h-7 w-7 items-center justify-center rounded-md border border-white/30 bg-white/10 text-white active:bg-white/20"
+              title="Manual del operador"
+            >
+              <HelpCircle className="h-4 w-4" />
+            </Link>
             <div className="text-right text-xs leading-tight">
               <div className="font-medium text-white">{user.fullName}</div>
               <div className="text-white/70">operador</div>
