@@ -201,6 +201,7 @@ async function handleGET(request: Request) {
 
       // Por cada producto en Products[] (multivend)
       let allOkOrDup = true;
+      let archivado = false;
       for (const prod of productos) {
         const paCode = prod["Product PA Code"];
         if (!paCode) {
@@ -209,7 +210,20 @@ async function handleGET(request: Request) {
             transaction_id: transactionId,
             error: "Producto sin PA Code",
           });
-          allOkOrDup = false;
+          // Archivar el payload completo UNA sola vez por mensaje, para
+          // que podamos auditar si era una venta real o un evento de máquina.
+          // El mensaje se borra de la cola (no es retryable: la data ya
+          // venía incompleta).
+          if (!archivado) {
+            await supabaseAny.from("nayax_mensajes_descartados").insert({
+              sqs_message_id: msg.MessageId ?? null,
+              transaction_id: transactionId,
+              machine_id: machineId,
+              motivo: "Producto sin PA Code",
+              payload,
+            });
+            archivado = true;
+          }
           continue;
         }
         const precioBruto = parseNumber(prod["Product Bruto"]);
