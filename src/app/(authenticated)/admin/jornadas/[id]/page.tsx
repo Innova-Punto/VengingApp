@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { requireRole } from "@/lib/auth";
+import { fmtCDMX } from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Detalle jornada · MuscleUp" };
@@ -124,12 +125,39 @@ export default async function JornadaDetallePage({
     devoluPorItem.set(d.llenado_item_id, d);
   }
 
-  // Tolvas para mapear numero
+  // Pesajes hechos por el operador en esta jornada (por check_in)
+  const checkInIds = (checkIns ?? []).map((ci) => ci.id);
+  const { data: pesajes } =
+    checkInIds.length > 0
+      ? await supabase
+          .from("pesajes_maquina")
+          .select(
+            `id, check_in_id, fecha, notas,
+             items:pesaje_tolva_items(
+               id, tolva_id, gramos_medidos, gramos_teoricos,
+               diferencia_gramos, diferencia_porcentaje,
+               valor_diferencia, alerta_generada
+             )`,
+          )
+          .in("check_in_id", checkInIds)
+      : { data: [] };
+
+  const pesajePorCheckIn = new Map<
+    string,
+    NonNullable<typeof pesajes>[number]
+  >();
+  for (const p of pesajes ?? []) pesajePorCheckIn.set(p.check_in_id, p);
+
+  // Tolvas para mapear numero (incluye tolvas de pesajes)
   const tolvaIds: string[] = [];
   for (const ci of checkIns ?? []) {
     const lle = Array.isArray(ci.llenado) ? ci.llenado[0] : ci.llenado;
     const items = lle && Array.isArray(lle.items) ? lle.items : [];
     for (const li of items) tolvaIds.push(li.tolva_id);
+  }
+  for (const p of pesajes ?? []) {
+    const items = Array.isArray(p.items) ? p.items : [];
+    for (const it of items) tolvaIds.push(it.tolva_id);
   }
   const { data: tolvas } =
     tolvaIds.length > 0
@@ -179,7 +207,7 @@ export default async function JornadaDetallePage({
             </h1>
             <p className="text-sm text-zinc-600">
               {op?.full_name ?? "—"} · inicio{" "}
-              {new Date(jornada.hora_inicio).toLocaleTimeString("es-MX", {
+              {fmtCDMX(jornada.hora_inicio, {
                 hour: "2-digit",
                 minute: "2-digit",
               })}
@@ -233,6 +261,9 @@ export default async function JornadaDetallePage({
             const lle = Array.isArray(ci.llenado) ? ci.llenado[0] : ci.llenado;
             const items = lle && Array.isArray(lle.items) ? lle.items : [];
             const incs = Array.isArray(ci.incidencias) ? ci.incidencias : [];
+            const pesaje = pesajePorCheckIn.get(ci.id);
+            const pesajeItems =
+              pesaje && Array.isArray(pesaje.items) ? pesaje.items : [];
 
             const fotoCheckIn = await signedUrlFromKey(
               supabase,
@@ -274,20 +305,20 @@ export default async function JornadaDetallePage({
                       <div>
                         <span className="text-zinc-500">Entrada </span>
                         <span className="font-medium">
-                          {new Date(ci.fecha_entrada).toLocaleTimeString(
-                            "es-MX",
-                            { hour: "2-digit", minute: "2-digit" },
-                          )}
+                          {fmtCDMX(ci.fecha_entrada, {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
                         </span>
                       </div>
                       {ci.fecha_salida && (
                         <div>
                           <span className="text-zinc-500">Salida </span>
                           <span className="font-medium">
-                            {new Date(ci.fecha_salida).toLocaleTimeString(
-                              "es-MX",
-                              { hour: "2-digit", minute: "2-digit" },
-                            )}
+                            {fmtCDMX(ci.fecha_salida, {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
                           </span>
                           <span className="ml-1 text-zinc-500">
                             ({fmtSegundos(ci.tiempo_en_sitio_seg)})
@@ -377,7 +408,7 @@ export default async function JornadaDetallePage({
                             <th className="py-1 text-right font-medium">Plan</th>
                             <th className="py-1 text-right font-medium">Carg</th>
                             <th className="py-1 text-right font-medium">Gramos</th>
-                            <th className="py-1 font-medium">Devolución</th>
+                            <th className="py-1 font-medium">Cart. devueltos</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-zinc-100">
@@ -433,7 +464,7 @@ export default async function JornadaDetallePage({
                                             : "text-red-700"
                                       }
                                     >
-                                      {dev.cantidad_calculada}{" "}
+                                      {dev.cantidad_calculada} cart{" "}
                                       {dev.estado === "pendiente_devolucion"
                                         ? "pend."
                                         : `↪ ${dev.cantidad_recibida_almacen ?? "?"}`}
@@ -451,6 +482,97 @@ export default async function JornadaDetallePage({
                       <p className="text-xs text-zinc-500">
                         Sin llenado registrado.
                       </p>
+                    )}
+
+                    {pesaje && pesajeItems.length > 0 && (
+                      <div className="mt-3 space-y-1">
+                        <div className="flex items-baseline justify-between">
+                          <div className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+                            Pesaje del operador ·{" "}
+                            {fmtCDMX(pesaje.fecha, {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </div>
+                          <Link
+                            href={`/admin/pesajes/${pesaje.id}`}
+                            className="text-[11px] text-blue-700 hover:underline"
+                          >
+                            Editar →
+                          </Link>
+                        </div>
+                        <table className="w-full text-xs">
+                          <thead className="text-left text-[10px] uppercase tracking-wide text-zinc-500">
+                            <tr>
+                              <th className="py-1 font-medium">Tolva</th>
+                              <th className="py-1 text-right font-medium">
+                                Teórico
+                              </th>
+                              <th className="py-1 text-right font-medium">
+                                Medido
+                              </th>
+                              <th className="py-1 text-right font-medium">
+                                Δ g
+                              </th>
+                              <th className="py-1 text-right font-medium">
+                                Δ %
+                              </th>
+                              <th className="py-1 text-right font-medium">
+                                Valor
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-zinc-100">
+                            {pesajeItems.map((pi) => {
+                              const diff = pi.diferencia_gramos ?? 0;
+                              const cls =
+                                diff === 0
+                                  ? "text-zinc-700"
+                                  : diff < 0
+                                    ? "text-red-700"
+                                    : "text-green-700";
+                              return (
+                                <tr key={pi.id}>
+                                  <td className="py-1 font-mono">
+                                    #{tolvaNumeroById.get(pi.tolva_id) ?? "?"}
+                                  </td>
+                                  <td className="py-1 text-right tabular-nums">
+                                    {pi.gramos_teoricos}g
+                                  </td>
+                                  <td className="py-1 text-right tabular-nums">
+                                    {pi.gramos_medidos}g
+                                  </td>
+                                  <td
+                                    className={`py-1 text-right tabular-nums ${cls}`}
+                                  >
+                                    {diff > 0 ? "+" : ""}
+                                    {diff}g
+                                  </td>
+                                  <td
+                                    className={`py-1 text-right tabular-nums ${cls}`}
+                                  >
+                                    {pi.diferencia_porcentaje != null
+                                      ? `${pi.diferencia_porcentaje}%`
+                                      : "—"}
+                                  </td>
+                                  <td
+                                    className={`py-1 text-right tabular-nums ${cls}`}
+                                  >
+                                    {pi.valor_diferencia != null
+                                      ? `$${Number(pi.valor_diferencia).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                      : "—"}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                        {pesaje.notas && (
+                          <p className="mt-1 text-[11px] italic text-zinc-600">
+                            “{pesaje.notas}”
+                          </p>
+                        )}
+                      </div>
                     )}
 
                     {incs.length > 0 && (
