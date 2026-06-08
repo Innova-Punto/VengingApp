@@ -27,6 +27,7 @@ type Producto = {
   stock_minimo: number;
   stock_maximo: number;
   punto_reorden: number;
+  capacidad_g_por_tolva: number | null;
 };
 
 function SubmitButton({ label }: { label: string }) {
@@ -148,6 +149,21 @@ export default function ProductoForm({
             step={1}
             required
             defaultValue={producto?.gramaje_cartucho_default ?? 400}
+            className="input"
+          />
+        </Field>
+
+        <Field
+          label="Capacidad típica en tolva (g)"
+          hint="Cuántos gramos de este producto caben en una tolva estándar. Si se deja vacío, se usan 1200g. Cambiar este valor re-sincroniza todas las tolvas con este producto que no tengan override manual."
+        >
+          <input
+            name="capacidad_g_por_tolva"
+            type="number"
+            min={1}
+            step={1}
+            defaultValue={producto?.capacidad_g_por_tolva ?? ""}
+            placeholder="1200"
             className="input"
           />
         </Field>
