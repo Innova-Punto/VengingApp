@@ -10,6 +10,7 @@ type Producto = {
   nombre: string;
   gramaje_servicio_default: number | null;
   precio_venta_default: number | null;
+  capacidad_g_por_tolva: number | null;
 };
 
 type Tolva = {
@@ -21,6 +22,7 @@ type Tolva = {
   nayax_item_code: string | null;
   inventario_actual_g: number;
   capacidad_max_g: number;
+  capacidad_max_g_override: number | null;
 };
 
 const initial: TolvaResult | null = null;
@@ -150,9 +152,41 @@ export default function TolvaRow({
             </div>
           )}
 
+          <div className="w-28">
+            <label className="text-[10px] uppercase tracking-wide text-zinc-500">
+              Cap. override (g)
+            </label>
+            <input
+              name="capacidad_max_g_override"
+              type="number"
+              min={1}
+              step={1}
+              defaultValue={tolva.capacidad_max_g_override ?? ""}
+              placeholder={String(
+                productoActual?.capacidad_g_por_tolva ?? 1200,
+              )}
+              title={
+                tolva.capacidad_max_g_override == null
+                  ? `Heredada${productoActual ? ` de ${productoActual.sku}` : ""}: ${tolva.capacidad_max_g}g`
+                  : `Override manual: ${tolva.capacidad_max_g_override}g`
+              }
+              className="mt-0.5 w-full rounded-md border border-zinc-300 px-2 py-1 text-sm shadow-sm focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900"
+            />
+          </div>
+
           <div className="flex w-44 flex-col">
             <div className="flex items-baseline justify-between text-[10px] uppercase tracking-wide text-zinc-500">
-              <span>Ocupación</span>
+              <span>
+                Ocupación
+                {tolva.capacidad_max_g_override != null && (
+                  <span
+                    className="ml-1 rounded bg-amber-100 px-1 text-[9px] text-amber-700"
+                    title="Override manual de capacidad"
+                  >
+                    OVR
+                  </span>
+                )}
+              </span>
               <span className="tabular-nums text-zinc-700">
                 {tolva.inventario_actual_g}/{tolva.capacidad_max_g}g
               </span>

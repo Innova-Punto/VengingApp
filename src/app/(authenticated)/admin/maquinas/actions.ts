@@ -405,6 +405,19 @@ export async function actualizarTolva(
     precio_venta = Math.round(n * 100) / 100;
   }
 
+  const overrideRaw = formData.get("capacidad_max_g_override");
+  let capacidad_max_g_override: number | null = null;
+  if (overrideRaw && String(overrideRaw).trim() !== "") {
+    const n = Number(overrideRaw);
+    if (!Number.isInteger(n) || n <= 0) {
+      return {
+        ok: false,
+        message: "Capacidad override debe ser entero > 0.",
+      };
+    }
+    capacidad_max_g_override = n;
+  }
+
   if (
     producto_id &&
     (gramaje_servicio === null || precio_venta === null)
@@ -421,8 +434,14 @@ export async function actualizarTolva(
     producto_id: string | null;
     gramaje_servicio: number | null;
     precio_venta: number | null;
+    capacidad_max_g_override: number | null;
     nayax_item_code?: string | null;
-  } = { producto_id, gramaje_servicio, precio_venta };
+  } = {
+    producto_id,
+    gramaje_servicio,
+    precio_venta,
+    capacidad_max_g_override,
+  };
   if (nayaxCodeProvided) updatePayload.nayax_item_code = nayaxCode;
 
   const { error } = await supabase

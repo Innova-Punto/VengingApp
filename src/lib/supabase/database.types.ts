@@ -2472,6 +2472,7 @@ export type Database = {
       productos: {
         Row: {
           activo: boolean
+          capacidad_g_por_tolva: number | null
           categoria: string | null
           cliente_exclusivo_id: string | null
           created_at: string
@@ -2494,6 +2495,7 @@ export type Database = {
         }
         Insert: {
           activo?: boolean
+          capacidad_g_por_tolva?: number | null
           categoria?: string | null
           cliente_exclusivo_id?: string | null
           created_at?: string
@@ -2516,6 +2518,7 @@ export type Database = {
         }
         Update: {
           activo?: boolean
+          capacidad_g_por_tolva?: number | null
           categoria?: string | null
           cliente_exclusivo_id?: string | null
           created_at?: string
@@ -3151,6 +3154,7 @@ export type Database = {
       tolvas: {
         Row: {
           capacidad_max_g: number
+          capacidad_max_g_override: number | null
           costo_promedio_g_actual: number
           created_at: string
           gramaje_servicio: number | null
@@ -3167,6 +3171,7 @@ export type Database = {
         }
         Insert: {
           capacidad_max_g?: number
+          capacidad_max_g_override?: number | null
           costo_promedio_g_actual?: number
           created_at?: string
           gramaje_servicio?: number | null
@@ -3183,6 +3188,7 @@ export type Database = {
         }
         Update: {
           capacidad_max_g?: number
+          capacidad_max_g_override?: number | null
           costo_promedio_g_actual?: number
           created_at?: string
           gramaje_servicio?: number | null

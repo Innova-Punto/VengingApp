@@ -47,13 +47,15 @@ export default async function EditarMaquinaPage({
     supabase
       .from("tolvas")
       .select(
-        "id, numero, producto_id, gramaje_servicio, precio_venta, nayax_item_code, inventario_actual_g, capacidad_max_g",
+        "id, numero, producto_id, gramaje_servicio, precio_venta, nayax_item_code, inventario_actual_g, capacidad_max_g, capacidad_max_g_override",
       )
       .eq("maquina_id", params.id)
       .order("numero"),
     supabase
       .from("productos")
-      .select("id, sku, nombre, gramaje_servicio_default, precio_venta_default")
+      .select(
+        "id, sku, nombre, gramaje_servicio_default, precio_venta_default, capacidad_g_por_tolva",
+      )
       .eq("activo", true)
       .order("nombre"),
     supabase

@@ -31,6 +31,7 @@ type ParsedProducto = {
   stock_minimo: number;
   stock_maximo: number;
   punto_reorden: number;
+  capacidad_g_por_tolva: number | null;
 };
 
 function parseProducto(formData: FormData): ParsedProducto | string {
@@ -96,6 +97,16 @@ function parseProducto(formData: FormData): ParsedProducto | string {
   const reorden = parseStock(reordenRaw, "Punto de reorden");
   if (typeof reorden === "string") return reorden;
 
+  const capacidadRaw = formData.get("capacidad_g_por_tolva");
+  let capacidad_g_por_tolva: number | null = null;
+  if (capacidadRaw && String(capacidadRaw).trim() !== "") {
+    const n = Number(capacidadRaw);
+    if (!Number.isInteger(n) || n <= 0) {
+      return "Capacidad típica en tolva debe ser un entero positivo.";
+    }
+    capacidad_g_por_tolva = n;
+  }
+
   return {
     sku,
     nombre,
@@ -112,6 +123,7 @@ function parseProducto(formData: FormData): ParsedProducto | string {
     stock_minimo: stockMin,
     stock_maximo: stockMax,
     punto_reorden: reorden,
+    capacidad_g_por_tolva,
   };
 }
 
