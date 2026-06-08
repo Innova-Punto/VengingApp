@@ -23,6 +23,7 @@ const NAV_GROUPS: GroupDef[] = [
       { label: "Proveedores", href: "/admin/proveedores" },
       { label: "Clientes", href: "/admin/clientes" },
       { label: "Máquinas", href: "/admin/maquinas" },
+      { label: "Recetas", href: "/admin/recetas" },
       { label: "Planogramas", href: "/admin/planogramas" },
       { label: "Rutas", href: "/admin/rutas" },
     ],

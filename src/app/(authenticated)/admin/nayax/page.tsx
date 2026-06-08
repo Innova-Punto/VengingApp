@@ -38,7 +38,8 @@ export default async function NayaxPage() {
       .gte(
         "fecha_transaccion",
         new Date(Date.now() - 30 * 86400000).toISOString(),
-      ),
+      )
+      .range(0, 99999),
   ]);
 
   // Stats últimos 30 días

@@ -23,6 +23,8 @@ type SearchParams = {
   metodo?: string;
   utilidad?: "todas" | "negativas";
   page?: string;
+  top_maquinas?: "all";
+  top_productos?: "all";
 };
 
 const PAGE_SIZE = 50;
@@ -103,6 +105,7 @@ export default async function VentasPage({
       `id, fecha_transaccion, gramos_dispensados, precio_bruto,
        comision_nayax_estimada, precio_neto, costo_polvo, costo_vaso,
        utilidad_bruta, margen_porcentaje, metodo_pago, ticket_id_nayax,
+       notas,
        maquina:maquinas(id, serie, alias,
          ubicacion:ubicaciones(nombre, cliente:clientes(id, nombre))),
        producto:productos(id, sku, nombre),
@@ -130,6 +133,7 @@ export default async function VentasPage({
        costo_polvo, costo_vaso,
        margen_porcentaje, gramos_dispensados,
        fecha_transaccion, metodo_pago, maquina_id, producto_id, cliente_id,
+       notas,
        cliente:clientes(id, nombre),
        maquina:maquinas(serie, alias),
        producto:productos(sku, nombre)`,
@@ -143,7 +147,9 @@ export default async function VentasPage({
   if (searchParams.metodo) qAgg = qAgg.eq("metodo_pago", searchParams.metodo);
   if (utilidadFilter === "negativas") qAgg = qAgg.lt("utilidad_bruta", 0);
 
-  const { data: allVentas } = await qAgg;
+  // Sin range Supabase limita a 1000 → KPIs y agregados quedan truncados.
+  // Subimos a 100k para que entren todas las ventas del rango.
+  const { data: allVentas } = await qAgg.range(0, 99999);
   const aggFiltradas = allVentas ?? [];
 
   // KPIs
@@ -188,7 +194,16 @@ export default async function VentasPage({
     .map(([cliente, valor]) => ({ cliente, valor }));
 
   // Top máquinas por ingreso
-  type TopRow = { key: string; label: string; sublabel?: string; ingresos: number; ventas: number; utilidad: number };
+  type TopRow = {
+    key: string;
+    label: string;
+    sublabel?: string;
+    ingresos: number;
+    ventas: number;
+    utilidad: number;
+    /** id para usar en el link de drill-down (filtro de tabla detalle). */
+    filterId: string;
+  };
   const porMaquina = new Map<string, TopRow>();
   for (const v of aggFiltradas) {
     const maq = Array.isArray(v.maquina) ? v.maquina[0] : v.maquina;
@@ -203,33 +218,63 @@ export default async function VentasPage({
         ingresos: 0,
         ventas: 0,
         utilidad: 0,
+        filterId: v.maquina_id,
       };
     cur.ingresos += Number(v.precio_neto ?? 0);
     cur.utilidad += Number(v.utilidad_bruta ?? 0);
     cur.ventas += 1;
     porMaquina.set(key, cur);
   }
-  const topMaquinas = Array.from(porMaquina.values())
-    .sort((a, b) => b.ingresos - a.ingresos)
-    .slice(0, 10);
+  const maquinasOrdenadas = Array.from(porMaquina.values()).sort(
+    (a, b) => b.ingresos - a.ingresos,
+  );
+  const showAllMaquinas = searchParams.top_maquinas === "all";
+  const maquinasParaMostrar = showAllMaquinas
+    ? maquinasOrdenadas
+    : maquinasOrdenadas.slice(0, 10);
 
   // Top productos por ingreso
   const porProducto = new Map<string, TopRow>();
   for (const v of aggFiltradas) {
     const prod = Array.isArray(v.producto) ? v.producto[0] : v.producto;
-    if (!prod) continue;
-    const key = prod.sku;
+
+    let key: string;
+    let label: string;
+    let sublabel: string;
+    let filterId: string;
+
+    if (prod && v.producto_id) {
+      // Venta de producto directo (polvo_directo)
+      key = prod.sku;
+      label = prod.nombre;
+      sublabel = prod.sku;
+      filterId = v.producto_id;
+    } else {
+      // Venta de receta (máquina preparado) — agrupar por nombre de bebida
+      const notas = (v.notas as string | null) ?? "";
+      const m = notas.match(/^Receta:\s*(.+)$/);
+      if (!m) continue; // sin producto ni receta identificable
+      key = `receta:${m[1]}`;
+      label = m[1];
+      sublabel = "receta";
+      filterId = ""; // no se puede filtrar por producto_id, queda sin link
+    }
+
     const cur =
       porProducto.get(key) ??
-      { key, label: prod.nombre, sublabel: prod.sku, ingresos: 0, ventas: 0, utilidad: 0 };
+      { key, label, sublabel, ingresos: 0, ventas: 0, utilidad: 0, filterId };
     cur.ingresos += Number(v.precio_neto ?? 0);
     cur.utilidad += Number(v.utilidad_bruta ?? 0);
     cur.ventas += 1;
     porProducto.set(key, cur);
   }
-  const topProductos = Array.from(porProducto.values())
-    .sort((a, b) => b.ingresos - a.ingresos)
-    .slice(0, 10);
+  const productosOrdenados = Array.from(porProducto.values()).sort(
+    (a, b) => b.ingresos - a.ingresos,
+  );
+  const showAllProductos = searchParams.top_productos === "all";
+  const productosParaMostrar = showAllProductos
+    ? productosOrdenados
+    : productosOrdenados.slice(0, 10);
 
   const totalPaginas = Math.max(1, Math.ceil((count ?? 0) / PAGE_SIZE));
 
@@ -317,12 +362,36 @@ export default async function VentasPage({
       </section>
 
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <TopTabla titulo="Top 10 máquinas" rows={topMaquinas} />
-        <TopTabla titulo="Top 10 productos" rows={topProductos} />
+        <TopTabla
+          titulo={
+            showAllMaquinas
+              ? `Todas las máquinas (${maquinasOrdenadas.length})`
+              : "Top 10 máquinas"
+          }
+          rows={maquinasParaMostrar}
+          filterParam="maquina"
+          searchParams={searchParams}
+          mostrarTodosHref={buildToggleHref(searchParams, "top_maquinas", showAllMaquinas)}
+          mostrarTodosLabel={showAllMaquinas ? "Ver solo top 10" : "Ver todas"}
+          totalDisponible={maquinasOrdenadas.length}
+        />
+        <TopTabla
+          titulo={
+            showAllProductos
+              ? `Todos los productos (${productosOrdenados.length})`
+              : "Top 10 productos"
+          }
+          rows={productosParaMostrar}
+          filterParam="producto"
+          searchParams={searchParams}
+          mostrarTodosHref={buildToggleHref(searchParams, "top_productos", showAllProductos)}
+          mostrarTodosLabel={showAllProductos ? "Ver solo top 10" : "Ver todos"}
+          totalDisponible={productosOrdenados.length}
+        />
       </section>
 
       {/* Tabla detalle */}
-      <section className="space-y-2">
+      <section id="detalle" className="scroll-mt-4 space-y-2">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold tracking-tight">
             Detalle ({(count ?? 0).toLocaleString("es-MX")} ventas)
@@ -386,10 +455,31 @@ export default async function VentasPage({
                       #{tol?.numero ?? "—"}
                     </td>
                     <td className="px-3 py-2">
-                      <div className="text-xs">{prod?.nombre ?? "—"}</div>
-                      <div className="font-mono text-[10px] text-zinc-500">
-                        {prod?.sku ?? "—"}
-                      </div>
+                      {prod ? (
+                        <>
+                          <div className="text-xs">{prod.nombre}</div>
+                          <div className="font-mono text-[10px] text-zinc-500">
+                            {prod.sku}
+                          </div>
+                        </>
+                      ) : (
+                        // Venta de receta (máquina preparado) — el nombre de la
+                        // bebida vive en notas con prefijo "Receta: ".
+                        (() => {
+                          const notas =
+                            (v.notas as string | null) ?? "";
+                          const m = notas.match(/^Receta:\s*(.+)$/);
+                          const bebida = m ? m[1] : "—";
+                          return (
+                            <>
+                              <div className="text-xs">{bebida}</div>
+                              <div className="text-[10px] text-amber-700">
+                                receta
+                              </div>
+                            </>
+                          );
+                        })()
+                      )}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums text-xs">
                       {v.gramos_dispensados}
@@ -470,16 +560,71 @@ function Kpi({
   );
 }
 
+function buildToggleHref(
+  sp: SearchParams,
+  paramName: "top_maquinas" | "top_productos",
+  currentlyAll: boolean,
+): string {
+  const params = new URLSearchParams();
+  for (const [k, v] of Object.entries(sp)) {
+    if (v && k !== paramName && k !== "page") params.set(k, String(v));
+  }
+  if (!currentlyAll) params.set(paramName, "all");
+  return `/admin/ventas?${params.toString()}#detalle`;
+}
+
+function buildFilterHref(
+  sp: SearchParams,
+  paramName: "maquina" | "producto",
+  value: string,
+): string {
+  const params = new URLSearchParams();
+  for (const [k, v] of Object.entries(sp)) {
+    if (v && k !== "page" && k !== "top_maquinas" && k !== "top_productos")
+      params.set(k, String(v));
+  }
+  params.set(paramName, value);
+  return `/admin/ventas?${params.toString()}#detalle`;
+}
+
 function TopTabla({
   titulo,
   rows,
+  filterParam,
+  searchParams,
+  mostrarTodosHref,
+  mostrarTodosLabel,
+  totalDisponible,
 }: {
   titulo: string;
-  rows: { key: string; label: string; sublabel?: string; ingresos: number; ventas: number; utilidad: number }[];
+  rows: {
+    key: string;
+    label: string;
+    sublabel?: string;
+    ingresos: number;
+    ventas: number;
+    utilidad: number;
+    filterId: string;
+  }[];
+  filterParam: "maquina" | "producto";
+  searchParams: SearchParams;
+  mostrarTodosHref: string;
+  mostrarTodosLabel: string;
+  totalDisponible: number;
 }) {
   return (
     <div className="rounded-lg border border-zinc-200 bg-white p-4">
-      <h3 className="mb-2 text-sm font-semibold text-zinc-700">{titulo}</h3>
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-zinc-700">{titulo}</h3>
+        {totalDisponible > 10 && (
+          <a
+            href={mostrarTodosHref}
+            className="text-xs font-medium text-blue-700 hover:underline"
+          >
+            {mostrarTodosLabel}
+          </a>
+        )}
+      </div>
       <table className="w-full text-sm">
         <thead className="text-left text-xs uppercase tracking-wide text-zinc-500">
           <tr>
@@ -487,11 +632,12 @@ function TopTabla({
             <th className="py-1 text-right font-medium">Ventas</th>
             <th className="py-1 text-right font-medium">Venta bruta</th>
             <th className="py-1 text-right font-medium">Utilidad</th>
+            <th className="py-1 text-right font-medium"></th>
           </tr>
         </thead>
         <tbody className="divide-y divide-zinc-100">
           {rows.map((r) => (
-            <tr key={r.key}>
+            <tr key={r.key} className="hover:bg-zinc-50">
               <td className="py-1.5">
                 <div className="text-xs font-medium">{r.label}</div>
                 {r.sublabel && (
@@ -503,7 +649,9 @@ function TopTabla({
               <td className="py-1.5 text-right tabular-nums text-xs">
                 {r.ventas.toLocaleString("es-MX")}
               </td>
-              <td className="py-1.5 text-right tabular-nums">{fmtMxn(r.ingresos)}</td>
+              <td className="py-1.5 text-right tabular-nums">
+                {fmtMxn(r.ingresos)}
+              </td>
               <td
                 className={`py-1.5 text-right tabular-nums ${
                   r.utilidad < 0 ? "text-red-700" : "text-green-700"
@@ -511,11 +659,29 @@ function TopTabla({
               >
                 {fmtMxn(r.utilidad)}
               </td>
+              <td className="py-1.5 text-right">
+                {r.filterId ? (
+                  <a
+                    href={buildFilterHref(searchParams, filterParam, r.filterId)}
+                    className="text-xs font-medium text-blue-700 hover:underline"
+                    title={`Ver detalle de ${r.label}`}
+                  >
+                    Ver detalle →
+                  </a>
+                ) : (
+                  <span
+                    className="text-xs text-zinc-400"
+                    title="Las ventas de receta no se pueden filtrar por producto"
+                  >
+                    —
+                  </span>
+                )}
+              </td>
             </tr>
           ))}
           {rows.length === 0 && (
             <tr>
-              <td colSpan={4} className="py-4 text-center text-xs text-zinc-500">
+              <td colSpan={5} className="py-4 text-center text-xs text-zinc-500">
                 Sin datos.
               </td>
             </tr>

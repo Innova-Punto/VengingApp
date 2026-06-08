@@ -17,6 +17,7 @@ import {
 import Link from "next/link";
 
 import { requireRole } from "@/lib/auth";
+import { isoFechaCDMX, startOfNDaysAgoCDMX, startOfTodayCDMX } from "@/lib/datetime";
 import { getIncidenciaTipoInfo } from "@/lib/incidencias-catalogo";
 import { createClient } from "@/lib/supabase/server";
 
@@ -46,14 +47,14 @@ export default async function DashboardPage({
 
   const rangoKey = searchParams.rango ?? "30d";
   const rango = RANGOS[rangoKey] ?? RANGOS["30d"];
-  const desde = new Date(Date.now() - rango.dias * 86400000).toISOString();
+  // Inicio del rango y de "hoy" en hora CDMX (no UTC del servidor).
+  const desde = startOfNDaysAgoCDMX(rango.dias).toISOString();
+  const hoyInicioIso = startOfTodayCDMX().toISOString();
 
-  const hoyInicio = new Date();
-  hoyInicio.setHours(0, 0, 0, 0);
-  const hoyInicioIso = hoyInicio.toISOString();
-
-  const mes = new Date().getMonth() + 1;
-  const anio = new Date().getFullYear();
+  // Mes y año en hora CDMX (no UTC del servidor).
+  const [anioCDMX, mesCDMX] = isoFechaCDMX(new Date()).split("-");
+  const mes = Number(mesCDMX);
+  const anio = Number(anioCDMX);
 
   // 1. KPI rango + hoy
   const [
@@ -72,11 +73,13 @@ export default async function DashboardPage({
          producto:productos(sku, nombre),
          maquina:maquinas(serie, alias)`,
       )
-      .gte("fecha_transaccion", desde),
+      .gte("fecha_transaccion", desde)
+      .range(0, 99999),
     supabase
       .from("ventas_maquina")
       .select("precio_neto, utilidad_bruta")
-      .gte("fecha_transaccion", hoyInicioIso),
+      .gte("fecha_transaccion", hoyInicioIso)
+      .range(0, 99999),
     supabase
       .from("cierres_mensuales")
       .select("id, estado, conteo_almacen_completado, periodo_mes, periodo_anio")
@@ -101,7 +104,7 @@ export default async function DashboardPage({
     supabase
       .from("asignaciones_diarias")
       .select("id, estado")
-      .eq("fecha", new Date().toISOString().slice(0, 10)),
+      .eq("fecha", isoFechaCDMX(new Date())),
   ]);
 
   const ventasArr = ventasRango ?? [];
@@ -181,14 +184,14 @@ export default async function DashboardPage({
     .slice(0, 10);
 
   // Series para gráficos
-  // a) Ingresos / utilidad por día (rango)
+  // a) Ingresos / utilidad por día (rango) — agrupado por fecha CDMX
   const porDia = new Map<string, { ingresos: number; utilidad: number }>();
   for (let i = rango.dias - 1; i >= 0; i--) {
-    const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
+    const d = isoFechaCDMX(new Date(Date.now() - i * 86400000));
     porDia.set(d, { ingresos: 0, utilidad: 0 });
   }
   for (const v of ventasArr) {
-    const d = v.fecha_transaccion.slice(0, 10);
+    const d = isoFechaCDMX(v.fecha_transaccion);
     const acc = porDia.get(d) ?? { ingresos: 0, utilidad: 0 };
     acc.ingresos += Number(v.precio_neto ?? 0);
     acc.utilidad += Number(v.utilidad_bruta ?? 0);
@@ -221,8 +224,9 @@ export default async function DashboardPage({
     .map(([categoria, count]) => ({ categoria, count }))
     .sort((a, b) => b.count - a.count);
 
-  // 4. Mermas del mes (pesajes + incidencias autorizadas)
-  const inicioMes = new Date(anio, mes - 1, 1).toISOString();
+  // 4. Mermas del mes (pesajes + incidencias autorizadas) — desde día 1 CDMX
+  const inicioMesStr = `${anio}-${String(mes).padStart(2, "0")}-01`;
+  const inicioMes = new Date(`${inicioMesStr}T00:00:00-06:00`).toISOString();
   const [{ data: mermaPesaje }, { data: mermaIncid }] = await Promise.all([
     supabase
       .from("movimientos_inventario")

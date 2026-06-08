@@ -31,6 +31,8 @@ type ParsedMaquina = {
   frecuencia_visita_dias: number;
   qr_codigo: string | null;
   estado: MaquinaEstado;
+  tipo: "polvo_directo" | "preparado";
+  requiere_pesaje: boolean;
   fecha_instalacion: string | null;
   notas: string | null;
   vaso_producto_id: string | null;
@@ -54,6 +56,8 @@ function parseMaquina(
   const frecuenciaRaw = formData.get("frecuencia_visita_dias");
   const qr_codigo = String(formData.get("qr_codigo") ?? "").trim() || null;
   const estadoRaw = String(formData.get("estado") ?? "operativa");
+  const tipoRaw = String(formData.get("tipo") ?? "polvo_directo");
+  const requiere_pesaje = formData.get("requiere_pesaje") === "true";
   const fechaInst =
     String(formData.get("fecha_instalacion") ?? "").trim() || null;
   const notas = String(formData.get("notas") ?? "").trim() || null;
@@ -90,6 +94,10 @@ function parseMaquina(
     return "Estado inválido.";
   }
 
+  if (tipoRaw !== "polvo_directo" && tipoRaw !== "preparado") {
+    return "Tipo de máquina inválido.";
+  }
+
   let vaso_capacidad_max = 300;
   if (vasoCapacidadRaw && String(vasoCapacidadRaw).trim() !== "") {
     const n = Number(vasoCapacidadRaw);
@@ -116,6 +124,8 @@ function parseMaquina(
     frecuencia_visita_dias,
     qr_codigo,
     estado: estadoRaw,
+    tipo: tipoRaw,
+    requiere_pesaje,
     fecha_instalacion: fechaInst,
     notas,
     vaso_producto_id: vasoProductoRaw,
@@ -176,7 +186,38 @@ export async function actualizarMaquina(
   void capacidad_max_tolva_g;
 
   const supabase = createClient();
-  const { error } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabaseAny = supabase as any;
+
+  // Detecta cambio de tipo y limpia la config previa del modelo opuesto
+  // para que los triggers de integridad no rechacen el update.
+  const { data: actual } = await supabaseAny
+    .from("maquinas")
+    .select("tipo")
+    .eq("id", id)
+    .maybeSingle();
+  const tipoAnterior = (actual?.tipo as string | undefined) ?? "polvo_directo";
+  const tipoNuevo = rest.tipo;
+
+  if (tipoAnterior !== tipoNuevo) {
+    if (tipoNuevo === "preparado") {
+      // Limpia PA Codes de tolvas (sin tocar producto/gramaje, el polvo sigue ahí)
+      const { error: clrErr } = await supabaseAny
+        .from("tolvas")
+        .update({ nayax_item_code: null })
+        .eq("maquina_id", id);
+      if (clrErr) return { ok: false, message: `Limpiando PA Codes: ${clrErr.message}` };
+    } else {
+      // Borra recetas configuradas en la máquina (cascade borra ingredientes)
+      const { error: clrErr } = await supabaseAny
+        .from("maquina_items")
+        .delete()
+        .eq("maquina_id", id);
+      if (clrErr) return { ok: false, message: `Limpiando recetas: ${clrErr.message}` };
+    }
+  }
+
+  const { error } = await supabaseAny
     .from("maquinas")
     .update(rest)
     .eq("id", id);
@@ -337,8 +378,12 @@ export async function actualizarTolva(
   const productoRaw = String(formData.get("producto_id") ?? "").trim();
   const gramajeRaw = formData.get("gramaje_servicio");
   const precioRaw = formData.get("precio_venta");
-  const nayaxCode =
-    String(formData.get("nayax_item_code") ?? "").trim() || null;
+  // Solo actualizamos nayax_item_code si el input estaba presente en el form
+  // (en máquinas tipo "preparado" el input está oculto y no se manda).
+  const nayaxCodeProvided = formData.has("nayax_item_code");
+  const nayaxCode = nayaxCodeProvided
+    ? String(formData.get("nayax_item_code") ?? "").trim() || null
+    : null;
 
   const producto_id = productoRaw || null;
 
@@ -372,14 +417,17 @@ export async function actualizarTolva(
   }
 
   const supabase = createClient();
+  const updatePayload: {
+    producto_id: string | null;
+    gramaje_servicio: number | null;
+    precio_venta: number | null;
+    nayax_item_code?: string | null;
+  } = { producto_id, gramaje_servicio, precio_venta };
+  if (nayaxCodeProvided) updatePayload.nayax_item_code = nayaxCode;
+
   const { error } = await supabase
     .from("tolvas")
-    .update({
-      producto_id,
-      gramaje_servicio,
-      precio_venta,
-      nayax_item_code: nayaxCode,
-    })
+    .update(updatePayload)
     .eq("id", id);
 
   if (error) return { ok: false, message: error.message };

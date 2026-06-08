@@ -67,13 +67,15 @@ export default async function MaquinaCampoPage({
   const { data: maquina } = await supabase
     .from("maquinas")
     .select(
-      `id, serie, alias,
+      `id, serie, alias, vaso_producto_id, vaso_capacidad_max, vaso_inventario_actual,
+       requiere_pesaje,
        ubicacion:ubicaciones(nombre, lat, lng, cliente:clientes(nombre)),
        tolvas:tolvas(
          id, numero, producto_id, gramaje_servicio,
          inventario_actual_g, capacidad_max_g,
          producto:productos(sku, nombre)
-       )`,
+       ),
+       vaso_producto:productos!maquinas_vaso_producto_id_fkey(sku, nombre)`,
     )
     .eq("id", params.id)
     .maybeSingle();
@@ -101,12 +103,12 @@ export default async function MaquinaCampoPage({
     ? await supabase
         .from("surtido_items")
         .select(
-          `id, producto_id, cartuchos_entregados, encartuchado_id,
+          `id, producto_id, cartuchos_entregados, vasos_entregados, encartuchado_id,
            producto:productos(sku, nombre, tipo)`,
         )
         .eq("surtido_id", surtido.id)
         .eq("maquina_id", maquina.id)
-        .gt("cartuchos_entregados", 0)
+        .or("cartuchos_entregados.gt.0,vasos_entregados.gt.0")
     : { data: [] };
 
   // Check-in existente
@@ -115,7 +117,7 @@ export default async function MaquinaCampoPage({
     .select(
       `id, fecha_entrada, fecha_salida, lat, lng, metodo, foto_evidencia_url,
        llenado:llenados(
-         id, fecha,
+         id, fecha, vasos_planeados, vasos_cargados,
          items:llenado_items(
            id, tolva_id, cartuchos_planeados, cartuchos_cargados,
            gramos_cargados
@@ -167,13 +169,39 @@ export default async function MaquinaCampoPage({
   const tolvasPolvo = tolvas.filter((t) => t.producto_id !== null);
   type TolvaInfo = (typeof tolvasPolvo)[number];
 
-  // Surtido items con info derivada (qué tolvas son candidatas para cada producto)
-  const surtidoItemsInfo = (surtidoItems ?? []).map((si) => {
+  // Surtido items con info derivada. Unifica:
+  //   - items de cartuchos (cada uno tiene tolvas_candidatas)
+  //   - items de vasos (sin tolva, se descuentan a nivel máquina)
+  // El LlenadoForm los renderiza igual visualmente.
+  type ItemInfo = {
+    id: string;
+    producto_id: string;
+    cartuchos_entregados: number;
+    encartuchado_id: string | null;
+    producto: { sku: string; nombre: string; tipo: string } | null;
+    tolvas_candidatas: { id: string; numero: number; gramaje_servicio: number | null }[];
+    es_vaso: boolean;
+  };
+  const surtidoItemsInfo: ItemInfo[] = (surtidoItems ?? []).flatMap((si): ItemInfo[] => {
+    const prod = Array.isArray(si.producto) ? si.producto[0] : si.producto;
+    const esVaso = prod?.tipo === "vaso";
+    if (esVaso) {
+      const item: ItemInfo = {
+        id: si.id,
+        producto_id: si.producto_id,
+        cartuchos_entregados: si.vasos_entregados ?? 0,
+        encartuchado_id: null,
+        producto: prod,
+        tolvas_candidatas: [],
+        es_vaso: true,
+      };
+      return [item];
+    }
+    if ((si.cartuchos_entregados ?? 0) === 0) return [];
     const tolvasCandidatas = tolvasPolvo.filter(
       (t: TolvaInfo) => t.producto_id === si.producto_id,
     );
-    const prod = Array.isArray(si.producto) ? si.producto[0] : si.producto;
-    return {
+    const item: ItemInfo = {
       id: si.id,
       producto_id: si.producto_id,
       cartuchos_entregados: si.cartuchos_entregados,
@@ -184,7 +212,9 @@ export default async function MaquinaCampoPage({
         numero: t.numero,
         gramaje_servicio: t.gramaje_servicio,
       })),
+      es_vaso: false,
     };
+    return [item];
   });
 
   return (
@@ -254,29 +284,41 @@ export default async function MaquinaCampoPage({
           </div>
 
           {(() => {
+            const maquinaRequierePesaje =
+              (maquina as { requiere_pesaje?: boolean }).requiere_pesaje ?? false;
+            const tolvasConProducto = tolvasPolvo.filter(
+              (t) => t.producto_id,
+            ).length;
             const requierePesaje =
-              !!cierreActivo &&
+              (!!cierreActivo || maquinaRequierePesaje) &&
               !pesajeExistente &&
-              tolvasPolvo.filter((t) => t.producto_id).length > 0;
+              tolvasConProducto > 0;
 
             if (requierePesaje) {
               return (
                 <>
                   <div className="rounded-md border border-blue-300 bg-blue-50 px-3 py-2 text-sm text-blue-900">
-                    📋 Hay un cierre mensual abierto ({String(
-                      cierreActivo.periodo_mes,
-                    ).padStart(2, "0")}/{cierreActivo.periodo_anio}). Debes
-                    pesar las tolvas <strong>antes</strong> de llenar o cerrar
-                    la visita.
+                    📋 Debes pesar las tolvas <strong>antes</strong> de llenar
+                    o cerrar la visita
+                    {cierreActivo
+                      ? ` (cierre ${String(cierreActivo.periodo_mes).padStart(2, "0")}/${cierreActivo.periodo_anio})`
+                      : ""}
+                    {maquinaRequierePesaje
+                      ? " — esta máquina lo requiere en cada visita."
+                      : "."}
                   </div>
                   <PesajeForm
                     checkInId={checkIn.id}
                     asignacionId={asignacionId}
                     maquinaId={maquina.id}
-                    cierrePeriodo={{
-                      mes: cierreActivo.periodo_mes,
-                      anio: cierreActivo.periodo_anio,
-                    }}
+                    cierrePeriodo={
+                      cierreActivo
+                        ? {
+                            mes: cierreActivo.periodo_mes,
+                            anio: cierreActivo.periodo_anio,
+                          }
+                        : null
+                    }
                     tolvas={tolvasPolvo
                       .filter((t) => t.producto_id)
                       .map((t) => {
@@ -419,6 +461,18 @@ export default async function MaquinaCampoPage({
                   })}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {llenado && (llenado.vasos_planeados ?? 0) > 0 && (
+            <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
+              <div className="font-semibold uppercase tracking-wide">Vasos</div>
+              <div className="mt-1">
+                Planeado: {llenado.vasos_planeados} · Cargado:{" "}
+                <span className="font-semibold">
+                  {llenado.vasos_cargados ?? 0}
+                </span>
+              </div>
             </div>
           )}
         </div>

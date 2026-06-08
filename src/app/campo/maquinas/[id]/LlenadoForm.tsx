@@ -2,6 +2,10 @@
 
 import { useState, useTransition } from "react";
 
+import CheckoutSheet, {
+  type CheckoutData,
+  validateCheckout,
+} from "./CheckoutSheet";
 import { registrarLlenado } from "./actions";
 
 type TolvaCandidata = {
@@ -17,6 +21,7 @@ type Item = {
   encartuchado_id: string | null;
   producto: { sku: string; nombre: string; tipo: string } | null;
   tolvas_candidatas: TolvaCandidata[];
+  es_vaso: boolean;
 };
 
 type Linea = {
@@ -41,7 +46,7 @@ export default function LlenadoForm({
     for (const it of items) {
       init[it.id] = {
         surtido_item_id: it.id,
-        tolva_id: it.tolvas_candidatas[0]?.id ?? "",
+        tolva_id: it.es_vaso ? "" : (it.tolvas_candidatas[0]?.id ?? ""),
         cartuchos_cargados: it.cartuchos_entregados,
       };
     }
@@ -49,6 +54,12 @@ export default function LlenadoForm({
   });
   const [foto, setFoto] = useState<File | null>(null);
   const [notas, setNotas] = useState("");
+  const [checkout, setCheckout] = useState<CheckoutData>({
+    foto: null,
+    nayax_ok: null,
+    maquina_limpia: null,
+    productos_ok: null,
+  });
   const [estado, setEstado] = useState<"idle" | "enviando" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
@@ -62,10 +73,26 @@ export default function LlenadoForm({
 
   function finalizar() {
     setError(null);
+
+    const checkoutErr = validateCheckout(checkout);
+    if (checkoutErr) {
+      setError(checkoutErr);
+      setEstado("error");
+      return;
+    }
+
     setEstado("enviando");
 
-    const payload = Object.values(lineas).filter((l) => l.tolva_id);
-    const sinTolva = items.filter(
+    // Separar items de cartucho (con tolva) y de vasos
+    const cartuchoItems = items.filter((it) => !it.es_vaso);
+    const vasoItems = items.filter((it) => it.es_vaso);
+
+    // Items de cartucho: requieren tolva
+    const payloadCartuchos = cartuchoItems
+      .map((it) => lineas[it.id])
+      .filter((l) => l && l.tolva_id);
+
+    const sinTolva = cartuchoItems.filter(
       (it) => it.tolvas_candidatas.length === 0 && !lineas[it.id]?.tolva_id,
     );
     if (sinTolva.length > 0) {
@@ -78,14 +105,26 @@ export default function LlenadoForm({
       return;
     }
 
+    // Suma de vasos cargados (en caso de múltiples items vaso, los sumamos)
+    const vasosCargados = vasoItems.reduce(
+      (s, it) => s + (lineas[it.id]?.cartuchos_cargados ?? 0),
+      0,
+    );
+
     startTransition(async () => {
       const fd = new FormData();
       fd.set("check_in_id", checkInId);
       fd.set("asignacion_id", asignacionId);
       fd.set("maquina_id", maquinaId);
-      fd.set("items", JSON.stringify(payload));
+      fd.set("items", JSON.stringify(payloadCartuchos));
+      fd.set("vasos_cargados", String(vasosCargados));
       if (foto) fd.set("foto", foto);
       if (notas) fd.set("notas", notas);
+      // Checkout
+      if (checkout.foto) fd.set("foto_salida", checkout.foto);
+      fd.set("checkout_nayax_ok", String(checkout.nayax_ok));
+      fd.set("checkout_maquina_limpia", String(checkout.maquina_limpia));
+      fd.set("checkout_productos_ok", String(checkout.productos_ok));
       const r = await registrarLlenado(fd);
       if (!r.ok) {
         setError(r.message);
@@ -101,6 +140,8 @@ export default function LlenadoForm({
       <div className="space-y-3">
         {items.map((it) => {
           const l = lineas[it.id];
+          const sinUsar = it.cartuchos_entregados - l.cartuchos_cargados;
+          const label = it.es_vaso ? "Vasos" : "Cartuchos";
           return (
             <div
               key={it.id}
@@ -111,33 +152,36 @@ export default function LlenadoForm({
               </div>
               <div className="font-mono text-xs text-zinc-500">
                 {it.producto?.sku} · planeado {it.cartuchos_entregados}
+                {it.es_vaso && " · vaso"}
               </div>
 
               <div className="mt-2 grid grid-cols-2 gap-2">
-                <div>
+                {!it.es_vaso && (
+                  <div>
+                    <label className="text-[10px] uppercase tracking-wide text-zinc-500">
+                      Tolva
+                    </label>
+                    <select
+                      value={l.tolva_id}
+                      onChange={(e) =>
+                        setLinea(it.id, { tolva_id: e.target.value })
+                      }
+                      className="mt-0.5 w-full rounded-md border border-zinc-300 px-2 py-1 text-sm shadow-sm focus:border-zinc-900 focus:outline-none"
+                    >
+                      {it.tolvas_candidatas.length === 0 && (
+                        <option value="">— Sin tolva —</option>
+                      )}
+                      {it.tolvas_candidatas.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          #{t.numero}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                <div className={it.es_vaso ? "col-span-2" : ""}>
                   <label className="text-[10px] uppercase tracking-wide text-zinc-500">
-                    Tolva
-                  </label>
-                  <select
-                    value={l.tolva_id}
-                    onChange={(e) =>
-                      setLinea(it.id, { tolva_id: e.target.value })
-                    }
-                    className="mt-0.5 w-full rounded-md border border-zinc-300 px-2 py-1 text-sm shadow-sm focus:border-zinc-900 focus:outline-none"
-                  >
-                    {it.tolvas_candidatas.length === 0 && (
-                      <option value="">— Sin tolva —</option>
-                    )}
-                    {it.tolvas_candidatas.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        #{t.numero}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[10px] uppercase tracking-wide text-zinc-500">
-                    Cartuchos
+                    {label}
                   </label>
                   <input
                     type="number"
@@ -157,10 +201,10 @@ export default function LlenadoForm({
                   />
                 </div>
               </div>
-              {l.cartuchos_cargados < it.cartuchos_entregados && (
+              {sinUsar > 0 && (
                 <p className="mt-1 text-[11px] text-amber-700">
-                  {it.cartuchos_entregados - l.cartuchos_cargados} cartucho(s)
-                  para devolución de almacén.
+                  {sinUsar} {it.es_vaso ? "vaso(s)" : "cartucho(s)"} sin usar
+                  {it.es_vaso ? "" : " para devolución de almacén"}.
                 </p>
               )}
             </div>
@@ -170,7 +214,7 @@ export default function LlenadoForm({
 
       <div>
         <label className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-          Foto evidencia (opcional)
+          Foto del llenado (opcional)
         </label>
         <input
           type="file"
@@ -192,6 +236,12 @@ export default function LlenadoForm({
           className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-1 text-sm shadow-sm focus:border-zinc-900 focus:outline-none"
         />
       </div>
+
+      <CheckoutSheet
+        data={checkout}
+        onChange={(patch) => setCheckout((p) => ({ ...p, ...patch }))}
+        reportarIncidenciaHref={`/campo/maquinas/${maquinaId}?asignacion=${asignacionId}#incidencia`}
+      />
 
       <button
         type="button"

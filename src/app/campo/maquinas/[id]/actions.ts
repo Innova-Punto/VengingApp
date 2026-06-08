@@ -105,9 +105,30 @@ export async function registrarLlenado(
   const maquina_id = String(formData.get("maquina_id") ?? "");
   const itemsRaw = String(formData.get("items") ?? "[]");
   const notas = String(formData.get("notas") ?? "") || null;
+  const vasosCargadosRaw = formData.get("vasos_cargados");
+  const vasos_cargados = vasosCargadosRaw
+    ? Math.max(0, Number(vasosCargadosRaw) || 0)
+    : 0;
   const foto = formData.get("foto");
+  const fotoSalida = formData.get("foto_salida");
+  const checkoutNayaxOk = formData.get("checkout_nayax_ok");
+  const checkoutMaquinaLimpia = formData.get("checkout_maquina_limpia");
+  const checkoutProductosOk = formData.get("checkout_productos_ok");
 
   if (!check_in_id) return { ok: false, message: "Falta check-in." };
+
+  // Validación: foto de salida obligatoria
+  if (!(fotoSalida instanceof File) || fotoSalida.size === 0) {
+    return { ok: false, message: "La foto de salida es obligatoria." };
+  }
+  // Validación: checklist completo
+  if (
+    !["true", "false"].includes(String(checkoutNayaxOk)) ||
+    !["true", "false"].includes(String(checkoutMaquinaLimpia)) ||
+    !["true", "false"].includes(String(checkoutProductosOk))
+  ) {
+    return { ok: false, message: "Completa los 3 puntos del checklist de salida." };
+  }
 
   let items: unknown;
   try {
@@ -135,11 +156,28 @@ export async function registrarLlenado(
     }
   }
 
+  let foto_salida_url: string | null = null;
+  try {
+    foto_salida_url = await subirFoto(
+      supabase,
+      "evidencias-checkin",
+      `${asignacion_id}/${maquina_id}-salida-${Date.now()}`,
+      fotoSalida as File,
+    );
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e) };
+  }
+
   const { error } = await supabase.rpc("op_registrar_llenado", {
     p_check_in_id: check_in_id,
     p_items: items,
     p_evidencia_url: foto_url,
     p_notas: notas,
+    p_vasos_cargados: vasos_cargados,
+    p_foto_salida_url: foto_salida_url,
+    p_checkout_nayax_ok: checkoutNayaxOk === "true",
+    p_checkout_maquina_limpia: checkoutMaquinaLimpia === "true",
+    p_checkout_productos_ok: checkoutProductosOk === "true",
   });
 
   if (error) return { ok: false, message: error.message };
@@ -162,15 +200,47 @@ export async function cerrarVisitaSinLlenado(input: {
   asignacionId: string;
   maquinaId: string;
   notas: string | null;
+  fotoSalida: File | null;
+  checkoutNayaxOk: boolean | null;
+  checkoutMaquinaLimpia: boolean | null;
+  checkoutProductosOk: boolean | null;
 }): Promise<ActionResult> {
   await requireRole("operador", "admin", "direccion");
 
   if (!input.checkInId) return { ok: false, message: "Falta check-in." };
 
+  if (!input.fotoSalida || input.fotoSalida.size === 0) {
+    return { ok: false, message: "La foto de salida es obligatoria." };
+  }
+  if (
+    input.checkoutNayaxOk === null ||
+    input.checkoutMaquinaLimpia === null ||
+    input.checkoutProductosOk === null
+  ) {
+    return { ok: false, message: "Completa los 3 puntos del checklist de salida." };
+  }
+
   const supabase = createClient() as AnyClient;
+
+  let foto_salida_url: string | null = null;
+  try {
+    foto_salida_url = await subirFoto(
+      supabase,
+      "evidencias-checkin",
+      `${input.asignacionId}/${input.maquinaId}-salida-${Date.now()}`,
+      input.fotoSalida,
+    );
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e) };
+  }
+
   const { error } = await supabase.rpc("op_cerrar_check_in_sin_llenado", {
     p_check_in_id: input.checkInId,
     p_notas: input.notas,
+    p_foto_salida_url: foto_salida_url,
+    p_checkout_nayax_ok: input.checkoutNayaxOk,
+    p_checkout_maquina_limpia: input.checkoutMaquinaLimpia,
+    p_checkout_productos_ok: input.checkoutProductosOk,
   });
 
   if (error) return { ok: false, message: error.message };
