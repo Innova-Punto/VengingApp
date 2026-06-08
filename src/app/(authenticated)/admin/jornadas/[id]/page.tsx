@@ -264,6 +264,9 @@ export default async function JornadaDetallePage({
             const pesaje = pesajePorCheckIn.get(ci.id);
             const pesajeItems =
               pesaje && Array.isArray(pesaje.items) ? pesaje.items : [];
+            const hayDevoluciones = items.some((li: { id: string }) =>
+              devoluPorItem.has(li.id),
+            );
 
             const fotoCheckIn = await signedUrlFromKey(
               supabase,
@@ -408,7 +411,11 @@ export default async function JornadaDetallePage({
                             <th className="py-1 text-right font-medium">Plan</th>
                             <th className="py-1 text-right font-medium">Carg</th>
                             <th className="py-1 text-right font-medium">Gramos</th>
-                            <th className="py-1 font-medium">Cart. devueltos</th>
+                            {hayDevoluciones && (
+                              <th className="py-1 text-right font-medium">
+                                Cart. devueltos
+                              </th>
+                            )}
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-zinc-100">
@@ -453,26 +460,28 @@ export default async function JornadaDetallePage({
                                 <td className="py-1 text-right tabular-nums">
                                   {li.gramos_cargados}g
                                 </td>
-                                <td className="py-1 text-xs">
-                                  {dev ? (
-                                    <span
-                                      className={
-                                        dev.estado === "pendiente_devolucion"
-                                          ? "text-amber-700"
-                                          : dev.estado === "recibida_ok"
-                                            ? "text-green-700"
-                                            : "text-red-700"
-                                      }
-                                    >
-                                      {dev.cantidad_calculada} cart{" "}
-                                      {dev.estado === "pendiente_devolucion"
-                                        ? "pend."
-                                        : `↪ ${dev.cantidad_recibida_almacen ?? "?"}`}
-                                    </span>
-                                  ) : (
-                                    <span className="text-zinc-300">—</span>
-                                  )}
-                                </td>
+                                {hayDevoluciones && (
+                                  <td className="py-1 text-right text-xs">
+                                    {dev ? (
+                                      <span
+                                        className={
+                                          dev.estado === "pendiente_devolucion"
+                                            ? "text-amber-700"
+                                            : dev.estado === "recibida_ok"
+                                              ? "text-green-700"
+                                              : "text-red-700"
+                                        }
+                                      >
+                                        {dev.cantidad_calculada} cart{" "}
+                                        {dev.estado === "pendiente_devolucion"
+                                          ? "pend."
+                                          : `↪ ${dev.cantidad_recibida_almacen ?? "?"}`}
+                                      </span>
+                                    ) : (
+                                      <span className="text-zinc-300">—</span>
+                                    )}
+                                  </td>
+                                )}
                               </tr>
                             );
                           })}
