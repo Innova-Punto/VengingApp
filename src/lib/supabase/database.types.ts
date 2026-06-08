@@ -2066,7 +2066,7 @@ export type Database = {
       pesajes_maquina: {
         Row: {
           check_in_id: string
-          cierre_id: string
+          cierre_id: string | null
           created_at: string
           fecha: string
           id: string
@@ -2076,7 +2076,7 @@ export type Database = {
         }
         Insert: {
           check_in_id: string
-          cierre_id: string
+          cierre_id?: string | null
           created_at?: string
           fecha?: string
           id?: string
@@ -2086,7 +2086,7 @@ export type Database = {
         }
         Update: {
           check_in_id?: string
-          cierre_id?: string
+          cierre_id?: string | null
           created_at?: string
           fecha?: string
           id?: string
@@ -3529,6 +3529,10 @@ export type Database = {
       distancia_metros: {
         Args: { lat1: number; lat2: number; lng1: number; lng2: number }
         Returns: number
+      }
+      editar_pesaje_tolva_item: {
+        Args: { p_item_id: string; p_motivo?: string; p_nuevos_gramos: number }
+        Returns: undefined
       }
       gen_folio: {
         Args: { prefijo: string; seq_name: string }
