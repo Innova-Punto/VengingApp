@@ -43,7 +43,7 @@ const SECCIONES: { titulo: string; descripcion?: string; pasos: Step[] }[] = [
           "Captura el correo y contraseña que te asignaron.",
           "Si la contraseña no funciona, escríbele al supervisor antes de continuar (no la cambies tú mismo).",
         ],
-        image: { file: "02-login.jpg", alt: "Formulario de login" },
+        image: { file: "02-login.PNG", alt: "Formulario de login" },
       },
       {
         number: "1.3",
@@ -53,7 +53,7 @@ const SECCIONES: { titulo: string; descripcion?: string; pasos: Step[] }[] = [
           "Sin GPS no puedes hacer check-in. Sin cámara no puedes subir evidencia.",
         ],
         tip: "Si por error denegaste el permiso: en Chrome → ajustes del sitio → permitir ubicación y cámara.",
-        image: { file: "03-permisos.jpg", alt: "Diálogo de permisos del navegador" },
+        image: { file: "03-permisos.PNG", alt: "Diálogo de permisos del navegador" },
       },
     ],
   },
@@ -67,7 +67,7 @@ const SECCIONES: { titulo: string; descripcion?: string; pasos: Step[] }[] = [
           "Al entrar verás la tarjeta 'Hoy' con la fecha y el número de asignaciones que tienes.",
           "Abajo aparece cada ruta asignada con su color, nombre y cantidad de máquinas.",
         ],
-        image: { file: "04-hoy.jpg", alt: "Pantalla Hoy con asignaciones" },
+        image: { file: "04-hoy.PNG", alt: "Pantalla Hoy con asignaciones" },
       },
       {
         number: "2.2",
@@ -90,7 +90,7 @@ const SECCIONES: { titulo: string; descripcion?: string; pasos: Step[] }[] = [
         body: [
           "Toca la tarjeta de la ruta que vas a hacer. Verás el detalle: lista de máquinas en el orden planeado.",
         ],
-        image: { file: "05-detalle-ruta.jpg", alt: "Detalle de ruta con máquinas" },
+        image: { file: "05-detalle-ruta.PNG", alt: "Detalle de ruta con máquinas" },
       },
       {
         number: "3.2",
@@ -99,7 +99,7 @@ const SECCIONES: { titulo: string; descripcion?: string; pasos: Step[] }[] = [
           "Cuando estés a punto de salir, toca **Iniciar jornada**. Esto registra la hora de inicio y tu ubicación.",
           "A partir de aquí ya puedes hacer check-in en cada máquina.",
         ],
-        image: { file: "06-iniciar.jpg", alt: "Botón Iniciar jornada" },
+        image: { file: "06-iniciar.PNG", alt: "Botón Iniciar jornada" },
       },
     ],
   },
@@ -114,7 +114,7 @@ const SECCIONES: { titulo: string; descripcion?: string; pasos: Step[] }[] = [
         body: [
           "Toca la máquina que vas a visitar. Si una no está en tu ruta original pero llegaste por excepción, pídele al planeador que la agregue.",
         ],
-        image: { file: "07-lista-maquinas.jpg", alt: "Lista de máquinas de la ruta" },
+        image: { file: "07-lista-maquinas.PNG", alt: "Lista de máquinas de la ruta" },
       },
       {
         number: "4.2",
@@ -125,7 +125,7 @@ const SECCIONES: { titulo: string; descripcion?: string; pasos: Step[] }[] = [
           "El sistema valida tu ubicación contra la dirección registrada. Si la distancia es muy grande, te lo va a avisar.",
         ],
         tip: "Si la máquina cambió de lugar físicamente, levanta una incidencia y avísale al planeador.",
-        image: { file: "08-checkin.jpg", alt: "Pantalla de check-in con foto" },
+        image: { file: "08-checkin.PNG", alt: "Pantalla de check-in con foto" },
       },
       {
         number: "4.3",
@@ -136,7 +136,7 @@ const SECCIONES: { titulo: string; descripcion?: string; pasos: Step[] }[] = [
           "El sistema calcula automáticamente la diferencia contra el teórico (lo que debería haber) y la registra como merma o sobrante.",
         ],
         tip: "Pesa antes de cargar. El número 'gramos medidos' debe ser lo que hay en la tolva ANTES de echarle producto nuevo.",
-        image: { file: "09-pesaje.jpg", alt: "Formulario de pesaje por tolva" },
+        image: { file: "09-pesaje.PNG", alt: "Formulario de pesaje por tolva" },
       },
       {
         number: "4.4",
@@ -146,7 +146,7 @@ const SECCIONES: { titulo: string; descripcion?: string; pasos: Step[] }[] = [
           "Si por algún motivo no cargas todos los cartuchos planeados, captura cuántos sí cargaste. Los que no cargues se contabilizan como devolución a almacén.",
           "Si la máquina lleva vasos, también captura cuántos vasos cargaste.",
         ],
-        image: { file: "10-llenado.jpg", alt: "Formulario de llenado por tolva" },
+        image: { file: "10-llenado.PNG", alt: "Formulario de llenado por tolva" },
       },
       {
         number: "4.5",
@@ -156,7 +156,7 @@ const SECCIONES: { titulo: string; descripcion?: string; pasos: Step[] }[] = [
           "Selecciona el tipo, captura una breve descripción y toma foto.",
           "Para incidencias que afecten inventario (cartuchos dañados, robo), también captura la cantidad afectada.",
         ],
-        image: { file: "11-incidencia.jpg", alt: "Formulario de incidencia" },
+        image: { file: "11-incidencia.PNG", alt: "Formulario de incidencia" },
       },
       {
         number: "4.6",
@@ -171,7 +171,7 @@ const SECCIONES: { titulo: string; descripcion?: string; pasos: Step[] }[] = [
           "Si alguno está en NO, antes de checkout reporta la incidencia correspondiente.",
         ],
         tip: "El checkout es obligatorio para cerrar la visita. Sin foto + checklist el sistema no te deja avanzar.",
-        image: { file: "12-checkout.jpg", alt: "Pantalla de checkout con checklist" },
+        image: { file: "12-checkout.PNG", alt: "Pantalla de checkout con checklist" },
       },
     ],
   },
@@ -184,7 +184,7 @@ const SECCIONES: { titulo: string; descripcion?: string; pasos: Step[] }[] = [
         body: [
           "Cuando termines la última máquina de la ruta y le des checkout, el sistema marca tu jornada como 'completada' automáticamente.",
         ],
-        image: { file: "13-completada.jpg", alt: "Ruta completada" },
+        image: { file: "13-completada.PNG", alt: "Ruta completada" },
       },
       {
         number: "5.2",
