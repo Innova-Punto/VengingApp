@@ -53,7 +53,6 @@ const SECCIONES: { titulo: string; descripcion?: string; pasos: Step[] }[] = [
           "Sin GPS no puedes hacer check-in. Sin cámara no puedes subir evidencia.",
         ],
         tip: "Si por error denegaste el permiso: en Chrome → ajustes del sitio → permitir ubicación y cámara.",
-        image: { file: "03-permisos.PNG", alt: "Diálogo de permisos del navegador" },
       },
     ],
   },
