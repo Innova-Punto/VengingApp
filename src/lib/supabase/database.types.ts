@@ -1892,6 +1892,36 @@ export type Database = {
           },
         ]
       }
+      nayax_mensajes_descartados: {
+        Row: {
+          created_at: string
+          id: string
+          machine_id: string | null
+          motivo: string
+          payload: Json
+          sqs_message_id: string | null
+          transaction_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          machine_id?: string | null
+          motivo: string
+          payload: Json
+          sqs_message_id?: string | null
+          transaction_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          machine_id?: string | null
+          motivo?: string
+          payload?: Json
+          sqs_message_id?: string | null
+          transaction_id?: string | null
+        }
+        Relationships: []
+      }
       nayax_sync_log: {
         Row: {
           created_at: string
