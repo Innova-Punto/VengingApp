@@ -5,7 +5,7 @@ import { signOut } from "@/app/(auth)/login/actions";
 import { Logo } from "@/components/Logo";
 import NavMenu, { type NavGroup } from "@/components/NavMenu";
 
-type ItemDef = { label: string; href: string };
+type ItemDef = { label: string; href: string; roles?: AppRole[] };
 type GroupDef = {
   label: string;
   roles: AppRole[];
@@ -52,13 +52,28 @@ const NAV_GROUPS: GroupDef[] = [
       { label: "Asignaciones", href: "/planeacion/asignaciones" },
       { label: "Surtidos", href: "/planeacion/surtidos" },
       { label: "Devoluciones", href: "/almacen/devoluciones" },
-      { label: "Incidencias", href: "/admin/incidencias" },
     ],
   },
   {
     label: "Operación",
     roles: ["admin", "direccion", "operador"],
-    items: [{ label: "Campo (móvil)", href: "/campo" }],
+    items: [
+      {
+        label: "Campo (móvil)",
+        href: "/campo",
+        roles: ["operador", "admin", "direccion"],
+      },
+      {
+        label: "Jornadas (auditoría)",
+        href: "/admin/jornadas",
+        roles: ["admin", "direccion"],
+      },
+      {
+        label: "Incidencias",
+        href: "/admin/incidencias",
+        roles: ["admin", "direccion"],
+      },
+    ],
   },
   {
     label: "Admin",
@@ -66,8 +81,6 @@ const NAV_GROUPS: GroupDef[] = [
     items: [
       { label: "Dashboard", href: "/admin/dashboard" },
       { label: "Usuarios", href: "/admin/usuarios" },
-      { label: "Jornadas (auditoría)", href: "/admin/jornadas" },
-      { label: "Incidencias", href: "/admin/incidencias" },
       { label: "Cierres mensuales", href: "/admin/cierres" },
       { label: "Ventas", href: "/admin/ventas" },
       { label: "Nayax", href: "/admin/nayax" },
@@ -84,7 +97,14 @@ export default async function AuthenticatedLayout({
 
   const visibles: NavGroup[] = NAV_GROUPS.filter((g) =>
     g.roles.some((r) => user.roles.includes(r)),
-  ).map((g) => ({ label: g.label, items: g.items }));
+  )
+    .map((g) => ({
+      label: g.label,
+      items: g.items.filter(
+        (it) => !it.roles || it.roles.some((r) => user.roles.includes(r)),
+      ),
+    }))
+    .filter((g) => g.items.length > 0);
 
   return (
     <div className="min-h-screen bg-zinc-50">
