@@ -8,16 +8,19 @@ import { crearErrorOperativo } from "./actions";
 
 type Operador = { id: string; full_name: string };
 type Ruta = { id: string; nombre: string };
+type Maquina = { id: string; serie: string; alias: string | null };
 
 export function NuevoErrorButton({
   operadores,
   rutas,
+  maquinas,
   prefill,
   variant = "primary",
   label = "+ Error operativo",
 }: {
   operadores: Operador[];
   rutas: Ruta[];
+  maquinas: Maquina[];
   prefill?: {
     operador_id?: string;
     ruta_id?: string;
@@ -45,6 +48,7 @@ export function NuevoErrorButton({
         <Modal
           operadores={operadores}
           rutas={rutas}
+          maquinas={maquinas}
           prefill={prefill}
           onClose={() => setOpen(false)}
         />
@@ -56,11 +60,13 @@ export function NuevoErrorButton({
 function Modal({
   operadores,
   rutas,
+  maquinas,
   prefill,
   onClose,
 }: {
   operadores: Operador[];
   rutas: Ruta[];
+  maquinas: Maquina[];
   prefill?: {
     operador_id?: string;
     ruta_id?: string;
@@ -72,6 +78,7 @@ function Modal({
   const [motivo, setMotivo] = useState<string>(MOTIVOS[0].value);
   const [operador, setOperador] = useState<string>(prefill?.operador_id ?? "");
   const [ruta, setRuta] = useState<string>(prefill?.ruta_id ?? "");
+  const [maquina, setMaquina] = useState<string>(prefill?.maquina_id ?? "");
   const [descripcion, setDescripcion] = useState<string>("");
   const [msg, setMsg] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -83,9 +90,9 @@ function Modal({
     fd.set("motivo", motivo);
     fd.set("operador_id", operador);
     fd.set("ruta_id", ruta);
+    fd.set("maquina_id", maquina);
     fd.set("descripcion", descripcion);
     if (prefill?.asignacion_id) fd.set("asignacion_id", prefill.asignacion_id);
-    if (prefill?.maquina_id) fd.set("maquina_id", prefill.maquina_id);
     startTransition(async () => {
       const r = await crearErrorOperativo(fd);
       if (r?.error) setMsg(r.error);
@@ -145,23 +152,44 @@ function Modal({
             </select>
           </label>
 
-          <label className="block text-sm">
-            <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-              Ruta
-            </span>
-            <select
-              value={ruta}
-              onChange={(e) => setRuta(e.target.value)}
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm focus:border-zinc-500 focus:outline-none"
-            >
-              <option value="">— Ninguna —</option>
-              {rutas.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.nombre}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <label className="block text-sm">
+              <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                Ruta
+              </span>
+              <select
+                value={ruta}
+                onChange={(e) => setRuta(e.target.value)}
+                className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm focus:border-zinc-500 focus:outline-none"
+              >
+                <option value="">— Ninguna —</option>
+                {rutas.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.nombre}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block text-sm">
+              <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                Máquina
+              </span>
+              <select
+                value={maquina}
+                onChange={(e) => setMaquina(e.target.value)}
+                className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm focus:border-zinc-500 focus:outline-none"
+              >
+                <option value="">— Ninguna —</option>
+                {maquinas.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.serie}
+                    {m.alias ? ` · ${m.alias}` : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
 
           <label className="block text-sm">
             <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">

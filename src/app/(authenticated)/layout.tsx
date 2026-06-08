@@ -64,6 +64,11 @@ const NAV_GROUPS: GroupDef[] = [
         roles: ["operador", "admin", "direccion"],
       },
       {
+        label: "Dashboard supervisión",
+        href: "/admin/supervision",
+        roles: ["admin", "direccion"],
+      },
+      {
         label: "Jornadas (auditoría)",
         href: "/admin/jornadas",
         roles: ["admin", "direccion"],
