@@ -28,7 +28,31 @@ export default async function InventarioPage({
 
   if (tipo === "polvo" || tipo === "vaso") query = query.eq("tipo", tipo);
 
-  const { data: filasRaw, error } = await query;
+  const [{ data: filasRaw, error }, { data: capitalRow }] = await Promise.all([
+    query,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
+      .from("v_capital_trabajo")
+      .select("*")
+      .maybeSingle(),
+  ]);
+
+  const cap = (capitalRow ?? {}) as {
+    alm_granel_valor?: number;
+    alm_granel_gramos?: number;
+    alm_cartuchos_valor?: number;
+    alm_cartuchos_unidades?: number;
+    alm_cartuchos_gramos?: number;
+    alm_vasos_valor?: number;
+    alm_vasos_unidades?: number;
+    maq_polvo_valor?: number;
+    maq_polvo_gramos?: number;
+    maq_vasos_valor?: number;
+    maq_vasos_unidades?: number;
+    almacen_total?: number;
+    maquinas_total?: number;
+    capital_total?: number;
+  };
   let filas = filasRaw ?? [];
 
   if (estado === "criticos") {
@@ -50,6 +74,61 @@ export default async function InventarioPage({
           mínimos y punto de reorden se configuran en cada producto.
         </p>
       </div>
+
+      <section className="rounded-lg border border-zinc-200 bg-white p-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+              Capital de trabajo · tiempo real
+            </div>
+            <div className="mt-1 text-3xl font-semibold tabular-nums text-zinc-900">
+              {fmtMXN(cap.capital_total)}
+            </div>
+            <div className="text-xs text-zinc-500">Al costo promedio actual</div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <CapitalBlock
+              titulo="Almacén"
+              total={cap.almacen_total}
+              tone="zinc"
+              detalles={[
+                {
+                  label: "Granel",
+                  valor: cap.alm_granel_valor,
+                  sub: `${fmtNum(cap.alm_granel_gramos)} g`,
+                },
+                {
+                  label: "Cartuchos",
+                  valor: cap.alm_cartuchos_valor,
+                  sub: `${fmtNum(cap.alm_cartuchos_unidades)} cart · ${fmtNum(cap.alm_cartuchos_gramos)} g`,
+                },
+                {
+                  label: "Vasos",
+                  valor: cap.alm_vasos_valor,
+                  sub: `${fmtNum(cap.alm_vasos_unidades)} u`,
+                },
+              ]}
+            />
+            <CapitalBlock
+              titulo="En máquinas"
+              total={cap.maquinas_total}
+              tone="amber"
+              detalles={[
+                {
+                  label: "Polvo en tolvas",
+                  valor: cap.maq_polvo_valor,
+                  sub: `${fmtNum(cap.maq_polvo_gramos)} g`,
+                },
+                {
+                  label: "Vasos",
+                  valor: cap.maq_vasos_valor,
+                  sub: `${fmtNum(cap.maq_vasos_unidades)} u`,
+                },
+              ]}
+            />
+          </div>
+        </div>
+      </section>
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <StatCard label="Productos activos" value={(filasRaw ?? []).length} />
@@ -222,6 +301,58 @@ export default async function InventarioPage({
         (expresado como gramos equivalentes). Configura mínimos y máximos en
         el detalle de cada producto.
       </p>
+    </div>
+  );
+}
+
+function fmtMXN(v: number | undefined | null): string {
+  const n = Number(v ?? 0);
+  return `$${n.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function fmtNum(v: number | undefined | null): string {
+  return Number(v ?? 0).toLocaleString("es-MX");
+}
+
+function CapitalBlock({
+  titulo,
+  total,
+  tone,
+  detalles,
+}: {
+  titulo: string;
+  total: number | undefined;
+  tone: "zinc" | "amber";
+  detalles: { label: string; valor: number | undefined; sub: string }[];
+}) {
+  const toneCls =
+    tone === "amber"
+      ? "border-amber-200 bg-amber-50"
+      : "border-zinc-200 bg-zinc-50";
+  return (
+    <div className={`rounded-md border ${toneCls} px-3 py-2 min-w-[220px]`}>
+      <div className="flex items-baseline justify-between gap-3">
+        <div className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+          {titulo}
+        </div>
+        <div className="text-base font-semibold tabular-nums text-zinc-900">
+          {fmtMXN(total)}
+        </div>
+      </div>
+      <div className="mt-1 space-y-0.5">
+        {detalles.map((d) => (
+          <div
+            key={d.label}
+            className="flex items-baseline justify-between gap-3 text-xs"
+          >
+            <div>
+              <span className="text-zinc-600">{d.label}</span>
+              <span className="ml-1 text-[10px] text-zinc-400">{d.sub}</span>
+            </div>
+            <span className="tabular-nums text-zinc-700">{fmtMXN(d.valor)}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
