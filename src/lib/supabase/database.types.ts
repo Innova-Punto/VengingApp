@@ -3551,6 +3551,25 @@ export type Database = {
       }
     }
     Views: {
+      v_capital_trabajo: {
+        Row: {
+          alm_cartuchos_gramos: number | null
+          alm_cartuchos_unidades: number | null
+          alm_cartuchos_valor: number | null
+          alm_granel_gramos: number | null
+          alm_granel_valor: number | null
+          alm_vasos_unidades: number | null
+          alm_vasos_valor: number | null
+          almacen_total: number | null
+          capital_total: number | null
+          maq_polvo_gramos: number | null
+          maq_polvo_valor: number | null
+          maq_vasos_unidades: number | null
+          maq_vasos_valor: number | null
+          maquinas_total: number | null
+        }
+        Relationships: []
+      }
       v_inventario_producto: {
         Row: {
           activo: boolean | null
