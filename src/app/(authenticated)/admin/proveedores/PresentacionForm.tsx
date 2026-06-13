@@ -63,14 +63,17 @@ export default function PresentacionForm({
           <input
             name="nombre_presentacion"
             required
-            placeholder="Saco 10kg"
+            placeholder="Saco 10kg / Caja 2,000 vasos"
             className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm shadow-sm focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900"
           />
+          <p className="mt-0.5 text-[10px] text-zinc-500">
+            Cómo se factura el proveedor (ej. saco, bidón, caja).
+          </p>
         </div>
 
         <div>
           <label className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-            Peso (g) *
+            Peso por presentación (g) *
           </label>
           <input
             name="peso_neto_gramos"
@@ -81,20 +84,29 @@ export default function PresentacionForm({
             placeholder="10000"
             className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm shadow-sm focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900"
           />
+          <p className="mt-0.5 text-[10px] text-zinc-500">
+            Polvos: gramos por saco. Vasos: 1 si es por pieza, o el total
+            cuando es caja (referencia).
+          </p>
         </div>
 
         <div>
           <label className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-            Unidades
+            Unidades por presentación *
           </label>
           <input
             name="unidades_por_presentacion"
             type="number"
             min={1}
             step={1}
+            required
             defaultValue={1}
             className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm shadow-sm focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900"
           />
+          <p className="mt-0.5 text-[10px] text-zinc-500">
+            Cuántas piezas trae UNA presentación. Ej. caja de 2,000 vasos →
+            <strong> 2000</strong>. Saco de polvo o vaso suelto → <strong>1</strong>.
+          </p>
         </div>
 
         <div className="md:col-span-2">
