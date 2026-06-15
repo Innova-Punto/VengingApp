@@ -3709,6 +3709,25 @@ export type Database = {
         }
         Returns: string
       }
+      capital_trabajo: {
+        Args: { p_cliente_id?: string }
+        Returns: {
+          alm_cartuchos_gramos: number
+          alm_cartuchos_unidades: number
+          alm_cartuchos_valor: number
+          alm_granel_gramos: number
+          alm_granel_valor: number
+          alm_vasos_unidades: number
+          alm_vasos_valor: number
+          almacen_total: number
+          capital_total: number
+          maq_polvo_gramos: number
+          maq_polvo_valor: number
+          maq_vasos_unidades: number
+          maq_vasos_valor: number
+          maquinas_total: number
+        }[]
+      }
       cerrar_cierre_mensual: {
         Args: { p_cierre_id: string; p_force?: boolean }
         Returns: string
@@ -3847,6 +3866,10 @@ export type Database = {
           p_ticket_id?: string
         }
         Returns: string
+      }
+      productos_de_cliente: {
+        Args: { p_cliente_id: string }
+        Returns: string[]
       }
       recibir_devolucion: {
         Args: {
