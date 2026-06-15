@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Inventario · MuscleUp" };
 
-type SearchParams = { tipo?: string; estado?: string };
+type SearchParams = { tipo?: string; estado?: string; cliente?: string };
 
 export default async function InventarioPage({
   searchParams,
@@ -16,8 +16,32 @@ export default async function InventarioPage({
 
   const tipo = searchParams.tipo;
   const estado = searchParams.estado ?? "todos";
+  const clienteId = searchParams.cliente || null;
 
   const supabase = createClient();
+
+  // Lista de clientes para el filtro
+  const { data: clientesRaw } = await supabase
+    .from("clientes")
+    .select("id, nombre")
+    .eq("activo", true)
+    .order("nombre");
+  const clientes = clientesRaw ?? [];
+
+  // Si hay filtro de cliente: obtenemos los producto_ids asociados
+  // (exclusivos + usados en sus máquinas + vaso de sus máquinas).
+  let productosDelCliente: string[] | null = null;
+  if (clienteId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: prods } = await (supabase as any).rpc(
+      "productos_de_cliente",
+      { p_cliente_id: clienteId },
+    );
+    productosDelCliente = ((prods ?? []) as { productos_de_cliente: string }[])
+      .map((r) => r.productos_de_cliente)
+      .filter(Boolean);
+  }
+
   let query = supabase
     .from("v_inventario_producto")
     .select("*")
@@ -27,14 +51,21 @@ export default async function InventarioPage({
     .order("nombre");
 
   if (tipo === "polvo" || tipo === "vaso") query = query.eq("tipo", tipo);
+  if (productosDelCliente !== null) {
+    if (productosDelCliente.length === 0) {
+      // ningún producto matchea → forzar conjunto vacío
+      query = query.eq("id", "00000000-0000-0000-0000-000000000000");
+    } else {
+      query = query.in("id", productosDelCliente);
+    }
+  }
 
   const [{ data: filasRaw, error }, { data: capitalRow }] = await Promise.all([
     query,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any)
-      .from("v_capital_trabajo")
-      .select("*")
-      .maybeSingle(),
+    (supabase as any).rpc("capital_trabajo", {
+      p_cliente_id: clienteId,
+    }).single(),
   ]);
 
   const cap = (capitalRow ?? {}) as {
@@ -80,6 +111,11 @@ export default async function InventarioPage({
           <div>
             <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">
               Capital de trabajo · tiempo real
+              {clienteId && (
+                <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] text-blue-700">
+                  {clientes.find((c) => c.id === clienteId)?.nombre ?? "Cliente"}
+                </span>
+              )}
             </div>
             <div className="mt-1 text-3xl font-semibold tabular-nums text-zinc-900">
               {fmtMXN(cap.capital_total)}
@@ -148,6 +184,23 @@ export default async function InventarioPage({
         method="get"
         className="flex flex-wrap items-end gap-3 rounded-lg border border-zinc-200 bg-white p-4"
       >
+        <div>
+          <label className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+            Cliente
+          </label>
+          <select
+            name="cliente"
+            defaultValue={clienteId ?? ""}
+            className="mt-1 w-48 rounded-md border border-zinc-300 px-3 py-1.5 text-sm shadow-sm focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900"
+          >
+            <option value="">Todos</option>
+            {clientes.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nombre}
+              </option>
+            ))}
+          </select>
+        </div>
         <div>
           <label className="text-xs font-medium uppercase tracking-wide text-zinc-500">
             Tipo
