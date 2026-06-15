@@ -166,6 +166,14 @@ export default async function MaquinaCampoPage({
         .maybeSingle()
     : { data: null };
 
+  // ¿Esta máquina ha sido pesada alguna vez? Si no, primera visita →
+  // pesaje obligatorio para capturar inventario inicial.
+  const { count: pesajesHistoricos } = await supabase
+    .from("pesajes_maquina")
+    .select("id", { count: "exact", head: true })
+    .eq("maquina_id", params.id);
+  const esPrimerPesaje = (pesajesHistoricos ?? 0) === 0;
+
   // Solo tolvas con producto polvo asignado (donde se puede llenar)
   const tolvasPolvo = tolvas.filter((t) => t.producto_id !== null);
   type TolvaInfo = (typeof tolvasPolvo)[number];
@@ -290,8 +298,13 @@ export default async function MaquinaCampoPage({
             const tolvasConProducto = tolvasPolvo.filter(
               (t) => t.producto_id,
             ).length;
+            // Pesaje OBLIGATORIO si:
+            //   - Es la primera vez que se pesa esta máquina (captura inicial), o
+            //   - Hay cierre mensual activo, o
+            //   - La máquina lo requiere en cada visita.
+            // Si no, sigue disponible como opcional (sección colapsable).
             const requierePesaje =
-              (!!cierreActivo || maquinaRequierePesaje) &&
+              (esPrimerPesaje || !!cierreActivo || maquinaRequierePesaje) &&
               !pesajeExistente &&
               tolvasConProducto > 0;
 
@@ -303,10 +316,11 @@ export default async function MaquinaCampoPage({
                     o cerrar la visita
                     {cierreActivo
                       ? ` (cierre ${String(cierreActivo.periodo_mes).padStart(2, "0")}/${cierreActivo.periodo_anio})`
-                      : ""}
-                    {maquinaRequierePesaje
-                      ? " — esta máquina lo requiere en cada visita."
-                      : "."}
+                      : maquinaRequierePesaje
+                        ? " — esta máquina lo requiere en cada visita."
+                        : esPrimerPesaje
+                          ? " — primer pesaje de esta máquina (inventario inicial)."
+                          : "."}
                   </div>
                   <PesajeForm
                     checkInId={checkIn.id}
