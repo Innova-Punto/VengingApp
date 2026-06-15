@@ -363,43 +363,6 @@ export default async function MaquinaCampoPage({
                   </div>
                 )}
 
-                {/* Pesaje opcional: aunque no sea obligatorio, el operador
-                    puede pesar si encuentra algo distinto a lo esperado. */}
-                {!pesajeExistente && tolvasConProducto > 0 && (
-                  <details className="rounded-lg border border-zinc-200 bg-white">
-                    <summary className="cursor-pointer px-3 py-2 text-sm font-medium text-zinc-800">
-                      ⚖️ Pesar tolvas (opcional)
-                    </summary>
-                    <div className="border-t border-zinc-200 p-3">
-                      <p className="mb-2 text-xs text-zinc-600">
-                        Úsalo si el inventario reportado no coincide con lo
-                        que ves físicamente en la máquina. Se registra como
-                        ajuste de inventario.
-                      </p>
-                      <PesajeForm
-                        checkInId={checkIn.id}
-                        asignacionId={asignacionId}
-                        maquinaId={maquina.id}
-                        cierrePeriodo={null}
-                        tolvas={tolvasPolvo
-                          .filter((t) => t.producto_id)
-                          .map((t) => {
-                            const prod = Array.isArray(t.producto)
-                              ? t.producto[0]
-                              : t.producto;
-                            return {
-                              id: t.id,
-                              numero: t.numero,
-                              inventario_actual_g: t.inventario_actual_g ?? 0,
-                              producto_nombre: prod?.nombre ?? "—",
-                              producto_sku: prod?.sku ?? "—",
-                            };
-                          })}
-                      />
-                    </div>
-                  </details>
-                )}
-
                 {surtidoItemsInfo.length > 0 ? (
                   <LlenadoForm
                     checkInId={checkIn.id}
