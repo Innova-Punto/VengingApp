@@ -1326,34 +1326,43 @@ export type Database = {
       jornadas: {
         Row: {
           asignacion_id: string
+          cancelada_at: string | null
+          cancelada_por: string | null
           created_at: string
           hora_inicio: string
           hora_ultima_actividad: string | null
           id: string
           lat_inicio: number | null
           lng_inicio: number | null
+          motivo_cancelacion: string | null
           notas: string | null
           operador_id: string
         }
         Insert: {
           asignacion_id: string
+          cancelada_at?: string | null
+          cancelada_por?: string | null
           created_at?: string
           hora_inicio?: string
           hora_ultima_actividad?: string | null
           id?: string
           lat_inicio?: number | null
           lng_inicio?: number | null
+          motivo_cancelacion?: string | null
           notas?: string | null
           operador_id: string
         }
         Update: {
           asignacion_id?: string
+          cancelada_at?: string | null
+          cancelada_por?: string | null
           created_at?: string
           hora_inicio?: string
           hora_ultima_actividad?: string | null
           id?: string
           lat_inicio?: number | null
           lng_inicio?: number | null
+          motivo_cancelacion?: string | null
           notas?: string | null
           operador_id?: string
         }
@@ -1363,6 +1372,13 @@ export type Database = {
             columns: ["asignacion_id"]
             isOneToOne: true
             referencedRelation: "asignaciones_diarias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jornadas_cancelada_por_fkey"
+            columns: ["cancelada_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -3870,6 +3886,10 @@ export type Database = {
       productos_de_cliente: {
         Args: { p_cliente_id: string }
         Returns: string[]
+      }
+      reabrir_ruta: {
+        Args: { p_asignacion_id: string; p_motivo: string }
+        Returns: undefined
       }
       recibir_devolucion: {
         Args: {

@@ -6,6 +6,7 @@ import { fmtCDMX } from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
 
 import { NuevoErrorButton } from "../../errores-operativos/NuevoErrorButton";
+import { ReabrirRutaButton } from "./ReabrirRutaButton";
 
 export const metadata = { title: "Detalle jornada · MuscleUp" };
 
@@ -257,6 +258,13 @@ export default async function JornadaDetallePage({
             variant="outline"
             label="+ Error operativo"
           />
+          {asig?.id &&
+            (asig.estado === "en_jornada" || asig.estado === "completada") && (
+              <ReabrirRutaButton
+                asignacionId={asig.id}
+                jornadaId={params.id}
+              />
+            )}
         </div>
       </div>
 

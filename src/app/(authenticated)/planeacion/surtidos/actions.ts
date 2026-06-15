@@ -696,7 +696,12 @@ export async function completarSurtido(formData: FormData): Promise<void> {
   await supabase
     .from("asignaciones_diarias")
     .update({ estado: "surtida" })
-    .eq("id", surt.asignacion_id);
+    .eq("id", surt.asignacion_id)
+    // Defensa: nunca regresar el estado si la jornada ya inició o se completó.
+    // El trigger de BD también lo bloquea, pero aquí evitamos el error feo
+    // al usuario haciendo que el UPDATE simplemente no aplique.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .in("estado", ["planeada", "surtida"] as any);
 
   revalidatePath("/planeacion/surtidos");
   revalidatePath(`/planeacion/surtidos/${id}`);
