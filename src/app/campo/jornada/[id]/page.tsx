@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { requireRole } from "@/lib/auth";
+import { fmtCDMX } from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
 
 import IniciarJornadaForm from "./IniciarJornadaForm";
@@ -106,7 +107,7 @@ export default async function JornadaPage({
       {jornada && (
         <p className="text-xs text-zinc-500">
           Jornada iniciada:{" "}
-          {new Date(jornada.hora_inicio).toLocaleTimeString("es-MX", {
+          {fmtCDMX(jornada.hora_inicio, {
             hour: "2-digit",
             minute: "2-digit",
           })}

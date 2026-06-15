@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { requireRole } from "@/lib/auth";
+import { fmtCDMX } from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Incidencias · MuscleUp" };
@@ -198,7 +199,7 @@ export default async function IncidenciasPage({
                     </Link>
                   </td>
                   <td className="px-3 py-2 text-xs text-zinc-600">
-                    {new Date(i.fecha_apertura).toLocaleString("es-MX", {
+                    {fmtCDMX(i.fecha_apertura, {
                       day: "2-digit",
                       month: "short",
                       hour: "2-digit",

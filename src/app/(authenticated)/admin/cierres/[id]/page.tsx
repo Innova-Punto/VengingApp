@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { requireRole } from "@/lib/auth";
+import { fmtCDMX } from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
 
 import { cerrarCierre } from "../actions";
@@ -289,7 +290,7 @@ export default async function CierreDetallePage({
                     <div className="text-right text-xs text-zinc-600">
                       <div>{op?.full_name}</div>
                       <div>
-                        {new Date(p.fecha).toLocaleString("es-MX", {
+                        {fmtCDMX(p.fecha, {
                           day: "2-digit",
                           month: "short",
                           hour: "2-digit",
