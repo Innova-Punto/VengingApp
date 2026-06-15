@@ -3,12 +3,15 @@
 import { useState, useTransition } from "react";
 
 import { compressImage } from "@/lib/image-compress";
+import { subirFotoCliente } from "@/lib/storage-upload";
 
 import CheckoutSheet, {
   type CheckoutData,
   validateCheckout,
 } from "./CheckoutSheet";
 import { registrarLlenado } from "./actions";
+
+type Etapa = "idle" | "subiendo_foto" | "cerrando" | "foto_fallo" | "error";
 
 type TolvaCandidata = {
   id: string;
@@ -62,7 +65,7 @@ export default function LlenadoForm({
     maquina_limpia: null,
     productos_ok: null,
   });
-  const [estado, setEstado] = useState<"idle" | "enviando" | "error">("idle");
+  const [etapa, setEtapa] = useState<Etapa>("idle");
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
@@ -73,32 +76,64 @@ export default function LlenadoForm({
     }));
   }
 
-  function finalizar() {
+  // Ejecuta el llenado con las rutas de fotos (pueden ser null si el
+  // operador eligió cerrar sin foto o si no subió ninguna).
+  function ejecutarLlenado(
+    fotoUrl: string | null,
+    fotoSalidaUrl: string | null,
+  ) {
+    // Separar items de cartucho (con tolva) y de vasos
+    const cartuchoItems = items.filter((it) => !it.es_vaso);
+    const vasoItems = items.filter((it) => it.es_vaso);
+
+    const payloadCartuchos = cartuchoItems
+      .map((it) => lineas[it.id])
+      .filter((l) => l && l.tolva_id);
+
+    const vasosCargados = vasoItems.reduce(
+      (s, it) => s + (lineas[it.id]?.cartuchos_cargados ?? 0),
+      0,
+    );
+
+    setEtapa("cerrando");
+    startTransition(async () => {
+      const fd = new FormData();
+      fd.set("check_in_id", checkInId);
+      fd.set("asignacion_id", asignacionId);
+      fd.set("maquina_id", maquinaId);
+      fd.set("items", JSON.stringify(payloadCartuchos));
+      fd.set("vasos_cargados", String(vasosCargados));
+      if (fotoUrl) fd.set("foto_url", fotoUrl);
+      if (fotoSalidaUrl) fd.set("foto_salida_url", fotoSalidaUrl);
+      if (notas) fd.set("notas", notas);
+      fd.set("checkout_nayax_ok", String(checkout.nayax_ok));
+      fd.set("checkout_maquina_limpia", String(checkout.maquina_limpia));
+      fd.set("checkout_productos_ok", String(checkout.productos_ok));
+      const r = await registrarLlenado(fd);
+      if (!r.ok) {
+        setError(r.message);
+        setEtapa("error");
+      }
+    });
+  }
+
+  async function intentarSubirYFinalizar() {
     setError(null);
 
     const checkoutErr = validateCheckout(checkout);
     if (checkoutErr) {
       setError(checkoutErr);
-      setEstado("error");
+      setEtapa("error");
       return;
     }
 
-    setEstado("enviando");
-
-    // Separar items de cartucho (con tolva) y de vasos
-    const cartuchoItems = items.filter((it) => !it.es_vaso);
-    const vasoItems = items.filter((it) => it.es_vaso);
-
-    // Items de cartucho: requieren tolva
-    const payloadCartuchos = cartuchoItems
-      .map((it) => lineas[it.id])
-      .filter((l) => l && l.tolva_id);
-
-    const sinTolva = cartuchoItems.filter(
-      (it) => it.tolvas_candidatas.length === 0 && !lineas[it.id]?.tolva_id,
-    );
+    const sinTolva = items
+      .filter((it) => !it.es_vaso)
+      .filter(
+        (it) => it.tolvas_candidatas.length === 0 && !lineas[it.id]?.tolva_id,
+      );
     if (sinTolva.length > 0) {
-      setEstado("error");
+      setEtapa("error");
       setError(
         `Estos productos no tienen tolva configurada: ${sinTolva
           .map((s) => s.producto?.sku ?? "?")
@@ -107,33 +142,41 @@ export default function LlenadoForm({
       return;
     }
 
-    // Suma de vasos cargados (en caso de múltiples items vaso, los sumamos)
-    const vasosCargados = vasoItems.reduce(
-      (s, it) => s + (lineas[it.id]?.cartuchos_cargados ?? 0),
-      0,
-    );
+    setEtapa("subiendo_foto");
 
-    startTransition(async () => {
-      const fd = new FormData();
-      fd.set("check_in_id", checkInId);
-      fd.set("asignacion_id", asignacionId);
-      fd.set("maquina_id", maquinaId);
-      fd.set("items", JSON.stringify(payloadCartuchos));
-      fd.set("vasos_cargados", String(vasosCargados));
-      if (foto) fd.set("foto", foto);
-      if (notas) fd.set("notas", notas);
-      // Checkout
-      if (checkout.foto) fd.set("foto_salida", checkout.foto);
-      fd.set("checkout_nayax_ok", String(checkout.nayax_ok));
-      fd.set("checkout_maquina_limpia", String(checkout.maquina_limpia));
-      fd.set("checkout_productos_ok", String(checkout.productos_ok));
-      const r = await registrarLlenado(fd);
-      if (!r.ok) {
-        setError(r.message);
-        setEstado("error");
-      }
-    });
+    // Subimos en paralelo ambas fotos (si existen). Si alguna falla
+    // mostramos el banner de reintento — el operador puede reintentar
+    // las fotos o seguir sin ellas.
+    try {
+      const [fotoUrl, fotoSalidaUrl] = await Promise.all([
+        foto && foto.size > 0
+          ? subirFotoCliente({
+              bucket: "evidencias-llenado",
+              path: `${asignacionId}/${maquinaId}-llenado-${Date.now()}`,
+              file: foto,
+            }).then((r) => r.path)
+          : Promise.resolve(null),
+        checkout.foto && checkout.foto.size > 0
+          ? subirFotoCliente({
+              bucket: "evidencias-checkin",
+              path: `${asignacionId}/${maquinaId}-salida-${Date.now()}`,
+              file: checkout.foto,
+            }).then((r) => r.path)
+          : Promise.resolve(null),
+      ]);
+      ejecutarLlenado(fotoUrl, fotoSalidaUrl);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setEtapa("foto_fallo");
+    }
   }
+
+  function finalizarSinFoto() {
+    setError(null);
+    ejecutarLlenado(null, null);
+  }
+
+  const enviando = etapa === "subiendo_foto" || etapa === "cerrando";
 
   return (
     <div className="space-y-3 rounded-lg border border-zinc-200 bg-white p-4">
@@ -256,14 +299,42 @@ export default function LlenadoForm({
         reportarIncidenciaHref={`/campo/maquinas/${maquinaId}?asignacion=${asignacionId}#incidencia`}
       />
 
-      <button
-        type="button"
-        onClick={finalizar}
-        disabled={estado === "enviando"}
-        className="w-full rounded-md bg-green-700 px-4 py-3 text-base font-medium text-white shadow-sm active:bg-green-800 disabled:opacity-60"
-      >
-        {estado === "enviando" ? "Registrando..." : "Finalizar visita"}
-      </button>
+      {etapa === "foto_fallo" ? (
+        <div className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-3">
+          <p className="text-xs text-amber-900">
+            No se pudo subir la foto (señal débil o lenta).
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={intentarSubirYFinalizar}
+              className="flex-1 rounded-md border border-amber-700 bg-white px-3 py-2 text-sm font-medium text-amber-900 active:bg-amber-100"
+            >
+              Reintentar foto
+            </button>
+            <button
+              type="button"
+              onClick={finalizarSinFoto}
+              className="flex-1 rounded-md bg-green-700 px-3 py-2 text-sm font-medium text-white active:bg-green-800"
+            >
+              Cerrar sin foto
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={intentarSubirYFinalizar}
+          disabled={enviando}
+          className="w-full rounded-md bg-green-700 px-4 py-3 text-base font-medium text-white shadow-sm active:bg-green-800 disabled:opacity-60"
+        >
+          {etapa === "subiendo_foto"
+            ? "Subiendo foto..."
+            : etapa === "cerrando"
+              ? "Registrando..."
+              : "Finalizar visita"}
+        </button>
+      )}
 
       {error && <p className="text-xs text-red-700">{error}</p>}
 

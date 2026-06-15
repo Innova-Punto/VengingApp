@@ -2,11 +2,15 @@
 
 import { useState, useTransition } from "react";
 
+import { subirFotoCliente } from "@/lib/storage-upload";
+
 import CheckoutSheet, {
   type CheckoutData,
   validateCheckout,
 } from "./CheckoutSheet";
 import { cerrarVisitaSinLlenado } from "./actions";
+
+type Etapa = "idle" | "subiendo_foto" | "cerrando" | "foto_fallo" | "error";
 
 export default function CerrarSinLlenadoForm({
   checkInId,
@@ -24,38 +28,68 @@ export default function CerrarSinLlenadoForm({
     maquina_limpia: null,
     productos_ok: null,
   });
-  const [estado, setEstado] = useState<"idle" | "enviando" | "error">("idle");
+  const [etapa, setEtapa] = useState<Etapa>("idle");
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
-  function cerrar() {
-    setError(null);
-
-    const checkoutErr = validateCheckout(checkout);
-    if (checkoutErr) {
-      setError(checkoutErr);
-      setEstado("error");
-      return;
-    }
-
-    setEstado("enviando");
+  // Ejecuta el cierre con la ruta de foto que se pase (puede ser null).
+  function ejecutarCierre(fotoSalidaPath: string | null) {
+    setEtapa("cerrando");
     startTransition(async () => {
       const r = await cerrarVisitaSinLlenado({
         checkInId,
         asignacionId,
         maquinaId,
         notas: notas || null,
-        fotoSalida: checkout.foto,
+        fotoSalidaPath,
         checkoutNayaxOk: checkout.nayax_ok,
         checkoutMaquinaLimpia: checkout.maquina_limpia,
         checkoutProductosOk: checkout.productos_ok,
       });
       if (!r.ok) {
         setError(r.message);
-        setEstado("error");
+        setEtapa("error");
       }
     });
   }
+
+  async function intentarSubirYCerrar() {
+    setError(null);
+
+    const checkoutErr = validateCheckout(checkout);
+    if (checkoutErr) {
+      setError(checkoutErr);
+      setEtapa("error");
+      return;
+    }
+
+    // Sin foto → cierra directo
+    if (!checkout.foto || checkout.foto.size === 0) {
+      ejecutarCierre(null);
+      return;
+    }
+
+    // Con foto → sube primero al storage, luego cierra
+    setEtapa("subiendo_foto");
+    try {
+      const r = await subirFotoCliente({
+        bucket: "evidencias-checkin",
+        path: `${asignacionId}/${maquinaId}-salida-${Date.now()}`,
+        file: checkout.foto,
+      });
+      ejecutarCierre(r.path);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setEtapa("foto_fallo");
+    }
+  }
+
+  function cerrarSinFoto() {
+    setError(null);
+    ejecutarCierre(null);
+  }
+
+  const enviando = etapa === "subiendo_foto" || etapa === "cerrando";
 
   return (
     <div className="space-y-3 rounded-lg border border-zinc-200 bg-white p-4">
@@ -81,14 +115,42 @@ export default function CerrarSinLlenadoForm({
         reportarIncidenciaHref={`/campo/maquinas/${maquinaId}?asignacion=${asignacionId}#incidencia`}
       />
 
-      <button
-        type="button"
-        onClick={cerrar}
-        disabled={estado === "enviando"}
-        className="w-full rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white shadow-sm active:bg-zinc-800 disabled:opacity-60"
-      >
-        {estado === "enviando" ? "Cerrando..." : "Finalizar visita"}
-      </button>
+      {etapa === "foto_fallo" ? (
+        <div className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-3">
+          <p className="text-xs text-amber-900">
+            No se pudo subir la foto (señal débil o lenta).
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={intentarSubirYCerrar}
+              className="flex-1 rounded-md border border-amber-700 bg-white px-3 py-2 text-sm font-medium text-amber-900 active:bg-amber-100"
+            >
+              Reintentar foto
+            </button>
+            <button
+              type="button"
+              onClick={cerrarSinFoto}
+              className="flex-1 rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white active:bg-zinc-800"
+            >
+              Cerrar sin foto
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={intentarSubirYCerrar}
+          disabled={enviando}
+          className="w-full rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white shadow-sm active:bg-zinc-800 disabled:opacity-60"
+        >
+          {etapa === "subiendo_foto"
+            ? "Subiendo foto..."
+            : etapa === "cerrando"
+              ? "Cerrando..."
+              : "Finalizar visita"}
+        </button>
+      )}
       {error && <p className="text-xs text-red-700">{error}</p>}
     </div>
   );
