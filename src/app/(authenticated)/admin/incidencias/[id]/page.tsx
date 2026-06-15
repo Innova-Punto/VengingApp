@@ -176,9 +176,11 @@ export default async function IncidenciaDetallePage({
                 ? aut
                   ? `Autorizada por ${aut.full_name} el ${
                       i.fecha_autorizacion
-                        ? new Date(i.fecha_autorizacion).toLocaleDateString(
-                            "es-MX",
-                          )
+                        ? fmtCDMX(i.fecha_autorizacion, {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })
                         : "—"
                     }`
                   : "Pendiente"

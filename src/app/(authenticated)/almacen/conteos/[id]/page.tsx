@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { requireRole } from "@/lib/auth";
+import { fmtCDMX } from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
 
 import ConteoForm from "./ConteoForm";
@@ -66,7 +67,7 @@ export default async function ConteoDetallePage({
         <div className="mt-2 flex flex-wrap items-baseline gap-3">
           <h1 className="text-2xl font-semibold tracking-tight">
             Conteo del{" "}
-            {new Date(conteo.fecha).toLocaleDateString("es-MX")}
+            {fmtCDMX(conteo.fecha, { day: "2-digit", month: "short", year: "numeric" })}
           </h1>
           <span
             className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${

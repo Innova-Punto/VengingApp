@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { requireRole } from "@/lib/auth";
+import { fmtCDMX } from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
 
 import { iniciarConteo } from "./actions";
@@ -135,7 +136,7 @@ export default async function ConteosPage({
                       href={`/almacen/conteos/${c.id}`}
                       className="hover:underline"
                     >
-                      {new Date(c.fecha).toLocaleString("es-MX", {
+                      {fmtCDMX(c.fecha, {
                         day: "2-digit",
                         month: "short",
                         year: "numeric",

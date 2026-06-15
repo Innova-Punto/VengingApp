@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { requireRole } from "@/lib/auth";
+import { fmtCDMX } from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
 
 import { completarSurtido } from "../actions";
@@ -382,7 +383,7 @@ export default async function DetalleSurtidoPage({
       {surt.estado === "completado" && surt.fecha_completado && (
         <p className="text-sm text-zinc-600">
           Completado el{" "}
-          {new Date(surt.fecha_completado).toLocaleString("es-MX")}.
+          {fmtCDMX(surt.fecha_completado)}.
         </p>
       )}
     </div>

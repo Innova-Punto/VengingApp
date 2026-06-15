@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { requireRole } from "@/lib/auth";
+import { fmtCDMX } from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Detalle encartuchado · MuscleUp" };
@@ -97,7 +98,7 @@ export default async function DetalleEncartuchadoPage({
         />
         <Stat
           label="Fecha"
-          value={new Date(enc.fecha).toLocaleString("es-MX")}
+          value={fmtCDMX(enc.fecha)}
         />
       </section>
 
