@@ -37,10 +37,19 @@ export default function CampoError({
             pantalla.
           </li>
         </ol>
-        {error.digest && (
-          <p className="mt-3 font-mono text-[10px] text-red-700">
-            ID: {error.digest}
-          </p>
+        {(error.digest || error.message) && (
+          <details className="mt-3">
+            <summary className="cursor-pointer text-[11px] font-medium text-red-700">
+              Detalles técnicos (mandar al supervisor)
+            </summary>
+            <div className="mt-1 max-h-40 overflow-auto rounded bg-white p-2 text-[10px] font-mono text-red-900">
+              {error.digest && <div>ID: {error.digest}</div>}
+              {error.name && <div>Tipo: {error.name}</div>}
+              {error.message && (
+                <div className="mt-1 break-words">{error.message}</div>
+              )}
+            </div>
+          </details>
         )}
       </div>
 
