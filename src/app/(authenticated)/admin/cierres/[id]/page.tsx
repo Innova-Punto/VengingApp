@@ -139,12 +139,12 @@ export default async function CierreDetallePage({
         <p className="mt-1 text-sm text-zinc-600">
           Abierto:{" "}
           {cierre.fecha_inicio_cierre
-            ? new Date(cierre.fecha_inicio_cierre).toLocaleDateString("es-MX")
+            ? fmtCDMX(cierre.fecha_inicio_cierre, { day: "2-digit", month: "short", year: "numeric" })
             : "—"}
           {cierre.fecha_cierre && (
             <>
               {" · "}Cerrado:{" "}
-              {new Date(cierre.fecha_cierre).toLocaleDateString("es-MX")}
+              {fmtCDMX(cierre.fecha_cierre, { day: "2-digit", month: "short", year: "numeric" })}
             </>
           )}
         </p>

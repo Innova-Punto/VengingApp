@@ -7,6 +7,7 @@ import {
 import Link from "next/link";
 
 import { requireRole } from "@/lib/auth";
+import { fmtCDMX } from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function CampoHomePage() {
@@ -41,7 +42,7 @@ export default async function CampoHomePage() {
             Hoy
           </div>
           <p className="text-xs text-zinc-600 capitalize">
-            {new Date().toLocaleDateString("es-MX", {
+            {fmtCDMX(new Date(), {
               weekday: "long",
               day: "numeric",
               month: "long",

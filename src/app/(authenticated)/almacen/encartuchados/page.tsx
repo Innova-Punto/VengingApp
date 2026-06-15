@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { requireRole } from "@/lib/auth";
+import { fmtCDMX } from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Encartuchados · MuscleUp" };
@@ -81,7 +82,7 @@ export default async function EncartuchadosPage() {
                     </div>
                   </td>
                   <td className="px-4 py-2 tabular-nums text-xs text-zinc-600">
-                    {new Date(e.fecha).toLocaleString("es-MX", {
+                    {fmtCDMX(e.fecha, {
                       dateStyle: "short",
                       timeStyle: "short",
                     })}

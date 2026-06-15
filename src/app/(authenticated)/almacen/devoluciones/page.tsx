@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { requireRole } from "@/lib/auth";
+import { fmtCDMX } from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
 
 import DevolucionRow from "./DevolucionRow";
@@ -184,7 +185,7 @@ export default async function DevolucionesPage() {
                   <tr key={d.id} className="hover:bg-zinc-50">
                     <td className="px-3 py-2 text-zinc-600">
                       {d.fecha_recepcion
-                        ? new Date(d.fecha_recepcion).toLocaleDateString("es-MX")
+                        ? fmtCDMX(d.fecha_recepcion, { day: "2-digit", month: "short", year: "numeric" })
                         : "—"}
                     </td>
                     <td className="px-3 py-2 text-zinc-700">

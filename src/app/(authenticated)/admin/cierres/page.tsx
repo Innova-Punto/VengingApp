@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { requireRole } from "@/lib/auth";
+import { fmtCDMX } from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
 
 import { abrirCierre } from "./actions";
@@ -154,14 +155,12 @@ export default async function CierresPage({
                 </td>
                 <td className="px-3 py-2 text-xs text-zinc-600">
                   {c.fecha_inicio_cierre
-                    ? new Date(c.fecha_inicio_cierre).toLocaleDateString(
-                        "es-MX",
-                      )
+                    ? fmtCDMX(c.fecha_inicio_cierre, { day: "2-digit", month: "short", year: "numeric" })
                     : "—"}
                 </td>
                 <td className="px-3 py-2 text-xs text-zinc-600">
                   {c.fecha_cierre
-                    ? new Date(c.fecha_cierre).toLocaleDateString("es-MX")
+                    ? fmtCDMX(c.fecha_cierre, { day: "2-digit", month: "short", year: "numeric" })
                     : "—"}
                 </td>
                 <td className="px-3 py-2 text-right tabular-nums">

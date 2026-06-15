@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { requireRole } from "@/lib/auth";
+import { fmtCDMX } from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
 
 import BotonImprimir from "./BotonImprimir";
@@ -93,7 +94,7 @@ export default async function PackingListPage({
           <div className="flex items-baseline justify-between">
             <h2 className="font-mono text-2xl font-semibold">{surt.folio}</h2>
             <span className="text-sm text-zinc-600">
-              Generado: {new Date().toLocaleString("es-MX")}
+              Generado: {fmtCDMX(new Date())}
             </span>
           </div>
           <p className="mt-1 text-sm text-zinc-700">
