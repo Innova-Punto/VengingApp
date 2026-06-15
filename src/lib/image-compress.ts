@@ -22,12 +22,15 @@ export async function compressImage(
     return file;
   }
 
-  const maxDim = opts.maxDim ?? 1600;
-  const quality = opts.quality ?? 0.85;
+  // Más agresivo: 1280px max + quality 0.75 → ~150–300 KB típico.
+  // Suficiente nitidez para evidencia operativa y muy ligero para
+  // pasar el límite de Server Actions (10 MB pero queremos margen).
+  const maxDim = opts.maxDim ?? 1280;
+  const quality = opts.quality ?? 0.75;
 
-  // Si ya es razonablemente pequeña, no reprocesar.
+  // Si ya es muy pequeña, no reprocesar.
   if (!file.type.startsWith("image/")) return file;
-  if (file.size < 1.2 * 1024 * 1024) return file;
+  if (file.size < 400 * 1024) return file;
 
   try {
     const bitmap = await createImageBitmap(file);
