@@ -17,17 +17,26 @@ type Linea = {
   gramos_medidos: string;
 };
 
+type VasoInfo = {
+  producto_nombre: string;
+  producto_sku: string;
+  inventario_actual: number;
+};
+
 export default function PesajeForm({
   checkInId,
   asignacionId,
   maquinaId,
   tolvas,
+  vaso,
   cierrePeriodo,
 }: {
   checkInId: string;
   asignacionId: string;
   maquinaId: string;
   tolvas: TolvaPesaje[];
+  /** Info del vaso configurado en la máquina. null si la máquina no vende vasos. */
+  vaso: VasoInfo | null;
   cierrePeriodo?: { mes: number; anio: number } | null;
 }) {
   const [abierto, setAbierto] = useState(false);
@@ -38,6 +47,7 @@ export default function PesajeForm({
     }
     return init;
   });
+  const [vasosInput, setVasosInput] = useState("");
   const [notas, setNotas] = useState("");
   const [estado, setEstado] = useState<"idle" | "enviando" | "error" | "ok">(
     "idle",
@@ -74,8 +84,13 @@ export default function PesajeForm({
         gramos_medidos: Number(l.gramos_medidos),
       }));
 
-    if (payload.length === 0) {
-      setError("Captura el peso de al menos una tolva.");
+    const vasosMedidos =
+      vasosInput !== "" && !isNaN(Number(vasosInput))
+        ? Math.max(0, Math.trunc(Number(vasosInput)))
+        : null;
+
+    if (payload.length === 0 && vasosMedidos === null) {
+      setError("Captura el peso de al menos una tolva o el conteo de vasos.");
       return;
     }
 
@@ -87,6 +102,7 @@ export default function PesajeForm({
         maquinaId,
         items: payload,
         notas: notas || null,
+        vasosMedidos,
       });
       if (!r.ok) {
         setError(r.message);
@@ -156,6 +172,36 @@ export default function PesajeForm({
           </div>
         ))}
       </div>
+
+      {vaso && (
+        <div className="rounded-md border border-blue-200 bg-white p-3">
+          <div className="flex items-baseline justify-between">
+            <div className="text-sm font-semibold text-blue-900">Vasos</div>
+            <div className="text-xs text-zinc-500">
+              Teórico: {vaso.inventario_actual}
+            </div>
+          </div>
+          <div className="text-xs text-zinc-600">
+            {vaso.producto_nombre}{" "}
+            <span className="font-mono text-[10px] text-zinc-400">
+              {vaso.producto_sku}
+            </span>
+          </div>
+          <div className="mt-2 flex items-center gap-2">
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              step={1}
+              placeholder="cantidad"
+              value={vasosInput}
+              onChange={(e) => setVasosInput(e.target.value)}
+              className="w-32 rounded-md border border-zinc-300 px-2 py-1 text-right text-sm shadow-sm focus:border-zinc-900 focus:outline-none"
+            />
+            <span className="text-sm text-zinc-500">vasos contados</span>
+          </div>
+        </div>
+      )}
 
       <div>
         <label className="text-xs font-medium uppercase tracking-wide text-blue-900">

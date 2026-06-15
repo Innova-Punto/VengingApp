@@ -137,6 +137,8 @@ export default async function JornadaDetallePage({
           .from("pesajes_maquina")
           .select(
             `id, check_in_id, fecha, notas,
+             vasos_teoricos, vasos_medidos, vasos_costo_unitario,
+             vasos_valor_diferencia, vasos_alerta_generada,
              items:pesaje_tolva_items(
                id, tolva_id, gramos_medidos, gramos_teoricos,
                diferencia_gramos, diferencia_porcentaje,
@@ -538,7 +540,9 @@ export default async function JornadaDetallePage({
                       </p>
                     )}
 
-                    {pesaje && pesajeItems.length > 0 && (
+                    {pesaje &&
+                      (pesajeItems.length > 0 ||
+                        pesaje.vasos_medidos != null) && (
                       <div className="mt-3 space-y-1">
                         <div className="flex items-baseline justify-between">
                           <div className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
@@ -566,7 +570,7 @@ export default async function JornadaDetallePage({
                                 Medido
                               </th>
                               <th className="py-1 text-right font-medium">
-                                Δ g
+                                Δ
                               </th>
                               <th className="py-1 text-right font-medium">
                                 Δ %
@@ -619,6 +623,50 @@ export default async function JornadaDetallePage({
                                 </tr>
                               );
                             })}
+                            {pesaje.vasos_medidos != null && (() => {
+                              const teo = pesaje.vasos_teoricos ?? 0;
+                              const med = pesaje.vasos_medidos ?? 0;
+                              const diff = med - teo;
+                              const cls =
+                                diff === 0
+                                  ? "text-zinc-700"
+                                  : diff < 0
+                                    ? "text-red-700"
+                                    : "text-green-700";
+                              const diffPct =
+                                teo > 0
+                                  ? Math.round((Math.abs(diff) / teo) * 10000) / 100
+                                  : null;
+                              return (
+                                <tr key="vasos" className="bg-blue-50/40">
+                                  <td className="py-1 font-mono">Vasos</td>
+                                  <td className="py-1 text-right tabular-nums">
+                                    {teo}
+                                  </td>
+                                  <td className="py-1 text-right tabular-nums">
+                                    {med}
+                                  </td>
+                                  <td
+                                    className={`py-1 text-right tabular-nums ${cls}`}
+                                  >
+                                    {diff > 0 ? "+" : ""}
+                                    {diff}
+                                  </td>
+                                  <td
+                                    className={`py-1 text-right tabular-nums ${cls}`}
+                                  >
+                                    {diffPct != null ? `${diffPct}%` : "—"}
+                                  </td>
+                                  <td
+                                    className={`py-1 text-right tabular-nums ${cls}`}
+                                  >
+                                    {pesaje.vasos_valor_diferencia != null
+                                      ? `$${Number(pesaje.vasos_valor_diferencia).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                      : "—"}
+                                  </td>
+                                </tr>
+                              );
+                            })()}
                           </tbody>
                         </table>
                         {pesaje.notas && (

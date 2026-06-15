@@ -231,12 +231,17 @@ export async function registrarPesaje(input: {
   maquinaId: string;
   items: { tolva_id: string; gramos_medidos: number }[];
   notas: string | null;
+  /** Conteo físico de vasos en la máquina. null = no se contaron. */
+  vasosMedidos: number | null;
 }): Promise<ActionResult> {
   await requireRole("operador", "admin", "direccion");
 
   if (!input.checkInId) return { ok: false, message: "Falta check-in." };
-  if (!input.items || input.items.length === 0) {
-    return { ok: false, message: "Sin ítems para pesar." };
+  if (
+    (!input.items || input.items.length === 0) &&
+    input.vasosMedidos === null
+  ) {
+    return { ok: false, message: "Captura al menos una tolva o el conteo de vasos." };
   }
 
   const supabase = createClient() as AnyClient;
@@ -245,6 +250,7 @@ export async function registrarPesaje(input: {
     p_check_in_id: input.checkInId,
     p_items: input.items,
     p_notas: input.notas,
+    p_vasos_medidos: input.vasosMedidos,
   });
 
   if (error) return { ok: false, message: error.message };
