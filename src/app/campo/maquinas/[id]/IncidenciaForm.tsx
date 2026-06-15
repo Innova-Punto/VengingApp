@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 
+import { compressImage } from "@/lib/image-compress";
 import {
   INCIDENCIAS_CATALOGO,
   type IncidenciaTipo,
@@ -150,7 +151,10 @@ export default function IncidenciaForm({
           type="file"
           accept="image/*"
           capture="environment"
-          onChange={(e) => setFoto(e.target.files?.[0] ?? null)}
+          onChange={async (e) => {
+            const f = e.target.files?.[0] ?? null;
+            setFoto(f ? await compressImage(f) : null);
+          }}
           className="mt-1 block w-full text-sm text-amber-900"
         />
       </div>
