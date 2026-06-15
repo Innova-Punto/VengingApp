@@ -117,11 +117,7 @@ export async function registrarLlenado(
 
   if (!check_in_id) return { ok: false, message: "Falta check-in." };
 
-  // Validación: foto de salida obligatoria
-  if (!(fotoSalida instanceof File) || fotoSalida.size === 0) {
-    return { ok: false, message: "La foto de salida es obligatoria." };
-  }
-  // Validación: checklist completo
+  // Foto de salida ahora es opcional. Validación: checklist completo
   if (
     !["true", "false"].includes(String(checkoutNayaxOk)) ||
     !["true", "false"].includes(String(checkoutMaquinaLimpia)) ||
@@ -157,15 +153,17 @@ export async function registrarLlenado(
   }
 
   let foto_salida_url: string | null = null;
-  try {
-    foto_salida_url = await subirFoto(
-      supabase,
-      "evidencias-checkin",
-      `${asignacion_id}/${maquina_id}-salida-${Date.now()}`,
-      fotoSalida as File,
-    );
-  } catch (e) {
-    return { ok: false, message: e instanceof Error ? e.message : String(e) };
+  if (fotoSalida instanceof File && fotoSalida.size > 0) {
+    try {
+      foto_salida_url = await subirFoto(
+        supabase,
+        "evidencias-checkin",
+        `${asignacion_id}/${maquina_id}-salida-${Date.now()}`,
+        fotoSalida,
+      );
+    } catch (e) {
+      return { ok: false, message: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   const { error } = await supabase.rpc("op_registrar_llenado", {
@@ -209,9 +207,7 @@ export async function cerrarVisitaSinLlenado(input: {
 
   if (!input.checkInId) return { ok: false, message: "Falta check-in." };
 
-  if (!input.fotoSalida || input.fotoSalida.size === 0) {
-    return { ok: false, message: "La foto de salida es obligatoria." };
-  }
+  // Foto de salida ahora es opcional.
   if (
     input.checkoutNayaxOk === null ||
     input.checkoutMaquinaLimpia === null ||
@@ -223,15 +219,17 @@ export async function cerrarVisitaSinLlenado(input: {
   const supabase = createClient() as AnyClient;
 
   let foto_salida_url: string | null = null;
-  try {
-    foto_salida_url = await subirFoto(
-      supabase,
-      "evidencias-checkin",
-      `${input.asignacionId}/${input.maquinaId}-salida-${Date.now()}`,
-      input.fotoSalida,
-    );
-  } catch (e) {
-    return { ok: false, message: e instanceof Error ? e.message : String(e) };
+  if (input.fotoSalida && input.fotoSalida.size > 0) {
+    try {
+      foto_salida_url = await subirFoto(
+        supabase,
+        "evidencias-checkin",
+        `${input.asignacionId}/${input.maquinaId}-salida-${Date.now()}`,
+        input.fotoSalida,
+      );
+    } catch (e) {
+      return { ok: false, message: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   const { error } = await supabase.rpc("op_cerrar_check_in_sin_llenado", {
