@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 
+import { compressImage } from "@/lib/image-compress";
+
 export type CheckoutData = {
   foto: File | null;
   nayax_ok: boolean | null;
@@ -89,7 +91,10 @@ export default function CheckoutSheet({
           type="file"
           accept="image/*"
           capture="environment"
-          onChange={(e) => onChange({ foto: e.target.files?.[0] ?? null })}
+          onChange={async (e) => {
+            const f = e.target.files?.[0] ?? null;
+            onChange({ foto: f ? await compressImage(f) : null });
+          }}
           className="mt-1 block w-full text-sm text-zinc-700"
         />
         {data.foto && (

@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from "react";
 
+import { compressImage } from "@/lib/image-compress";
+
 import { hacerCheckIn } from "./actions";
 
 function distanciaMetros(
@@ -184,7 +186,14 @@ export default function CheckInForm({
           type="file"
           accept="image/*"
           capture="environment"
-          onChange={(e) => setFoto(e.target.files?.[0] ?? null)}
+          onChange={async (e) => {
+            const f = e.target.files?.[0] ?? null;
+            if (!f) {
+              setFoto(null);
+              return;
+            }
+            setFoto(await compressImage(f));
+          }}
           className="mt-1 block w-full text-sm text-zinc-700"
         />
       </div>
