@@ -2515,6 +2515,7 @@ export type Database = {
           notas: string | null
           precio_venta_default: number | null
           punto_reorden: number
+          requiere_encartuchado: boolean
           sabor: string | null
           sku: string
           stock_maximo: number
@@ -2538,6 +2539,7 @@ export type Database = {
           notas?: string | null
           precio_venta_default?: number | null
           punto_reorden?: number
+          requiere_encartuchado?: boolean
           sabor?: string | null
           sku: string
           stock_maximo?: number
@@ -2561,6 +2563,7 @@ export type Database = {
           notas?: string | null
           precio_venta_default?: number | null
           punto_reorden?: number
+          requiere_encartuchado?: boolean
           sabor?: string | null
           sku?: string
           stock_maximo?: number

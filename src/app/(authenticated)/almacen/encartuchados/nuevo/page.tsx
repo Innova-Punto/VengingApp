@@ -12,7 +12,9 @@ export default async function NuevoEncartuchadoPage() {
 
   const supabase = createClient();
 
-  // Productos polvo activos con stock granel
+  // Productos polvo activos con stock granel.
+  // Filtramos los que requieren encartuchado interno; los pre-empacados
+  // (café 1kg, chocolate 908g, etc.) ya quedan cartuchados desde recepción.
   const { data: productos } = await supabase
     .from("productos")
     .select(
@@ -21,6 +23,7 @@ export default async function NuevoEncartuchadoPage() {
     )
     .eq("activo", true)
     .eq("tipo", "polvo")
+    .eq("requiere_encartuchado", true)
     .gt("lotes.gramos_disponibles_granel", 0)
     .order("nombre");
 

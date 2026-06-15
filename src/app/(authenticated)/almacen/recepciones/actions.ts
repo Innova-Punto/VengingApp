@@ -48,7 +48,7 @@ export async function crearRecepcion(
          id, cantidad, recibido, costo_unitario, presentacion_id,
          presentacion:presentaciones_proveedor(
            id, peso_neto_gramos, unidades_por_presentacion,
-           producto:productos(id, tipo, sku)
+           producto:productos(id, tipo, sku, requiere_encartuchado)
          )
        )`,
     )
@@ -77,6 +77,7 @@ export async function crearRecepcion(
     producto_id: string;
     producto_tipo: "polvo" | "vaso";
     producto_sku: string;
+    producto_requiere_encartuchado: boolean;
     pendiente: number;
   };
 
@@ -130,6 +131,8 @@ export async function crearRecepcion(
       producto_id: prod.id,
       producto_tipo: prod.tipo,
       producto_sku: prod.sku,
+      producto_requiere_encartuchado:
+        prod.requiere_encartuchado !== false,
       pendiente,
     });
   }
@@ -222,6 +225,84 @@ export async function crearRecepcion(
 
     if (itemErr) {
       return { ok: false, message: itemErr.message };
+    }
+
+    // Auto-encartuchado para productos pre-empacados (ej. café 1kg, choco 908g).
+    // Cada presentación recibida = 1 cartucho con gramos = peso de la bolsa.
+    // No hay paso de encartuchado manual; el lote queda con granel = 0 (todo
+    // ya empaquetado desde origen) y los cartuchos quedan disponibles.
+    if (
+      l.producto_tipo === "polvo" &&
+      l.producto_requiere_encartuchado === false
+    ) {
+      const gramosPorCartucho = Math.round(
+        l.peso_neto_gramos / Math.max(1, l.unidades_por_presentacion),
+      );
+      const cartuchosProducidos =
+        l.presentaciones_recibidas * l.unidades_por_presentacion;
+
+      const { data: enc, error: encErr } = await supabase
+        .from("encartuchados")
+        .insert({
+          folio: "",
+          producto_id: l.producto_id,
+          cartuchos_producidos: cartuchosProducidos,
+          gramos_por_cartucho: gramosPorCartucho,
+          gramos_totales_consumidos: totalGramos,
+          gramos_merma: 0,
+          costo_promedio_g: costoPorGramo,
+          cantidad_disponible: cartuchosProducidos,
+          operario_id: current.id,
+          notas: `Auto-creado al recibir ${l.producto_sku} (producto pre-empacado).`,
+        })
+        .select("id")
+        .single();
+
+      if (encErr || !enc) {
+        return {
+          ok: false,
+          message: `Encartuchado auto ${l.producto_sku}: ${encErr?.message ?? "error"}`,
+        };
+      }
+
+      // Insertar encartuchado_lotes consumiendo todo el granel del lote.
+      // El trigger trg_encartuchado_lote_kardex descontará el granel a 0
+      // y creará el movimiento de salida.
+      const valorAportado =
+        Math.round(totalGramos * costoPorGramo * 100) / 100;
+      const { error: elErr } = await supabase
+        .from("encartuchado_lotes")
+        .insert({
+          encartuchado_id: enc.id,
+          lote_id: lote.id,
+          gramos_consumidos: totalGramos,
+          costo_por_gramo_lote: costoPorGramo,
+          valor_aportado: valorAportado,
+        });
+
+      if (elErr) {
+        return {
+          ok: false,
+          message: `Vinculando lote a encartuchado auto: ${elErr.message}`,
+        };
+      }
+
+      // Kardex: entrada de cartuchos al almacén
+      const valorCartuchos =
+        Math.round(cartuchosProducidos * gramosPorCartucho * costoPorGramo * 100) /
+        100;
+      await supabase.from("movimientos_inventario").insert({
+        tipo: "encartuchado_entrada_cartucho",
+        producto_id: l.producto_id,
+        encartuchado_id: enc.id,
+        presentacion: "cartucho",
+        cantidad_cartuchos: cartuchosProducidos,
+        gramos: cartuchosProducidos * gramosPorCartucho,
+        costo_por_gramo_snapshot: costoPorGramo,
+        valor_movimiento: valorCartuchos,
+        referencia_tabla: "encartuchados",
+        referencia_id: enc.id,
+      });
     }
   }
 

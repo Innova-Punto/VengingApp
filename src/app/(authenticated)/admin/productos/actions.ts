@@ -32,6 +32,7 @@ type ParsedProducto = {
   stock_maximo: number;
   punto_reorden: number;
   capacidad_g_por_tolva: number | null;
+  requiere_encartuchado: boolean;
 };
 
 function parseProducto(formData: FormData): ParsedProducto | string {
@@ -107,6 +108,10 @@ function parseProducto(formData: FormData): ParsedProducto | string {
     capacidad_g_por_tolva = n;
   }
 
+  // Checkbox: si no aparece en formData (desmarcado) → false. Si aparece → true.
+  const requiere_encartuchado =
+    formData.get("requiere_encartuchado") !== null;
+
   return {
     sku,
     nombre,
@@ -124,6 +129,7 @@ function parseProducto(formData: FormData): ParsedProducto | string {
     stock_maximo: stockMax,
     punto_reorden: reorden,
     capacidad_g_por_tolva,
+    requiere_encartuchado,
   };
 }
 
