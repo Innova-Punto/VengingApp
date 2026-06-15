@@ -13,6 +13,15 @@ export async function compressImage(
   file: File,
   opts: { maxDim?: number; quality?: number } = {},
 ): Promise<File> {
+  // Guard duro: si el browser no tiene las APIs necesarias, devolver original.
+  if (
+    typeof window === "undefined" ||
+    typeof createImageBitmap !== "function" ||
+    typeof document === "undefined"
+  ) {
+    return file;
+  }
+
   const maxDim = opts.maxDim ?? 1600;
   const quality = opts.quality ?? 0.85;
 
@@ -21,7 +30,6 @@ export async function compressImage(
   if (file.size < 1.2 * 1024 * 1024) return file;
 
   try {
-    // createImageBitmap decodifica eficientemente (off-thread).
     const bitmap = await createImageBitmap(file);
     const { width, height } = bitmap;
 
@@ -48,9 +56,13 @@ export async function compressImage(
     ctx.drawImage(bitmap, 0, 0, w, h);
     bitmap.close();
 
-    const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob((b) => resolve(b), "image/jpeg", quality),
-    );
+    const blob = await new Promise<Blob | null>((resolve) => {
+      try {
+        canvas.toBlob((b) => resolve(b), "image/jpeg", quality);
+      } catch {
+        resolve(null);
+      }
+    });
     if (!blob) return file;
 
     const baseName = file.name.replace(/\.[^.]+$/, "") || "foto";

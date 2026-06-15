@@ -93,7 +93,16 @@ export default function CheckoutSheet({
           capture="environment"
           onChange={async (e) => {
             const f = e.target.files?.[0] ?? null;
-            onChange({ foto: f ? await compressImage(f) : null });
+            if (!f) {
+              onChange({ foto: null });
+              return;
+            }
+            try {
+              const compressed = await compressImage(f);
+              onChange({ foto: compressed });
+            } catch {
+              onChange({ foto: f });
+            }
           }}
           className="mt-1 block w-full text-sm text-zinc-700"
         />
