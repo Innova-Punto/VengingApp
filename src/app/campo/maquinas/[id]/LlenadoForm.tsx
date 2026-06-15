@@ -224,7 +224,15 @@ export default function LlenadoForm({
           capture="environment"
           onChange={async (e) => {
             const f = e.target.files?.[0] ?? null;
-            setFoto(f ? await compressImage(f) : null);
+            if (!f) {
+              setFoto(null);
+              return;
+            }
+            try {
+              setFoto(await compressImage(f));
+            } catch {
+              setFoto(f);
+            }
           }}
           className="mt-1 block w-full text-sm text-zinc-700"
         />

@@ -192,7 +192,11 @@ export default function CheckInForm({
               setFoto(null);
               return;
             }
-            setFoto(await compressImage(f));
+            try {
+              setFoto(await compressImage(f));
+            } catch {
+              setFoto(f);
+            }
           }}
           className="mt-1 block w-full text-sm text-zinc-700"
         />
