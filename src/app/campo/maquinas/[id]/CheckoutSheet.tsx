@@ -85,7 +85,7 @@ export default function CheckoutSheet({
 
       <div>
         <label className="text-xs font-medium text-zinc-800">
-          Foto de salida <span className="text-red-700">*</span>
+          Foto de salida <span className="text-zinc-400">(opcional)</span>
         </label>
         <input
           type="file"
@@ -122,7 +122,7 @@ export default function CheckoutSheet({
 
 /** Valida que la data esté completa. Devuelve mensaje de error o null. */
 export function validateCheckout(data: CheckoutData): string | null {
-  if (!data.foto) return "La foto de salida es obligatoria.";
+  // Foto opcional por ahora — el operador puede cerrar sin foto.
   if (data.nayax_ok === null) return "Indica si Nayax está activo (sí/no).";
   if (data.maquina_limpia === null)
     return "Indica si la máquina está limpia (sí/no).";
