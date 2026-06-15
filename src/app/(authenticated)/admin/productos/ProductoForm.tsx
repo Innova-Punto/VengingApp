@@ -28,6 +28,7 @@ type Producto = {
   stock_maximo: number;
   punto_reorden: number;
   capacidad_g_por_tolva: number | null;
+  requiere_encartuchado: boolean;
 };
 
 function SubmitButton({ label }: { label: string }) {
@@ -151,6 +152,23 @@ export default function ProductoForm({
             defaultValue={producto?.gramaje_cartucho_default ?? 400}
             className="input"
           />
+        </Field>
+
+        <Field
+          label="Requiere encartuchado interno"
+          full
+          hint="Marca esta casilla si el producto llega en granel y se encartucha en almacén. Desmarca si llega ya pre-empacado del proveedor (ej. café en grano 1 kg, chocolate 908 g) — en ese caso cada bolsa cuenta como 1 cartucho y la recepción genera el encartuchado automáticamente."
+        >
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              name="requiere_encartuchado"
+              value="true"
+              defaultChecked={producto?.requiere_encartuchado ?? true}
+              className="h-4 w-4 rounded border-zinc-300"
+            />
+            <span>El producto se encartucha en almacén</span>
+          </label>
         </Field>
 
         <Field
