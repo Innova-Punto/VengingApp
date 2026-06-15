@@ -1168,6 +1168,39 @@ export type Database = {
           },
         ]
       }
+      health_check_runs: {
+        Row: {
+          critical_count: number
+          detalles: Json
+          ejecutado_at: string
+          fuente: string
+          id: string
+          ok_count: number
+          total_checks: number
+          warn_count: number
+        }
+        Insert: {
+          critical_count: number
+          detalles: Json
+          ejecutado_at?: string
+          fuente: string
+          id?: string
+          ok_count: number
+          total_checks: number
+          warn_count: number
+        }
+        Update: {
+          critical_count?: number
+          detalles?: Json
+          ejecutado_at?: string
+          fuente?: string
+          id?: string
+          ok_count?: number
+          total_checks?: number
+          warn_count?: number
+        }
+        Relationships: []
+      }
       incidencias: {
         Row: {
           autorizada_por: string | null
@@ -3570,6 +3603,17 @@ export type Database = {
           maq_vasos_unidades: number | null
           maq_vasos_valor: number | null
           maquinas_total: number | null
+        }
+        Relationships: []
+      }
+      v_health_checks: {
+        Row: {
+          categoria: string | null
+          conteo: number | null
+          descripcion: string | null
+          id: string | null
+          severidad: string | null
+          titulo: string | null
         }
         Relationships: []
       }

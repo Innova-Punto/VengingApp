@@ -171,6 +171,22 @@ export default async function SupervisionDashboardPage() {
   // Errores recientes (top 10)
   const erroresRecientes = errores.slice(0, 10);
 
+  // === Health checks (resumen) ===
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: healthChecksRaw } = await (supabase as any)
+    .from("v_health_checks")
+    .select("severidad");
+  const healthOk = (healthChecksRaw ?? []).filter(
+    (h: { severidad: string }) => h.severidad === "ok",
+  ).length;
+  const healthWarn = (healthChecksRaw ?? []).filter(
+    (h: { severidad: string }) => h.severidad === "advertencia",
+  ).length;
+  const healthCrit = (healthChecksRaw ?? []).filter(
+    (h: { severidad: string }) => h.severidad === "critico",
+  ).length;
+  const healthTotal = (healthChecksRaw ?? []).length;
+
   // === Incidencias ===
   const { data: incidenciasRaw } = await supabase
     .from("incidencias")
@@ -223,6 +239,47 @@ export default async function SupervisionDashboardPage() {
           resumen de incidencias.
         </p>
       </div>
+
+      {/* === Health check (banner) === */}
+      <Link
+        href="/admin/supervision/health"
+        className={`block rounded-lg border p-3 transition hover:shadow-sm ${
+          healthCrit > 0
+            ? "border-red-200 bg-red-50"
+            : healthWarn > 0
+              ? "border-amber-200 bg-amber-50"
+              : "border-green-200 bg-green-50"
+        }`}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span
+              className={`text-xl ${
+                healthCrit > 0
+                  ? "text-red-700"
+                  : healthWarn > 0
+                    ? "text-amber-700"
+                    : "text-green-700"
+              }`}
+            >
+              {healthCrit > 0 ? "⛔" : healthWarn > 0 ? "⚠️" : "✓"}
+            </span>
+            <div>
+              <div className="text-sm font-semibold text-zinc-900">
+                Health check del sistema
+              </div>
+              <div className="text-xs text-zinc-600">
+                {healthCrit > 0
+                  ? `${healthCrit} críticos · ${healthWarn} advertencias`
+                  : healthWarn > 0
+                    ? `${healthWarn} advertencias activas`
+                    : `${healthOk}/${healthTotal} validaciones OK`}
+              </div>
+            </div>
+          </div>
+          <span className="text-xs text-zinc-500">Ver detalle →</span>
+        </div>
+      </Link>
 
       {/* === KPIs del día === */}
       <section>
