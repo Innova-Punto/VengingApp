@@ -77,21 +77,36 @@ export default function PesajeForm({
   function enviar() {
     setError(null);
 
-    const payload = Object.values(lineas)
-      .filter((l) => l.gramos_medidos !== "" && !isNaN(Number(l.gramos_medidos)))
-      .map((l) => ({
-        tolva_id: l.tolva_id,
-        gramos_medidos: Number(l.gramos_medidos),
-      }));
-
-    const vasosMedidos =
-      vasosInput !== "" && !isNaN(Number(vasosInput))
-        ? Math.max(0, Math.trunc(Number(vasosInput)))
-        : null;
-
-    if (payload.length === 0 && vasosMedidos === null) {
-      setError("Captura el peso de al menos una tolva o el conteo de vasos.");
+    // Todas las tolvas son obligatorias para garantizar un snapshot completo
+    // del inventario (pesaje inicial y cierre mensual).
+    const tolvasFaltantes = tolvas.filter((t) => {
+      const v = lineas[t.id]?.gramos_medidos ?? "";
+      return v === "" || isNaN(Number(v));
+    });
+    if (tolvasFaltantes.length > 0) {
+      setError(
+        `Captura el peso de TODAS las tolvas. Faltan: ${tolvasFaltantes
+          .map((t) => `#${t.numero}`)
+          .join(", ")}.`,
+      );
+      setEstado("error");
       return;
+    }
+
+    const payload = tolvas.map((t) => ({
+      tolva_id: t.id,
+      gramos_medidos: Math.max(0, Math.trunc(Number(lineas[t.id].gramos_medidos))),
+    }));
+
+    // Vasos obligatorios cuando la máquina tiene vaso configurado.
+    let vasosMedidos: number | null = null;
+    if (vaso) {
+      if (vasosInput === "" || isNaN(Number(vasosInput))) {
+        setError("Captura el conteo de vasos.");
+        setEstado("error");
+        return;
+      }
+      vasosMedidos = Math.max(0, Math.trunc(Number(vasosInput)));
     }
 
     setEstado("enviando");
@@ -128,7 +143,8 @@ export default function PesajeForm({
       </div>
 
       <p className="text-xs text-blue-900">
-        Captura el peso real de cada tolva. El sistema calcula la diferencia
+        Captura el peso de <strong>todas</strong> las tolvas
+        {vaso && " y el conteo de vasos"}. El sistema calcula la diferencia
         con el inventario teórico y ajusta el saldo.
       </p>
       {cierrePeriodo && (
