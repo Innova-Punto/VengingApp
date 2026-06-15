@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { requireRole } from "@/lib/auth";
+import { fmtCDMX } from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
 
 import CerrarSinLlenadoForm from "./CerrarSinLlenadoForm";
@@ -271,7 +272,7 @@ export default async function MaquinaCampoPage({
               Check-in
             </div>
             <div className="mt-1 text-sm text-zinc-900">
-              {new Date(checkIn.fecha_entrada).toLocaleTimeString("es-MX", {
+              {fmtCDMX(checkIn.fecha_entrada, {
                 hour: "2-digit",
                 minute: "2-digit",
               })}
@@ -405,7 +406,7 @@ export default async function MaquinaCampoPage({
             {checkIn?.fecha_salida && (
               <div className="mt-1 text-xs text-green-800">
                 Cerrada a las{" "}
-                {new Date(checkIn.fecha_salida).toLocaleTimeString("es-MX", {
+                {fmtCDMX(checkIn.fecha_salida, {
                   hour: "2-digit",
                   minute: "2-digit",
                 })}

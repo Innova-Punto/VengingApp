@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { requireRole } from "@/lib/auth";
+import { fmtCDMX } from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
 
 import IncidenciaForm from "./IncidenciaForm";
@@ -139,7 +140,7 @@ export default async function IncidenciaDetallePage({
           <h2 className="text-sm font-semibold text-zinc-900">Contexto</h2>
           <dl className="space-y-2 text-sm">
             <Pair label="Reportada">
-              {new Date(i.fecha_apertura).toLocaleString("es-MX")}
+              {fmtCDMX(i.fecha_apertura)}
             </Pair>
             <Pair label="Operador">{op?.full_name ?? "—"}</Pair>
             <Pair label="Máquina">
@@ -185,7 +186,7 @@ export default async function IncidenciaDetallePage({
             </Pair>
             {i.fecha_cierre && (
               <Pair label="Cerrada">
-                {new Date(i.fecha_cierre).toLocaleString("es-MX")}
+                {fmtCDMX(i.fecha_cierre)}
               </Pair>
             )}
           </dl>

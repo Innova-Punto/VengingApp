@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { requireRole } from "@/lib/auth";
+import { fmtCDMX } from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Jornadas · MuscleUp" };
@@ -228,7 +229,7 @@ export default async function JornadasPage({
                     {op?.full_name ?? "—"}
                   </td>
                   <td className="px-3 py-2 text-xs text-zinc-600">
-                    {new Date(j.hora_inicio).toLocaleTimeString("es-MX", {
+                    {fmtCDMX(j.hora_inicio, {
                       hour: "2-digit",
                       minute: "2-digit",
                     })}
