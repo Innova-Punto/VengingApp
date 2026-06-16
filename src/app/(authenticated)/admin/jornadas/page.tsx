@@ -89,12 +89,42 @@ export default async function JornadasPage({
 
   let totalCheckIns = 0;
   let totalIncidencias = 0;
+  /** Mapa asignacion_id → {completadas, total} de máquinas */
+  const avancePorAsig = new Map<string, { completadas: number; total: number }>();
+
   if (asigIds.length > 0) {
     const { count: c1 } = await supabase
       .from("check_ins")
       .select("id", { count: "exact", head: true })
       .in("asignacion_id", asigIds);
     totalCheckIns = c1 ?? 0;
+
+    // Totales de máquinas por asignación
+    const { data: asigMaquinas } = await supabase
+      .from("asignacion_maquinas")
+      .select("asignacion_id")
+      .in("asignacion_id", asigIds);
+    for (const am of asigMaquinas ?? []) {
+      const cur = avancePorAsig.get(am.asignacion_id) ?? { completadas: 0, total: 0 };
+      cur.total += 1;
+      avancePorAsig.set(am.asignacion_id, cur);
+    }
+
+    // Check-ins cerrados (fecha_salida no nulo) = máquinas completadas
+    const { data: checkInsCerrados } = await supabase
+      .from("check_ins")
+      .select("asignacion_id, maquina_id, fecha_salida")
+      .in("asignacion_id", asigIds)
+      .not("fecha_salida", "is", null);
+    const completadasUnicas = new Set<string>(); // `${asig}|${maq}` para dedupe
+    for (const ci of checkInsCerrados ?? []) {
+      const k = `${ci.asignacion_id}|${ci.maquina_id}`;
+      if (completadasUnicas.has(k)) continue;
+      completadasUnicas.add(k);
+      const cur = avancePorAsig.get(ci.asignacion_id) ?? { completadas: 0, total: 0 };
+      cur.completadas += 1;
+      avancePorAsig.set(ci.asignacion_id, cur);
+    }
   }
   if (ids.length > 0) {
     // Incidencias por operador en estas fechas (aproximación: por check_in.asignacion_id)
@@ -188,6 +218,7 @@ export default async function JornadasPage({
               <th className="px-3 py-2 font-medium">Ruta</th>
               <th className="px-3 py-2 font-medium">Operador</th>
               <th className="px-3 py-2 font-medium">Inicio</th>
+              <th className="px-3 py-2 font-medium">Avance</th>
               <th className="px-3 py-2 font-medium">Estado</th>
             </tr>
           </thead>
@@ -234,6 +265,27 @@ export default async function JornadasPage({
                       minute: "2-digit",
                     })}
                   </td>
+                  <td className="px-3 py-2 text-xs tabular-nums">
+                    {(() => {
+                      const a = avancePorAsig.get(asig?.id ?? "");
+                      if (!a || a.total === 0)
+                        return <span className="text-zinc-400">—</span>;
+                      const completo = a.completadas === a.total;
+                      return (
+                        <span
+                          className={
+                            completo
+                              ? "font-medium text-green-700"
+                              : a.completadas === 0
+                                ? "text-zinc-500"
+                                : "font-medium text-amber-700"
+                          }
+                        >
+                          {a.completadas}/{a.total}
+                        </span>
+                      );
+                    })()}
+                  </td>
                   <td className="px-3 py-2">
                     <span
                       className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -248,7 +300,7 @@ export default async function JornadasPage({
             })}
             {filtradas.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-3 py-8 text-center text-sm text-zinc-500">
+                <td colSpan={6} className="px-3 py-8 text-center text-sm text-zinc-500">
                   Sin jornadas en el rango seleccionado.
                 </td>
               </tr>
