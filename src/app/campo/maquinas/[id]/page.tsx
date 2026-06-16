@@ -348,6 +348,21 @@ export default async function MaquinaCampoPage({
                           producto_sku: prod?.sku ?? "—",
                         };
                       })}
+                    vaso={
+                      maquina.vaso_producto_id
+                        ? (() => {
+                            const vp = Array.isArray(maquina.vaso_producto)
+                              ? maquina.vaso_producto[0]
+                              : maquina.vaso_producto;
+                            return {
+                              producto_nombre: vp?.nombre ?? "—",
+                              producto_sku: vp?.sku ?? "—",
+                              inventario_actual:
+                                maquina.vaso_inventario_actual ?? 0,
+                            };
+                          })()
+                        : null
+                    }
                   />
                 </>
               );

@@ -2249,6 +2249,11 @@ export type Database = {
           maquina_id: string
           notas: string | null
           operador_id: string
+          vasos_alerta_generada: boolean
+          vasos_costo_unitario: number | null
+          vasos_medidos: number | null
+          vasos_teoricos: number | null
+          vasos_valor_diferencia: number | null
         }
         Insert: {
           check_in_id: string
@@ -2259,6 +2264,11 @@ export type Database = {
           maquina_id: string
           notas?: string | null
           operador_id: string
+          vasos_alerta_generada?: boolean
+          vasos_costo_unitario?: number | null
+          vasos_medidos?: number | null
+          vasos_teoricos?: number | null
+          vasos_valor_diferencia?: number | null
         }
         Update: {
           check_in_id?: string
@@ -2269,6 +2279,11 @@ export type Database = {
           maquina_id?: string
           notas?: string | null
           operador_id?: string
+          vasos_alerta_generada?: boolean
+          vasos_costo_unitario?: number | null
+          vasos_medidos?: number | null
+          vasos_teoricos?: number | null
+          vasos_valor_diferencia?: number | null
         }
         Relationships: [
           {
@@ -3777,19 +3792,17 @@ export type Database = {
         Args: { p_cursor_desde?: string; p_cursor_hasta?: string }
         Returns: string
       }
-      op_cerrar_check_in_sin_llenado:
-        | { Args: { p_check_in_id: string; p_notas?: string }; Returns: string }
-        | {
-            Args: {
-              p_check_in_id: string
-              p_checkout_maquina_limpia?: boolean
-              p_checkout_nayax_ok?: boolean
-              p_checkout_productos_ok?: boolean
-              p_foto_salida_url?: string
-              p_notas?: string
-            }
-            Returns: undefined
-          }
+      op_cerrar_check_in_sin_llenado: {
+        Args: {
+          p_check_in_id: string
+          p_checkout_maquina_limpia?: boolean
+          p_checkout_nayax_ok?: boolean
+          p_checkout_productos_ok?: boolean
+          p_foto_salida_url?: string
+          p_notas?: string
+        }
+        Returns: undefined
+      }
       op_check_in: {
         Args: {
           p_asignacion_id: string
@@ -3842,7 +3855,12 @@ export type Database = {
             Returns: string
           }
       op_registrar_pesaje_maquina: {
-        Args: { p_check_in_id: string; p_items: Json; p_notas?: string }
+        Args: {
+          p_check_in_id: string
+          p_items: Json
+          p_notas?: string
+          p_vasos_medidos?: number
+        }
         Returns: string
       }
       pick_batch_peps_cartucho: {

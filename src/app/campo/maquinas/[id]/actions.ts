@@ -109,15 +109,23 @@ export async function registrarLlenado(
   const vasos_cargados = vasosCargadosRaw
     ? Math.max(0, Number(vasosCargadosRaw) || 0)
     : 0;
-  const foto = formData.get("foto");
-  const fotoSalida = formData.get("foto_salida");
+  // Las fotos ahora se suben desde el cliente directo a Storage. Aquí solo
+  // recibimos las rutas resultantes (formato `bucket/path.ext`).
+  const fotoUrlRaw = formData.get("foto_url");
+  const fotoSalidaUrlRaw = formData.get("foto_salida_url");
+  const foto_url =
+    typeof fotoUrlRaw === "string" && fotoUrlRaw.length > 0 ? fotoUrlRaw : null;
+  const foto_salida_url =
+    typeof fotoSalidaUrlRaw === "string" && fotoSalidaUrlRaw.length > 0
+      ? fotoSalidaUrlRaw
+      : null;
+
   const checkoutNayaxOk = formData.get("checkout_nayax_ok");
   const checkoutMaquinaLimpia = formData.get("checkout_maquina_limpia");
   const checkoutProductosOk = formData.get("checkout_productos_ok");
 
   if (!check_in_id) return { ok: false, message: "Falta check-in." };
 
-  // Foto de salida ahora es opcional. Validación: checklist completo
   if (
     !["true", "false"].includes(String(checkoutNayaxOk)) ||
     !["true", "false"].includes(String(checkoutMaquinaLimpia)) ||
@@ -137,34 +145,6 @@ export async function registrarLlenado(
   }
 
   const supabase = createClient() as AnyClient;
-
-  let foto_url: string | null = null;
-  if (foto instanceof File && foto.size > 0) {
-    try {
-      foto_url = await subirFoto(
-        supabase,
-        "evidencias-llenado",
-        `${asignacion_id}/${maquina_id}-llenado-${Date.now()}`,
-        foto,
-      );
-    } catch (e) {
-      return { ok: false, message: e instanceof Error ? e.message : String(e) };
-    }
-  }
-
-  let foto_salida_url: string | null = null;
-  if (fotoSalida instanceof File && fotoSalida.size > 0) {
-    try {
-      foto_salida_url = await subirFoto(
-        supabase,
-        "evidencias-checkin",
-        `${asignacion_id}/${maquina_id}-salida-${Date.now()}`,
-        fotoSalida,
-      );
-    } catch (e) {
-      return { ok: false, message: e instanceof Error ? e.message : String(e) };
-    }
-  }
 
   const { error } = await supabase.rpc("op_registrar_llenado", {
     p_check_in_id: check_in_id,
@@ -198,7 +178,13 @@ export async function cerrarVisitaSinLlenado(input: {
   asignacionId: string;
   maquinaId: string;
   notas: string | null;
-  fotoSalida: File | null;
+  /**
+   * Ruta de la foto YA subida desde el cliente (formato `bucket/path.ext`).
+   * El cliente la sube directo a Storage para evitar que un upload pesado
+   * tumbe el Server Action bajo señal débil. Si es null, la visita se
+   * cierra sin foto (la foto de salida es opcional).
+   */
+  fotoSalidaPath: string | null;
   checkoutNayaxOk: boolean | null;
   checkoutMaquinaLimpia: boolean | null;
   checkoutProductosOk: boolean | null;
@@ -207,7 +193,6 @@ export async function cerrarVisitaSinLlenado(input: {
 
   if (!input.checkInId) return { ok: false, message: "Falta check-in." };
 
-  // Foto de salida ahora es opcional.
   if (
     input.checkoutNayaxOk === null ||
     input.checkoutMaquinaLimpia === null ||
@@ -218,24 +203,10 @@ export async function cerrarVisitaSinLlenado(input: {
 
   const supabase = createClient() as AnyClient;
 
-  let foto_salida_url: string | null = null;
-  if (input.fotoSalida && input.fotoSalida.size > 0) {
-    try {
-      foto_salida_url = await subirFoto(
-        supabase,
-        "evidencias-checkin",
-        `${input.asignacionId}/${input.maquinaId}-salida-${Date.now()}`,
-        input.fotoSalida,
-      );
-    } catch (e) {
-      return { ok: false, message: e instanceof Error ? e.message : String(e) };
-    }
-  }
-
   const { error } = await supabase.rpc("op_cerrar_check_in_sin_llenado", {
     p_check_in_id: input.checkInId,
     p_notas: input.notas,
-    p_foto_salida_url: foto_salida_url,
+    p_foto_salida_url: input.fotoSalidaPath,
     p_checkout_nayax_ok: input.checkoutNayaxOk,
     p_checkout_maquina_limpia: input.checkoutMaquinaLimpia,
     p_checkout_productos_ok: input.checkoutProductosOk,
@@ -260,12 +231,17 @@ export async function registrarPesaje(input: {
   maquinaId: string;
   items: { tolva_id: string; gramos_medidos: number }[];
   notas: string | null;
+  /** Conteo físico de vasos en la máquina. null = no se contaron. */
+  vasosMedidos: number | null;
 }): Promise<ActionResult> {
   await requireRole("operador", "admin", "direccion");
 
   if (!input.checkInId) return { ok: false, message: "Falta check-in." };
-  if (!input.items || input.items.length === 0) {
-    return { ok: false, message: "Sin ítems para pesar." };
+  if (
+    (!input.items || input.items.length === 0) &&
+    input.vasosMedidos === null
+  ) {
+    return { ok: false, message: "Captura al menos una tolva o el conteo de vasos." };
   }
 
   const supabase = createClient() as AnyClient;
@@ -274,6 +250,7 @@ export async function registrarPesaje(input: {
     p_check_in_id: input.checkInId,
     p_items: input.items,
     p_notas: input.notas,
+    p_vasos_medidos: input.vasosMedidos,
   });
 
   if (error) return { ok: false, message: error.message };
