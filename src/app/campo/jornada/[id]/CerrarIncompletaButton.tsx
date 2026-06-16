@@ -14,7 +14,7 @@ const MOTIVOS = [
  * Botón discreto para que el operador cierre la ruta antes de tiempo si
  * algo le impidió terminar todas las máquinas. Pide motivo (lista
  * predefinida + "otro" como texto libre) y deja la asignación en estado
- * `completada_incompleta` (terminal, no cuenta como completada).
+ * `completada_parcialmente` (terminal, no cuenta como completada).
  */
 export default function CerrarIncompletaButton({
   asignacionId,

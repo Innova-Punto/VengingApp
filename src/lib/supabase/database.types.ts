@@ -3980,7 +3980,7 @@ export type Database = {
         | "en_jornada"
         | "completada"
         | "cancelada"
-        | "completada_incompleta"
+        | "completada_parcialmente"
       calibracion_tipo:
         | "preventiva_programada"
         | "correctiva_por_alerta"
@@ -4041,6 +4041,7 @@ export type Database = {
         | "ajuste_conteo_maquina"
         | "ajuste_periodo_anterior"
         | "ajuste_manual"
+        | "devolucion_entrada_vaso"
       oc_estado: "borrador" | "enviada" | "parcial" | "recibida" | "cancelada"
       producto_tipo: "polvo" | "vaso"
       reporte_estado:
@@ -4194,7 +4195,7 @@ export const Constants = {
         "en_jornada",
         "completada",
         "cancelada",
-        "completada_incompleta",
+        "completada_parcialmente",
       ],
       calibracion_tipo: [
         "preventiva_programada",
@@ -4261,6 +4262,7 @@ export const Constants = {
         "ajuste_conteo_maquina",
         "ajuste_periodo_anterior",
         "ajuste_manual",
+        "devolucion_entrada_vaso",
       ],
       oc_estado: ["borrador", "enviada", "parcial", "recibida", "cancelada"],
       producto_tipo: ["polvo", "vaso"],
