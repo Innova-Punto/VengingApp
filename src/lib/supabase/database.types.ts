@@ -151,6 +151,7 @@ export type Database = {
           estado: Database["public"]["Enums"]["asignacion_estado"]
           fecha: string
           id: string
+          motivo_cierre_incompleto: string | null
           notas: string | null
           operador_id: string
           ruta_id: string
@@ -162,6 +163,7 @@ export type Database = {
           estado?: Database["public"]["Enums"]["asignacion_estado"]
           fecha: string
           id?: string
+          motivo_cierre_incompleto?: string | null
           notas?: string | null
           operador_id: string
           ruta_id: string
@@ -173,6 +175,7 @@ export type Database = {
           estado?: Database["public"]["Enums"]["asignacion_estado"]
           fecha?: string
           id?: string
+          motivo_cierre_incompleto?: string | null
           notas?: string | null
           operador_id?: string
           ruta_id?: string
@@ -3807,6 +3810,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      op_cerrar_jornada_incompleta: {
+        Args: { p_asignacion_id: string; p_motivo: string }
+        Returns: undefined
+      }
       op_check_in: {
         Args: {
           p_asignacion_id: string
@@ -3943,6 +3950,7 @@ export type Database = {
         | "en_jornada"
         | "completada"
         | "cancelada"
+        | "completada_incompleta"
       calibracion_tipo:
         | "preventiva_programada"
         | "correctiva_por_alerta"
@@ -4156,6 +4164,7 @@ export const Constants = {
         "en_jornada",
         "completada",
         "cancelada",
+        "completada_incompleta",
       ],
       calibracion_tipo: [
         "preventiva_programada",
