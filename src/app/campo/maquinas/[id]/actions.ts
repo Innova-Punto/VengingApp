@@ -140,8 +140,13 @@ export async function registrarLlenado(
   } catch {
     return { ok: false, message: "Items inválidos." };
   }
-  if (!Array.isArray(items) || items.length === 0) {
-    return { ok: false, message: "Debes indicar al menos un ítem." };
+  if (!Array.isArray(items)) {
+    return { ok: false, message: "Items inválidos." };
+  }
+  // Permite cierre si hay cartuchos cargados O vasos cargados (la máquina
+  // puede tener solo vasos planeados, solo cartuchos, o ambos).
+  if (items.length === 0 && vasos_cargados === 0) {
+    return { ok: false, message: "Debes indicar al menos un cartucho o vaso cargado." };
   }
 
   const supabase = createClient() as AnyClient;
