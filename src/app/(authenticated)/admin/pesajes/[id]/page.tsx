@@ -21,7 +21,12 @@ export default async function EditarPesajePage({
     .from("pesajes_maquina")
     .select(
       `id, fecha, notas, check_in_id,
-       maquina:maquinas(serie, alias),
+       vasos_teoricos, vasos_medidos, vasos_costo_unitario,
+       vasos_valor_diferencia,
+       maquina:maquinas(
+         serie, alias, vaso_producto_id,
+         vaso_producto:productos!maquinas_vaso_producto_id_fkey(sku, nombre)
+       ),
        operador:profiles!pesajes_maquina_operador_id_fkey(full_name),
        check_in:check_ins(asignacion_id),
        items:pesaje_tolva_items(
@@ -111,6 +116,23 @@ export default async function EditarPesajePage({
           diferencia_porcentaje: it.diferencia_porcentaje,
           valor_diferencia: it.valor_diferencia,
         }))}
+        vasos={
+          maquina?.vaso_producto_id
+            ? {
+                pesaje_id: pesaje.id,
+                producto_nombre: (() => {
+                  const vp = Array.isArray(maquina.vaso_producto)
+                    ? maquina.vaso_producto[0]
+                    : maquina.vaso_producto;
+                  return vp?.nombre ?? "Vaso";
+                })(),
+                vasos_teoricos: pesaje.vasos_teoricos,
+                vasos_medidos: pesaje.vasos_medidos,
+                vasos_costo_unitario: pesaje.vasos_costo_unitario,
+                vasos_valor_diferencia: pesaje.vasos_valor_diferencia,
+              }
+            : null
+        }
       />
     </div>
   );
