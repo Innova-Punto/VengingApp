@@ -133,7 +133,7 @@ export default async function JornadaDetallePage({
     NonNullable<typeof devoluciones>[number]
   >();
   for (const d of devoluciones ?? []) {
-    devoluPorItem.set(d.llenado_item_id, d);
+    if (d.llenado_item_id) devoluPorItem.set(d.llenado_item_id, d);
   }
 
   // Pesajes hechos por el operador en esta jornada (por check_in)

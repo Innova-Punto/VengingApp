@@ -21,7 +21,7 @@ export default async function DevolucionesPage() {
   const { data: pendientes } = await supabase
     .from("devoluciones_almacen")
     .select(
-      `id, cantidad_calculada, estado, created_at, operador_id,
+      `id, cantidad_calculada, estado, created_at, operador_id, notas,
        producto:productos(sku, nombre),
        operador:profiles!devoluciones_almacen_operador_id_fkey(full_name),
        llenado_item:llenado_items!devoluciones_almacen_llenado_item_id_fkey(
@@ -30,6 +30,10 @@ export default async function DevolucionesPage() {
            fecha,
            maquina:maquinas(serie, alias)
          )
+       ),
+       maquina_directa:maquinas!devoluciones_almacen_maquina_id_fkey(serie, alias),
+       asignacion:asignaciones_diarias!devoluciones_almacen_asignacion_id_fkey(
+         fecha, estado, motivo_cierre_incompleto
        )`,
     )
     .eq("estado", "pendiente_devolucion")
@@ -48,12 +52,18 @@ export default async function DevolucionesPage() {
     .order("fecha_recepcion", { ascending: false })
     .limit(30);
 
-  // Agrupar pendientes por operador + fecha de llenado
   const pendientesList = pendientes ?? [];
   type Pend = (typeof pendientesList)[number];
   const grupos = new Map<
     string,
-    { operadorNombre: string; fecha: string; maquinaLabel: string; items: Pend[] }
+    {
+      operadorNombre: string;
+      fecha: string;
+      maquinaLabel: string;
+      origen: "llenado" | "no_visitada";
+      motivo: string | null;
+      items: Pend[];
+    }
   >();
   for (const d of pendientesList) {
     const op = Array.isArray(d.operador) ? d.operador[0] : d.operador;
@@ -63,17 +73,27 @@ export default async function DevolucionesPage() {
         ? li.llenado[0]
         : li.llenado
       : null;
-    const maq = lle
+    const maqLlenado = lle
       ? Array.isArray(lle.maquina)
         ? lle.maquina[0]
         : lle.maquina
       : null;
-    const fechaLlenado = lle?.fecha ? lle.fecha.slice(0, 10) : d.created_at.slice(0, 10);
-    const key = `${d.operador_id}|${fechaLlenado}|${maq?.serie ?? ""}`;
+    const maqDirecta = Array.isArray(d.maquina_directa)
+      ? d.maquina_directa[0]
+      : d.maquina_directa;
+    const asig = Array.isArray(d.asignacion) ? d.asignacion[0] : d.asignacion;
+    const maq = maqLlenado ?? maqDirecta;
+    const origen: "llenado" | "no_visitada" = li ? "llenado" : "no_visitada";
+    const fechaDevol = lle?.fecha
+      ? lle.fecha.slice(0, 10)
+      : asig?.fecha ?? d.created_at.slice(0, 10);
+    const key = `${d.operador_id}|${fechaDevol}|${maq?.serie ?? ""}|${origen}`;
     const grupo = grupos.get(key) ?? {
       operadorNombre: op?.full_name ?? "(sin operador)",
-      fecha: fechaLlenado,
+      fecha: fechaDevol,
       maquinaLabel: maq ? `${maq.serie}${maq.alias ? " · " + maq.alias : ""}` : "—",
+      origen,
+      motivo: origen === "no_visitada" ? asig?.motivo_cierre_incompleto ?? null : null,
       items: [] as Pend[],
     };
     grupo.items.push(d);
@@ -117,8 +137,15 @@ export default async function DevolucionesPage() {
             className="overflow-hidden rounded-lg border border-zinc-200 bg-white"
           >
             <div className="border-b border-zinc-200 bg-zinc-50 px-4 py-2">
-              <div className="text-sm font-medium text-zinc-900">
-                {g.operadorNombre}
+              <div className="flex items-baseline justify-between gap-2">
+                <div className="text-sm font-medium text-zinc-900">
+                  {g.operadorNombre}
+                </div>
+                {g.origen === "no_visitada" && (
+                  <span className="inline-flex rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-medium text-orange-700">
+                    Máquina no visitada{g.motivo ? ` · ${g.motivo}` : ""}
+                  </span>
+                )}
               </div>
               <div className="text-xs text-zinc-500">
                 {g.fecha} · {g.maquinaLabel}

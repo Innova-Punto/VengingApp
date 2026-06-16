@@ -860,54 +860,70 @@ export type Database = {
       }
       devoluciones_almacen: {
         Row: {
+          asignacion_id: string | null
           cantidad_calculada: number
           cantidad_recibida_almacen: number | null
           created_at: string
-          encartuchado_id: string
+          encartuchado_id: string | null
           estado: Database["public"]["Enums"]["devolucion_estado"]
           fecha_recepcion: string | null
           id: string
           incidencia_id: string | null
-          llenado_item_id: string
+          llenado_item_id: string | null
+          maquina_id: string | null
           notas: string | null
           operador_id: string
           producto_id: string
           recibida_por: string | null
+          surtido_item_id: string | null
           updated_at: string
         }
         Insert: {
+          asignacion_id?: string | null
           cantidad_calculada: number
           cantidad_recibida_almacen?: number | null
           created_at?: string
-          encartuchado_id: string
+          encartuchado_id?: string | null
           estado?: Database["public"]["Enums"]["devolucion_estado"]
           fecha_recepcion?: string | null
           id?: string
           incidencia_id?: string | null
-          llenado_item_id: string
+          llenado_item_id?: string | null
+          maquina_id?: string | null
           notas?: string | null
           operador_id: string
           producto_id: string
           recibida_por?: string | null
+          surtido_item_id?: string | null
           updated_at?: string
         }
         Update: {
+          asignacion_id?: string | null
           cantidad_calculada?: number
           cantidad_recibida_almacen?: number | null
           created_at?: string
-          encartuchado_id?: string
+          encartuchado_id?: string | null
           estado?: Database["public"]["Enums"]["devolucion_estado"]
           fecha_recepcion?: string | null
           id?: string
           incidencia_id?: string | null
-          llenado_item_id?: string
+          llenado_item_id?: string | null
+          maquina_id?: string | null
           notas?: string | null
           operador_id?: string
           producto_id?: string
           recibida_por?: string | null
+          surtido_item_id?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "devoluciones_almacen_asignacion_id_fkey"
+            columns: ["asignacion_id"]
+            isOneToOne: false
+            referencedRelation: "asignaciones_diarias"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "devoluciones_almacen_encartuchado_id_fkey"
             columns: ["encartuchado_id"]
@@ -927,6 +943,13 @@ export type Database = {
             columns: ["llenado_item_id"]
             isOneToOne: true
             referencedRelation: "llenado_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "devoluciones_almacen_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "maquinas"
             referencedColumns: ["id"]
           },
           {
@@ -955,6 +978,13 @@ export type Database = {
             columns: ["recibida_por"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "devoluciones_almacen_surtido_item_id_fkey"
+            columns: ["surtido_item_id"]
+            isOneToOne: false
+            referencedRelation: "surtido_items"
             referencedColumns: ["id"]
           },
         ]
