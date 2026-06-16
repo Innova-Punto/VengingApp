@@ -2,6 +2,8 @@
 
 import { useFormState, useFormStatus } from "react-dom";
 
+import { urgenciaUltimaVisita } from "@/lib/maquinas-visita";
+
 import {
   agregarMaquinaExcepcion,
   type AsigMaqResult,
@@ -13,7 +15,17 @@ type Maquina = {
   alias: string | null;
   cliente_nombre: string;
   ubicacion_nombre: string;
+  ultima_visita_at: string | null;
 };
+
+/** Emoji semáforo coherente con el badge en otras pantallas. */
+function urgenciaEmoji(diasSinVisita: number | null): string {
+  if (diasSinVisita === null) return "🔴";
+  if (diasSinVisita <= 3) return "🟢";
+  if (diasSinVisita <= 5) return "🟡";
+  if (diasSinVisita <= 7) return "🟠";
+  return "🔴";
+}
 
 const initial: AsigMaqResult | null = null;
 
@@ -39,6 +51,15 @@ export default function AgregarMaquinaExcepcionForm({
 }) {
   const [state, action] = useFormState(agregarMaquinaExcepcion, initial);
 
+  // Ordena por urgencia descendente (nunca / más días arriba) para que
+  // las críticas estén al principio del dropdown.
+  const maquinasOrdenadas = [...maquinas]
+    .map((m) => {
+      const u = urgenciaUltimaVisita(m.ultima_visita_at);
+      return { ...m, _dias: u.diasSinVisita ?? Number.MAX_SAFE_INTEGER };
+    })
+    .sort((a, b) => b._dias - a._dias);
+
   return (
     <form action={action} className="space-y-3">
       <input type="hidden" name="asignacion_id" value={asignacionId} />
@@ -46,7 +67,10 @@ export default function AgregarMaquinaExcepcionForm({
       <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
         <div className="md:col-span-2">
           <label className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-            Máquina *
+            Máquina *{" "}
+            <span className="text-zinc-400 normal-case">
+              (🟢 reciente · 🟡 4-5d · 🟠 6-7d · 🔴 8+d/nunca)
+            </span>
           </label>
           <select
             name="maquina_id"
@@ -54,13 +78,18 @@ export default function AgregarMaquinaExcepcionForm({
             className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm shadow-sm focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900"
           >
             <option value="">— Selecciona —</option>
-            {maquinas.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.serie}
-                {m.alias ? ` · ${m.alias}` : ""} ({m.cliente_nombre} ·{" "}
-                {m.ubicacion_nombre})
-              </option>
-            ))}
+            {maquinasOrdenadas.map((m) => {
+              const u = urgenciaUltimaVisita(m.ultima_visita_at);
+              const emoji = urgenciaEmoji(u.diasSinVisita);
+              const visita = u.textoCorto;
+              return (
+                <option key={m.id} value={m.id}>
+                  {emoji} {visita} · {m.serie}
+                  {m.alias ? ` · ${m.alias}` : ""} ({m.cliente_nombre} ·{" "}
+                  {m.ubicacion_nombre})
+                </option>
+              );
+            })}
           </select>
         </div>
 

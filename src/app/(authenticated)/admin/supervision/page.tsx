@@ -8,6 +8,7 @@ import {
   startOfNDaysAgoCDMX,
   startOfTodayCDMX,
 } from "@/lib/datetime";
+import { urgenciaUltimaVisita } from "@/lib/maquinas-visita";
 import {
   ESTADO_BADGE as ERROR_ESTADO_BADGE,
   ESTADO_LABEL as ERROR_ESTADO_LABEL,
@@ -142,6 +143,58 @@ export default async function SupervisionDashboardPage() {
   const operadoresHoy = Array.from(porOperadorHoy.values()).sort((a, b) =>
     a.label.localeCompare(b.label, "es"),
   );
+
+  // === Máquinas por antigüedad de visita ===
+  const { data: maquinasVisita } = await supabase
+    .from("maquinas")
+    .select(
+      `id, serie, alias, ultima_visita_at,
+       ubicacion:ubicaciones(nombre, cliente:clientes(nombre))`,
+    )
+    .eq("activo", true);
+
+  type MaqVisita = {
+    id: string;
+    serie: string;
+    alias: string | null;
+    ultima_visita_at: string | null;
+    cliente: string;
+    ubicacion: string;
+    dias: number; // -1 = nunca
+  };
+  const maquinasUrgentes: MaqVisita[] = [];
+  let countCritico = 0;
+  let countUrgente = 0;
+  for (const m of maquinasVisita ?? []) {
+    const u = urgenciaUltimaVisita(m.ultima_visita_at);
+    const dias = u.diasSinVisita ?? -1;
+    // Solo contar críticos (8+ o nunca) y urgentes (6-7) para destacar
+    if (dias === -1 || dias >= 6) {
+      const ubic = Array.isArray(m.ubicacion) ? m.ubicacion[0] : m.ubicacion;
+      const cliente = ubic
+        ? Array.isArray(ubic.cliente)
+          ? ubic.cliente[0]
+          : ubic.cliente
+        : null;
+      maquinasUrgentes.push({
+        id: m.id,
+        serie: m.serie,
+        alias: m.alias,
+        ultima_visita_at: m.ultima_visita_at,
+        cliente: cliente?.nombre ?? "—",
+        ubicacion: ubic?.nombre ?? "—",
+        dias,
+      });
+      if (dias === -1 || dias >= 8) countCritico += 1;
+      else countUrgente += 1;
+    }
+  }
+  // Orden: nunca primero, luego más días sin visita
+  maquinasUrgentes.sort((a, b) => {
+    if (a.dias === -1 && b.dias !== -1) return -1;
+    if (b.dias === -1 && a.dias !== -1) return 1;
+    return b.dias - a.dias;
+  });
 
   // === Errores operativos últimos 30 días ===
   const { data: errores30d } = await supabase
@@ -417,6 +470,106 @@ export default async function SupervisionDashboardPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+      </section>
+
+      {/* === Máquinas sin visita reciente === */}
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-lg font-semibold tracking-tight">
+            Máquinas sin visita reciente
+          </h2>
+          <Link
+            href="/admin/maquinas"
+            className="text-sm text-blue-700 hover:underline"
+          >
+            Ver todas →
+          </Link>
+        </div>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+          <div className="rounded-lg border border-red-300 bg-red-50 p-3">
+            <div className="text-xs font-medium uppercase tracking-wide text-red-700">
+              Crítico (8+ días o nunca)
+            </div>
+            <div className="mt-1 text-2xl font-semibold tabular-nums text-red-900">
+              {countCritico}
+            </div>
+          </div>
+          <div className="rounded-lg border border-orange-300 bg-orange-50 p-3">
+            <div className="text-xs font-medium uppercase tracking-wide text-orange-700">
+              Urgente (6-7 días)
+            </div>
+            <div className="mt-1 text-2xl font-semibold tabular-nums text-orange-900">
+              {countUrgente}
+            </div>
+          </div>
+        </div>
+        {maquinasUrgentes.length === 0 ? (
+          <p className="text-sm text-zinc-500">
+            Todas las máquinas se han visitado en los últimos 5 días.
+          </p>
+        ) : (
+          <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
+            <table className="w-full text-sm">
+              <thead className="border-b border-zinc-200 bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Serie</th>
+                  <th className="px-3 py-2 font-medium">Cliente / Ubicación</th>
+                  <th className="px-3 py-2 font-medium">Última visita</th>
+                  <th className="px-3 py-2 font-medium">Días</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100">
+                {maquinasUrgentes.slice(0, 15).map((m) => {
+                  const u = urgenciaUltimaVisita(m.ultima_visita_at);
+                  return (
+                    <tr key={m.id} className="hover:bg-zinc-50">
+                      <td className="px-3 py-1.5">
+                        <Link
+                          href={`/admin/maquinas/${m.id}`}
+                          className="font-mono text-xs font-medium text-zinc-900 hover:underline"
+                        >
+                          {m.serie}
+                        </Link>
+                        {m.alias && (
+                          <div className="text-xs text-zinc-500">
+                            {m.alias}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-3 py-1.5 text-xs text-zinc-700">
+                        {m.cliente}
+                        <div className="text-zinc-500">{m.ubicacion}</div>
+                      </td>
+                      <td className="px-3 py-1.5 text-xs text-zinc-600">
+                        {m.ultima_visita_at
+                          ? fmtCDMXFechaCorta(m.ultima_visita_at)
+                          : "—"}
+                      </td>
+                      <td className="px-3 py-1.5">
+                        <span
+                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${u.badgeClass}`}
+                        >
+                          {u.textoCorto} · {u.label}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {maquinasUrgentes.length > 15 && (
+              <div className="border-t border-zinc-200 bg-zinc-50 px-3 py-2 text-center text-xs text-zinc-500">
+                +{maquinasUrgentes.length - 15} más en{" "}
+                <Link
+                  href="/admin/maquinas"
+                  className="text-blue-700 hover:underline"
+                >
+                  /admin/maquinas
+                </Link>
+              </div>
+            )}
           </div>
         )}
       </section>

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { requireRole } from "@/lib/auth";
+import { urgenciaUltimaVisita } from "@/lib/maquinas-visita";
 import { createClient } from "@/lib/supabase/server";
 
 import {
@@ -60,7 +61,7 @@ export default async function DetalleAsigPage({
     .select(
       `id, orden, origen, motivo_excepcion, notas,
        maquina:maquinas(
-         id, serie, alias, estado,
+         id, serie, alias, estado, ultima_visita_at,
          ubicacion:ubicaciones(nombre, cliente:clientes(nombre))
        )`,
     )
@@ -84,7 +85,7 @@ export default async function DetalleAsigPage({
   const { data: todas } = await supabase
     .from("maquinas")
     .select(
-      `id, serie, alias, estado,
+      `id, serie, alias, estado, ultima_visita_at,
        ubicacion:ubicaciones(nombre, cliente:clientes(nombre))`,
     )
     .eq("estado", "operativa")
@@ -105,6 +106,7 @@ export default async function DetalleAsigPage({
         alias: m.alias,
         cliente_nombre: cliente?.nombre ?? "—",
         ubicacion_nombre: ubic?.nombre ?? "—",
+        ultima_visita_at: m.ultima_visita_at,
       };
     });
 
@@ -219,6 +221,7 @@ export default async function DetalleAsigPage({
                 </th>
                 <th className="px-3 py-2 font-medium">Serie</th>
                 <th className="px-3 py-2 font-medium">Cliente / Ubicación</th>
+                <th className="px-3 py-2 font-medium">Última visita</th>
                 <th className="px-3 py-2 font-medium">Origen</th>
                 <th className="px-3 py-2 text-right font-medium">Acciones</th>
               </tr>
@@ -263,6 +266,25 @@ export default async function DetalleAsigPage({
                       )}
                     </td>
                     <td className="px-3 py-2">
+                      {(() => {
+                        const u = urgenciaUltimaVisita(m?.ultima_visita_at);
+                        return (
+                          <span
+                            className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${u.badgeClass}`}
+                            title={
+                              m?.ultima_visita_at
+                                ? new Date(m.ultima_visita_at).toLocaleString(
+                                    "es-MX",
+                                  )
+                                : "Sin visita registrada"
+                            }
+                          >
+                            {u.textoCorto}
+                          </span>
+                        );
+                      })()}
+                    </td>
+                    <td className="px-3 py-2">
                       {esExcepcion ? (
                         <div className="space-y-0.5">
                           <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
@@ -300,7 +322,7 @@ export default async function DetalleAsigPage({
               {(asigMaquinas ?? []).length === 0 && (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="px-4 py-6 text-center text-zinc-500"
                   >
                     Sin máquinas. Agrega al menos una para que el operador

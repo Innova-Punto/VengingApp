@@ -360,6 +360,7 @@ export type Database = {
           checkout_maquina_limpia: boolean | null
           checkout_nayax_ok: boolean | null
           checkout_productos_ok: boolean | null
+          cierre_forzado: boolean
           created_at: string
           fecha_entrada: string
           fecha_salida: string | null
@@ -382,6 +383,7 @@ export type Database = {
           checkout_maquina_limpia?: boolean | null
           checkout_nayax_ok?: boolean | null
           checkout_productos_ok?: boolean | null
+          cierre_forzado?: boolean
           created_at?: string
           fecha_entrada?: string
           fecha_salida?: string | null
@@ -404,6 +406,7 @@ export type Database = {
           checkout_maquina_limpia?: boolean | null
           checkout_nayax_ok?: boolean | null
           checkout_productos_ok?: boolean | null
+          cierre_forzado?: boolean
           created_at?: string
           fecha_entrada?: string
           fecha_salida?: string | null
@@ -1752,6 +1755,7 @@ export type Database = {
           serie: string
           tipo: string
           ubicacion_id: string
+          ultima_visita_at: string | null
           updated_at: string
           vaso_capacidad_max: number
           vaso_inventario_actual: number
@@ -1777,6 +1781,7 @@ export type Database = {
           serie: string
           tipo?: string
           ubicacion_id: string
+          ultima_visita_at?: string | null
           updated_at?: string
           vaso_capacidad_max?: number
           vaso_inventario_actual?: number
@@ -1802,6 +1807,7 @@ export type Database = {
           serie?: string
           tipo?: string
           ubicacion_id?: string
+          ultima_visita_at?: string | null
           updated_at?: string
           vaso_capacidad_max?: number
           vaso_inventario_actual?: number

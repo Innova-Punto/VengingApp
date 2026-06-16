@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { requireRole } from "@/lib/auth";
+import { urgenciaUltimaVisita } from "@/lib/maquinas-visita";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Máquinas · MuscleUp" };
@@ -28,7 +29,7 @@ export default async function MaquinasPage({
     .from("maquinas")
     .select(
       `id, serie, alias, modelo, estado, nayax_machine_id,
-       fecha_instalacion, frecuencia_visita_dias,
+       fecha_instalacion, frecuencia_visita_dias, ultima_visita_at,
        ubicacion:ubicaciones(id, nombre, cliente:clientes(id, nombre)),
        tolvas:tolvas(id, producto_id)`,
     )
@@ -120,6 +121,7 @@ export default async function MaquinasPage({
               <th className="px-4 py-2 font-medium">Cliente / Ubicación</th>
               <th className="px-4 py-2 font-medium">Modelo</th>
               <th className="px-4 py-2 text-right font-medium">Tolvas</th>
+              <th className="px-4 py-2 font-medium">Última visita</th>
               <th className="px-4 py-2 font-medium">Estado</th>
               <th className="px-4 py-2 text-right font-medium">Acciones</th>
             </tr>
@@ -169,6 +171,23 @@ export default async function MaquinasPage({
                     <span className="text-zinc-400"> / {tolvas.length}</span>
                   </td>
                   <td className="px-4 py-2">
+                    {(() => {
+                      const u = urgenciaUltimaVisita(m.ultima_visita_at);
+                      return (
+                        <span
+                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${u.badgeClass}`}
+                          title={
+                            m.ultima_visita_at
+                              ? new Date(m.ultima_visita_at).toLocaleString("es-MX")
+                              : "Sin visita registrada"
+                          }
+                        >
+                          {u.textoCorto}
+                        </span>
+                      );
+                    })()}
+                  </td>
+                  <td className="px-4 py-2">
                     <span
                       className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
                         ESTADO_BADGE[m.estado] ?? "bg-zinc-100"
@@ -191,7 +210,7 @@ export default async function MaquinasPage({
             {(maquinas ?? []).length === 0 && (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={7}
                   className="px-4 py-8 text-center text-zinc-500"
                 >
                   {q
