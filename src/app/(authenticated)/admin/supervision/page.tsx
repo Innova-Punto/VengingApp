@@ -44,7 +44,11 @@ export default async function SupervisionDashboardPage() {
   ] = await Promise.all([
     supabase
       .from("asignaciones_diarias")
-      .select("id, estado, ruta_id, operador_id")
+      .select(
+        `id, estado, ruta_id, operador_id,
+         operador:profiles!asignaciones_diarias_operador_id_fkey(id, full_name),
+         ruta:rutas(nombre, color_hex)`,
+      )
       .eq("fecha", hoyISO),
     supabase
       .from("asignacion_maquinas")
@@ -100,6 +104,44 @@ export default async function SupervisionDashboardPage() {
   const totalAsigAyer = (asignacionesAyer ?? []).filter(
     (a) => a.estado !== "cancelada",
   ).length;
+
+  // === Por operador (hoy) ===
+  type OpStats = {
+    id: string;
+    label: string;
+    completas: number;
+    parciales: number;
+    en_curso: number;
+    pendientes: number;
+    canceladas: number;
+    total: number;
+  };
+  const porOperadorHoy = new Map<string, OpStats>();
+  for (const a of asignacionesHoy ?? []) {
+    if (!a.operador_id) continue;
+    const opRel = Array.isArray(a.operador) ? a.operador[0] : a.operador;
+    const key = a.operador_id;
+    const cur = porOperadorHoy.get(key) ?? {
+      id: key,
+      label: opRel?.full_name ?? "—",
+      completas: 0,
+      parciales: 0,
+      en_curso: 0,
+      pendientes: 0,
+      canceladas: 0,
+      total: 0,
+    };
+    cur.total += 1;
+    if (a.estado === "completada") cur.completas += 1;
+    else if (a.estado === "completada_parcialmente") cur.parciales += 1;
+    else if (a.estado === "en_jornada") cur.en_curso += 1;
+    else if (a.estado === "cancelada") cur.canceladas += 1;
+    else cur.pendientes += 1;
+    porOperadorHoy.set(key, cur);
+  }
+  const operadoresHoy = Array.from(porOperadorHoy.values()).sort((a, b) =>
+    a.label.localeCompare(b.label, "es"),
+  );
 
   // === Errores operativos últimos 30 días ===
   const { data: errores30d } = await supabase
@@ -322,6 +364,61 @@ export default async function SupervisionDashboardPage() {
           Ayer: {visitAyer}/{planAyer} máquinas ({pctAyer}%) ·{" "}
           {completadasAyer}/{totalAsigAyer} rutas completadas.
         </p>
+      </section>
+
+      {/* === Por operador (hoy) === */}
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold tracking-tight">
+          Por operador · hoy
+        </h2>
+        {operadoresHoy.length === 0 ? (
+          <p className="text-sm text-zinc-500">
+            No hay asignaciones del día todavía.
+          </p>
+        ) : (
+          <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
+            <table className="w-full text-sm">
+              <thead className="border-b border-zinc-200 bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Operador</th>
+                  <th className="px-3 py-2 text-right font-medium">
+                    Completas
+                  </th>
+                  <th className="px-3 py-2 text-right font-medium">
+                    Parciales
+                  </th>
+                  <th className="px-3 py-2 text-right font-medium">En curso</th>
+                  <th className="px-3 py-2 text-right font-medium">
+                    Pendientes
+                  </th>
+                  <th className="px-3 py-2 text-right font-medium">Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100">
+                {operadoresHoy.map((op) => (
+                  <tr key={op.id} className="hover:bg-zinc-50">
+                    <td className="px-3 py-2 text-zinc-800">{op.label}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-green-700">
+                      {op.completas}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums text-orange-700">
+                      {op.parciales}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums text-amber-700">
+                      {op.en_curso}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums text-zinc-500">
+                      {op.pendientes}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums font-medium text-zinc-900">
+                      {op.total - op.canceladas}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       {/* === Errores operativos === */}

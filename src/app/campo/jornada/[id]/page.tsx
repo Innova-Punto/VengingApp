@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/auth";
 import { fmtCDMX } from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
 
+import CerrarIncompletaButton from "./CerrarIncompletaButton";
 import IniciarJornadaForm from "./IniciarJornadaForm";
 
 export default async function JornadaPage({
@@ -178,6 +179,12 @@ export default async function JornadaPage({
           );
         })}
       </div>
+
+      {asig.estado === "en_jornada" && esSuya && (
+        <div className="flex justify-center pt-3">
+          <CerrarIncompletaButton asignacionId={asig.id} />
+        </div>
+      )}
     </div>
   );
 }

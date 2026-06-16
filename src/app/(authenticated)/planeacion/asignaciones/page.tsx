@@ -10,6 +10,7 @@ const ESTADO_BADGE: Record<string, string> = {
   surtida: "bg-indigo-100 text-indigo-700",
   en_jornada: "bg-amber-100 text-amber-700",
   completada: "bg-green-100 text-green-700",
+  completada_parcialmente: "bg-orange-100 text-orange-700",
   cancelada: "bg-zinc-200 text-zinc-700",
 };
 

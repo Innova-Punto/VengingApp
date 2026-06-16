@@ -151,6 +151,7 @@ export type Database = {
           estado: Database["public"]["Enums"]["asignacion_estado"]
           fecha: string
           id: string
+          motivo_cierre_incompleto: string | null
           notas: string | null
           operador_id: string
           ruta_id: string
@@ -162,6 +163,7 @@ export type Database = {
           estado?: Database["public"]["Enums"]["asignacion_estado"]
           fecha: string
           id?: string
+          motivo_cierre_incompleto?: string | null
           notas?: string | null
           operador_id: string
           ruta_id: string
@@ -173,6 +175,7 @@ export type Database = {
           estado?: Database["public"]["Enums"]["asignacion_estado"]
           fecha?: string
           id?: string
+          motivo_cierre_incompleto?: string | null
           notas?: string | null
           operador_id?: string
           ruta_id?: string
@@ -857,54 +860,70 @@ export type Database = {
       }
       devoluciones_almacen: {
         Row: {
+          asignacion_id: string | null
           cantidad_calculada: number
           cantidad_recibida_almacen: number | null
           created_at: string
-          encartuchado_id: string
+          encartuchado_id: string | null
           estado: Database["public"]["Enums"]["devolucion_estado"]
           fecha_recepcion: string | null
           id: string
           incidencia_id: string | null
-          llenado_item_id: string
+          llenado_item_id: string | null
+          maquina_id: string | null
           notas: string | null
           operador_id: string
           producto_id: string
           recibida_por: string | null
+          surtido_item_id: string | null
           updated_at: string
         }
         Insert: {
+          asignacion_id?: string | null
           cantidad_calculada: number
           cantidad_recibida_almacen?: number | null
           created_at?: string
-          encartuchado_id: string
+          encartuchado_id?: string | null
           estado?: Database["public"]["Enums"]["devolucion_estado"]
           fecha_recepcion?: string | null
           id?: string
           incidencia_id?: string | null
-          llenado_item_id: string
+          llenado_item_id?: string | null
+          maquina_id?: string | null
           notas?: string | null
           operador_id: string
           producto_id: string
           recibida_por?: string | null
+          surtido_item_id?: string | null
           updated_at?: string
         }
         Update: {
+          asignacion_id?: string | null
           cantidad_calculada?: number
           cantidad_recibida_almacen?: number | null
           created_at?: string
-          encartuchado_id?: string
+          encartuchado_id?: string | null
           estado?: Database["public"]["Enums"]["devolucion_estado"]
           fecha_recepcion?: string | null
           id?: string
           incidencia_id?: string | null
-          llenado_item_id?: string
+          llenado_item_id?: string | null
+          maquina_id?: string | null
           notas?: string | null
           operador_id?: string
           producto_id?: string
           recibida_por?: string | null
+          surtido_item_id?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "devoluciones_almacen_asignacion_id_fkey"
+            columns: ["asignacion_id"]
+            isOneToOne: false
+            referencedRelation: "asignaciones_diarias"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "devoluciones_almacen_encartuchado_id_fkey"
             columns: ["encartuchado_id"]
@@ -924,6 +943,13 @@ export type Database = {
             columns: ["llenado_item_id"]
             isOneToOne: true
             referencedRelation: "llenado_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "devoluciones_almacen_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "maquinas"
             referencedColumns: ["id"]
           },
           {
@@ -952,6 +978,13 @@ export type Database = {
             columns: ["recibida_por"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "devoluciones_almacen_surtido_item_id_fkey"
+            columns: ["surtido_item_id"]
+            isOneToOne: false
+            referencedRelation: "surtido_items"
             referencedColumns: ["id"]
           },
         ]
@@ -3807,6 +3840,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      op_cerrar_jornada_incompleta: {
+        Args: { p_asignacion_id: string; p_motivo: string }
+        Returns: undefined
+      }
       op_check_in: {
         Args: {
           p_asignacion_id: string
@@ -3943,6 +3980,7 @@ export type Database = {
         | "en_jornada"
         | "completada"
         | "cancelada"
+        | "completada_parcialmente"
       calibracion_tipo:
         | "preventiva_programada"
         | "correctiva_por_alerta"
@@ -4003,6 +4041,7 @@ export type Database = {
         | "ajuste_conteo_maquina"
         | "ajuste_periodo_anterior"
         | "ajuste_manual"
+        | "devolucion_entrada_vaso"
       oc_estado: "borrador" | "enviada" | "parcial" | "recibida" | "cancelada"
       producto_tipo: "polvo" | "vaso"
       reporte_estado:
@@ -4156,6 +4195,7 @@ export const Constants = {
         "en_jornada",
         "completada",
         "cancelada",
+        "completada_parcialmente",
       ],
       calibracion_tipo: [
         "preventiva_programada",
@@ -4222,6 +4262,7 @@ export const Constants = {
         "ajuste_conteo_maquina",
         "ajuste_periodo_anterior",
         "ajuste_manual",
+        "devolucion_entrada_vaso",
       ],
       oc_estado: ["borrador", "enviada", "parcial", "recibida", "cancelada"],
       producto_tipo: ["polvo", "vaso"],
