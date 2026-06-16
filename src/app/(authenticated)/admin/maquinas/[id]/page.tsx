@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { requireRole } from "@/lib/auth";
+import { urgenciaUltimaVisita } from "@/lib/maquinas-visita";
 import { createClient } from "@/lib/supabase/server";
 
 import { duplicarMaquina } from "../actions";
@@ -164,6 +165,21 @@ export default async function EditarMaquinaPage({
           >
             {maquina.estado}
           </span>
+          {(() => {
+            const u = urgenciaUltimaVisita(maquina.ultima_visita_at);
+            return (
+              <span
+                className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${u.badgeClass}`}
+                title={
+                  maquina.ultima_visita_at
+                    ? `Última visita: ${new Date(maquina.ultima_visita_at).toLocaleString("es-MX")}`
+                    : "Sin visita registrada"
+                }
+              >
+                Última visita · {u.textoCorto} · {u.label}
+              </span>
+            );
+          })()}
         </div>
         {maquina.alias && (
           <p className="text-sm text-zinc-600">{maquina.alias}</p>
