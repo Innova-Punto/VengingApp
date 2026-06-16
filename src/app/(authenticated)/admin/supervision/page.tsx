@@ -25,7 +25,11 @@ const INCIDENCIA_SEVERIDAD_BADGE: Record<string, string> = {
   alta: "bg-red-100 text-red-700",
 };
 
-export default async function SupervisionDashboardPage() {
+export default async function SupervisionDashboardPage({
+  searchParams,
+}: {
+  searchParams: { periodo_op?: "mes" | "30d" };
+}) {
   await requireRole("admin", "direccion");
   const supabase = createClient();
 
@@ -33,6 +37,16 @@ export default async function SupervisionDashboardPage() {
   const ayerISO = isoFechaCDMX(startOfNDaysAgoCDMX(1));
   const inicio30d = startOfNDaysAgoCDMX(30).toISOString();
   const inicioHoy = startOfTodayCDMX().toISOString();
+
+  // Periodo para la tabla "Por operador": mes actual (default) o últimos 30 días.
+  const periodoOp = searchParams.periodo_op === "30d" ? "30d" : "mes";
+  const ahora = new Date();
+  const inicioMesISO = `${ahora.getFullYear()}-${String(
+    ahora.getMonth() + 1,
+  ).padStart(2, "0")}-01`;
+  const inicio30dISO = isoFechaCDMX(startOfNDaysAgoCDMX(30));
+  const fechaDesdeOp = periodoOp === "30d" ? inicio30dISO : inicioMesISO;
+  const fechaHastaOp = hoyISO;
 
   // === KPIs operativos del día ===
   const [
@@ -106,7 +120,16 @@ export default async function SupervisionDashboardPage() {
     (a) => a.estado !== "cancelada",
   ).length;
 
-  // === Por operador (hoy) ===
+  // === Por operador (mes actual o últimos 30 días) ===
+  const { data: asignacionesPorOp } = await supabase
+    .from("asignaciones_diarias")
+    .select(
+      `id, fecha, estado, operador_id,
+       operador:profiles!asignaciones_diarias_operador_id_fkey(id, full_name)`,
+    )
+    .gte("fecha", fechaDesdeOp)
+    .lte("fecha", fechaHastaOp);
+
   type OpStats = {
     id: string;
     label: string;
@@ -117,12 +140,12 @@ export default async function SupervisionDashboardPage() {
     canceladas: number;
     total: number;
   };
-  const porOperadorHoy = new Map<string, OpStats>();
-  for (const a of asignacionesHoy ?? []) {
+  const porOperadorMap = new Map<string, OpStats>();
+  for (const a of asignacionesPorOp ?? []) {
     if (!a.operador_id) continue;
     const opRel = Array.isArray(a.operador) ? a.operador[0] : a.operador;
     const key = a.operador_id;
-    const cur = porOperadorHoy.get(key) ?? {
+    const cur = porOperadorMap.get(key) ?? {
       id: key,
       label: opRel?.full_name ?? "—",
       completas: 0,
@@ -138,9 +161,9 @@ export default async function SupervisionDashboardPage() {
     else if (a.estado === "en_jornada") cur.en_curso += 1;
     else if (a.estado === "cancelada") cur.canceladas += 1;
     else cur.pendientes += 1;
-    porOperadorHoy.set(key, cur);
+    porOperadorMap.set(key, cur);
   }
-  const operadoresHoy = Array.from(porOperadorHoy.values()).sort((a, b) =>
+  const operadoresHoy = Array.from(porOperadorMap.values()).sort((a, b) =>
     a.label.localeCompare(b.label, "es"),
   );
 
@@ -419,14 +442,38 @@ export default async function SupervisionDashboardPage() {
         </p>
       </section>
 
-      {/* === Por operador (hoy) === */}
+      {/* === Por operador (periodo configurable) === */}
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight">
-          Por operador · hoy
-        </h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold tracking-tight">
+            Por operador
+          </h2>
+          <div className="inline-flex overflow-hidden rounded-md border border-zinc-300 text-xs">
+            <Link
+              href="/admin/supervision?periodo_op=mes"
+              className={
+                periodoOp === "mes"
+                  ? "bg-zinc-900 px-3 py-1.5 font-medium text-white"
+                  : "bg-white px-3 py-1.5 text-zinc-700 hover:bg-zinc-50"
+              }
+            >
+              Mes actual
+            </Link>
+            <Link
+              href="/admin/supervision?periodo_op=30d"
+              className={
+                periodoOp === "30d"
+                  ? "bg-zinc-900 px-3 py-1.5 font-medium text-white"
+                  : "bg-white px-3 py-1.5 text-zinc-700 hover:bg-zinc-50"
+              }
+            >
+              Últimos 30 días
+            </Link>
+          </div>
+        </div>
         {operadoresHoy.length === 0 ? (
           <p className="text-sm text-zinc-500">
-            No hay asignaciones del día todavía.
+            No hay asignaciones en el periodo seleccionado.
           </p>
         ) : (
           <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
