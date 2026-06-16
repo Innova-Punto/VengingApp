@@ -3783,6 +3783,10 @@ export type Database = {
         Args: { p_item_id: string; p_motivo?: string; p_nuevos_gramos: number }
         Returns: undefined
       }
+      editar_pesaje_vasos: {
+        Args: { p_motivo?: string; p_nuevos_vasos: number; p_pesaje_id: string }
+        Returns: undefined
+      }
       gen_folio: {
         Args: { prefijo: string; seq_name: string }
         Returns: string

@@ -89,8 +89,16 @@ export default async function SupervisionDashboardPage() {
   const completadasHoy = (asignacionesHoy ?? []).filter(
     (a) => a.estado === "completada",
   ).length;
+  // Total para el denominador excluye canceladas (no son parte del plan
+  // efectivo del día — si lo cancelaron, no cuenta contra completitud).
+  const totalAsigHoy = (asignacionesHoy ?? []).filter(
+    (a) => a.estado !== "cancelada",
+  ).length;
   const completadasAyer = (asignacionesAyer ?? []).filter(
     (a) => a.estado === "completada",
+  ).length;
+  const totalAsigAyer = (asignacionesAyer ?? []).filter(
+    (a) => a.estado !== "cancelada",
   ).length;
 
   // === Errores operativos últimos 30 días ===
@@ -306,13 +314,13 @@ export default async function SupervisionDashboardPage() {
           />
           <Stat
             label="Rutas completadas"
-            value={`${completadasHoy} / ${(asignacionesHoy ?? []).length}`}
+            value={`${completadasHoy} / ${totalAsigHoy}`}
             tone="zinc"
           />
         </div>
         <p className="mt-2 text-xs text-zinc-500">
           Ayer: {visitAyer}/{planAyer} máquinas ({pctAyer}%) ·{" "}
-          {completadasAyer} rutas completadas.
+          {completadasAyer}/{totalAsigAyer} rutas completadas.
         </p>
       </section>
 

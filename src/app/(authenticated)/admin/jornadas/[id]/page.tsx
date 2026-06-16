@@ -74,6 +74,12 @@ export default async function JornadaDetallePage({
     ? jornada.operador[0]
     : jornada.operador;
 
+  // Total de máquinas planeadas en la asignación (para el KPI Avance)
+  const { count: totalMaquinasAsignadas } = await supabase
+    .from("asignacion_maquinas")
+    .select("id", { count: "exact", head: true })
+    .eq("asignacion_id", asig?.id ?? "");
+
   // Check-ins de la asignación
   const { data: checkIns } = await supabase
     .from("check_ins")
@@ -271,7 +277,16 @@ export default async function JornadaDetallePage({
       </div>
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <Stat label="Máquinas" value={String((checkIns ?? []).length)} />
+        <Stat
+          label="Máquinas"
+          value={(() => {
+            const completadas = (checkIns ?? []).filter(
+              (ci) => ci.fecha_salida != null,
+            ).length;
+            const total = totalMaquinasAsignadas ?? (checkIns ?? []).length;
+            return `${completadas}/${total}`;
+          })()}
+        />
         <Stat label="Cartuchos" value={String(totalCartuchos)} />
         <Stat label="Gramos" value={`${totalGramos.toLocaleString("es-MX")}g`} />
         <Stat label="Incidencias" value={String(totalIncidencias)} />
