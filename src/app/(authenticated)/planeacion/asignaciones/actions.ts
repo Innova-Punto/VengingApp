@@ -197,7 +197,13 @@ export async function quitarMaquinaDeAsig(formData: FormData) {
   if (!id || !asignacion_id) redirect("/planeacion/asignaciones");
 
   const supabase = createClient();
-  await supabase.from("asignacion_maquinas").delete().eq("id", id);
+  // RPC que también borra surtido_items de la máquina y reintegra inventario
+  // al encartuchado/lote si el PEPS ya se había aplicado.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabaseAny = supabase as any;
+  await supabaseAny.rpc("quitar_maquina_de_asignacion", {
+    p_asignacion_maquina_id: id,
+  });
 
   revalidatePath(`/planeacion/asignaciones/${asignacion_id}`);
   redirect(`/planeacion/asignaciones/${asignacion_id}`);
