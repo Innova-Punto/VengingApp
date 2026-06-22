@@ -18,6 +18,7 @@ type Cliente = {
   contacto_tel: string | null;
   emails_reporte: string[] | null;
   notas: string | null;
+  es_intercompany: boolean;
 };
 
 function SubmitButton({ label }: { label: string }) {
@@ -124,6 +125,22 @@ export default function ClienteForm({
             defaultValue={cliente?.notas ?? ""}
             className="input resize-y"
           />
+        </Field>
+
+        <Field
+          label="Intercompany"
+          hint="Marca si es otra empresa del grupo (aparece en /admin/ventas-intercompany)."
+          full
+        >
+          <label className="flex items-center gap-2 text-sm text-zinc-800">
+            <input
+              type="checkbox"
+              name="es_intercompany"
+              defaultChecked={cliente?.es_intercompany ?? false}
+              className="h-4 w-4"
+            />
+            Este cliente es una empresa del grupo
+          </label>
         </Field>
       </div>
 

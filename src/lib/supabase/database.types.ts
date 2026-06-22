@@ -536,6 +536,7 @@ export type Database = {
           contacto_tel: string | null
           created_at: string
           emails_reporte: string[] | null
+          es_intercompany: boolean
           id: string
           nombre: string
           notas: string | null
@@ -550,6 +551,7 @@ export type Database = {
           contacto_tel?: string | null
           created_at?: string
           emails_reporte?: string[] | null
+          es_intercompany?: boolean
           id?: string
           nombre: string
           notas?: string | null
@@ -564,6 +566,7 @@ export type Database = {
           contacto_tel?: string | null
           created_at?: string
           emails_reporte?: string[] | null
+          es_intercompany?: boolean
           id?: string
           nombre?: string
           notas?: string | null
@@ -3526,6 +3529,89 @@ export type Database = {
           },
         ]
       }
+      ventas_intercompany: {
+        Row: {
+          cantidad: number
+          costo_total: number
+          costo_unitario_snapshot: number
+          created_at: string
+          empresa_destino_id: string
+          fecha: string
+          folio: string | null
+          id: string
+          margen_porcentaje: number
+          notas: string | null
+          precio_venta_neto: number
+          presentacion: Database["public"]["Enums"]["venta_intercompany_presentacion"]
+          producto_id: string
+          usuario_id: string
+          utilidad: number
+        }
+        Insert: {
+          cantidad: number
+          costo_total: number
+          costo_unitario_snapshot: number
+          created_at?: string
+          empresa_destino_id: string
+          fecha?: string
+          folio?: string | null
+          id?: string
+          margen_porcentaje: number
+          notas?: string | null
+          precio_venta_neto: number
+          presentacion: Database["public"]["Enums"]["venta_intercompany_presentacion"]
+          producto_id: string
+          usuario_id: string
+          utilidad: number
+        }
+        Update: {
+          cantidad?: number
+          costo_total?: number
+          costo_unitario_snapshot?: number
+          created_at?: string
+          empresa_destino_id?: string
+          fecha?: string
+          folio?: string | null
+          id?: string
+          margen_porcentaje?: number
+          notas?: string | null
+          precio_venta_neto?: number
+          presentacion?: Database["public"]["Enums"]["venta_intercompany_presentacion"]
+          producto_id?: string
+          usuario_id?: string
+          utilidad?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ventas_intercompany_empresa_destino_id_fkey"
+            columns: ["empresa_destino_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ventas_intercompany_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: false
+            referencedRelation: "productos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ventas_intercompany_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: false
+            referencedRelation: "v_inventario_producto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ventas_intercompany_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ventas_maquina: {
         Row: {
           cargado_at: string
@@ -3802,6 +3888,7 @@ export type Database = {
         Args: { p_cierre_id: string; p_force?: boolean }
         Returns: string
       }
+      cerrar_jornadas_pendientes_fin_de_dia: { Args: never; Returns: Json }
       cerrar_sync_log_nayax: {
         Args: {
           p_duplicadas: number
@@ -3952,6 +4039,10 @@ export type Database = {
         Args: { p_cliente_id: string }
         Returns: string[]
       }
+      quitar_maquina_de_asignacion: {
+        Args: { p_asignacion_maquina_id: string }
+        Returns: undefined
+      }
       reabrir_ruta: {
         Args: { p_asignacion_id: string; p_motivo: string }
         Returns: undefined
@@ -3961,6 +4052,17 @@ export type Database = {
           p_cantidad_recibida: number
           p_devolucion_id: string
           p_notas?: string
+        }
+        Returns: string
+      }
+      registrar_venta_intercompany: {
+        Args: {
+          p_cantidad: number
+          p_empresa_destino_id: string
+          p_margen_porcentaje: number
+          p_notas?: string
+          p_presentacion: Database["public"]["Enums"]["venta_intercompany_presentacion"]
+          p_producto_id: string
         }
         Returns: string
       }
@@ -4048,6 +4150,7 @@ export type Database = {
         | "ajuste_periodo_anterior"
         | "ajuste_manual"
         | "devolucion_entrada_vaso"
+        | "venta_intercompany"
       oc_estado: "borrador" | "enviada" | "parcial" | "recibida" | "cancelada"
       producto_tipo: "polvo" | "vaso"
       reporte_estado:
@@ -4057,6 +4160,7 @@ export type Database = {
         | "enviado"
         | "error"
       surtido_estado: "pendiente" | "en_proceso" | "completado"
+      venta_intercompany_presentacion: "granel" | "vaso"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -4269,6 +4373,7 @@ export const Constants = {
         "ajuste_periodo_anterior",
         "ajuste_manual",
         "devolucion_entrada_vaso",
+        "venta_intercompany",
       ],
       oc_estado: ["borrador", "enviada", "parcial", "recibida", "cancelada"],
       producto_tipo: ["polvo", "vaso"],
@@ -4280,6 +4385,7 @@ export const Constants = {
         "error",
       ],
       surtido_estado: ["pendiente", "en_proceso", "completado"],
+      venta_intercompany_presentacion: ["granel", "vaso"],
     },
   },
 } as const

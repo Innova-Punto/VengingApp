@@ -93,6 +93,7 @@ const NAV_GROUPS: GroupDef[] = [
       { label: "Usuarios", href: "/admin/usuarios" },
       { label: "Cierres mensuales", href: "/admin/cierres" },
       { label: "Ventas", href: "/admin/ventas" },
+      { label: "Ventas intercompany", href: "/admin/ventas-intercompany" },
       { label: "Nayax", href: "/admin/nayax" },
     ],
   },

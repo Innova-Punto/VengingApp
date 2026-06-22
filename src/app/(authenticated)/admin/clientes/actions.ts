@@ -25,6 +25,7 @@ type ParsedCliente = {
   contacto_tel: string | null;
   emails_reporte: string[] | null;
   notas: string | null;
+  es_intercompany: boolean;
 };
 
 function parseCliente(formData: FormData): ParsedCliente | string {
@@ -74,6 +75,7 @@ function parseCliente(formData: FormData): ParsedCliente | string {
     contacto_tel,
     emails_reporte,
     notas,
+    es_intercompany: formData.get("es_intercompany") === "on",
   };
 }
 
