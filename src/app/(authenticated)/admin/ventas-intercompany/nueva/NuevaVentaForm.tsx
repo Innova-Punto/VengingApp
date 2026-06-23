@@ -32,7 +32,6 @@ export default function NuevaVentaForm({
 }) {
   const [state, action] = useFormState(registrarVentaIntercompany, initial);
   const [productoId, setProductoId] = useState<string>("");
-  const [presentacion, setPresentacion] = useState<"granel" | "vaso">("granel");
   const [cantidad, setCantidad] = useState<string>("");
   const [margen, setMargen] = useState<string>("20");
 
@@ -41,11 +40,9 @@ export default function NuevaVentaForm({
     [productoId, productos],
   );
 
-  // Si el producto es vaso, fuerza presentación a vaso. Si es polvo, fuerza granel.
-  // (En el form solo seleccionamos productos polvo o vaso.)
-  const presentacionForzada: "granel" | "vaso" =
+  // La presentación se deriva del tipo del producto: vaso → vaso, polvo → granel.
+  const presentacionFinal: "granel" | "vaso" =
     producto?.tipo === "vaso" ? "vaso" : "granel";
-  const presentacionFinal = producto ? presentacionForzada : presentacion;
 
   const unidad = presentacionFinal === "vaso" ? "vasos" : "g";
   const cantidadNum = Number(cantidad);
