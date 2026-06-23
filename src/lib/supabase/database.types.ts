@@ -465,6 +465,9 @@ export type Database = {
           notas: string | null
           periodo_anio: number
           periodo_mes: number
+          reporte_generado_at: string | null
+          reporte_url: string | null
+          snapshot: Json | null
           total_maquinas_periodo: number | null
           updated_at: string
           valor_almacen_fin: number | null
@@ -488,6 +491,9 @@ export type Database = {
           notas?: string | null
           periodo_anio: number
           periodo_mes: number
+          reporte_generado_at?: string | null
+          reporte_url?: string | null
+          snapshot?: Json | null
           total_maquinas_periodo?: number | null
           updated_at?: string
           valor_almacen_fin?: number | null
@@ -511,6 +517,9 @@ export type Database = {
           notas?: string | null
           periodo_anio?: number
           periodo_mes?: number
+          reporte_generado_at?: string | null
+          reporte_url?: string | null
+          snapshot?: Json | null
           total_maquinas_periodo?: number | null
           updated_at?: string
           valor_almacen_fin?: number | null
@@ -4066,6 +4075,7 @@ export type Database = {
         }
         Returns: string
       }
+      snapshot_inventario_desglosado: { Args: never; Returns: Json }
       user_has_role: {
         Args: { check_role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean

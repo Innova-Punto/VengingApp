@@ -135,6 +135,13 @@ export default async function CierreDetallePage({
           >
             {cierre.estado.replace(/_/g, " ")}
           </span>
+          <a
+            href={`/admin/cierres/${cierre.id}/reporte`}
+            className="ml-auto rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+            download
+          >
+            📥 Descargar reporte (Excel)
+          </a>
         </div>
         <p className="mt-1 text-sm text-zinc-600">
           Abierto:{" "}
