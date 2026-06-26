@@ -118,13 +118,24 @@ export async function cambiarEstadoAsig(formData: FormData) {
     redirect(`/planeacion/asignaciones/${id}`);
 
   const supabase = createClient();
-  await supabase
-    .from("asignaciones_diarias")
-    .update({ estado })
-    .eq("id", id);
+
+  // Cancelar una ruta planeada/surtida debe reintegrar el surtido al almacén.
+  if (estado === "cancelada") {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any).rpc("cancelar_ruta_surtida", {
+      p_asignacion_id: id,
+      p_motivo: "Cancelada por administración. Surtido reintegrado al almacén.",
+    });
+  } else {
+    await supabase
+      .from("asignaciones_diarias")
+      .update({ estado })
+      .eq("id", id);
+  }
 
   revalidatePath("/planeacion/asignaciones");
   revalidatePath(`/planeacion/asignaciones/${id}`);
+  revalidatePath("/almacen/inventario");
   redirect(`/planeacion/asignaciones/${id}`);
 }
 

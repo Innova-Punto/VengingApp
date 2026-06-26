@@ -116,7 +116,7 @@ export default async function DetalleAsigPage({
         { label: "Cancelar", siguiente: "cancelada" },
       ],
       surtida: [
-        { label: "Cancelar", siguiente: "cancelada" },
+        { label: "Cancelar y regresar surtido al almacén", siguiente: "cancelada" },
       ],
       en_jornada: [],
       completada: [],
