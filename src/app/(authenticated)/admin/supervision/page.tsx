@@ -17,7 +17,7 @@ import {
 } from "@/lib/errores-operativos";
 import { createClient } from "@/lib/supabase/server";
 
-export const metadata = { title: "Dashboard supervisión · MuscleUp" };
+export const metadata = { title: "Dashboard supervisión · Innovaypunto" };
 
 const INCIDENCIA_SEVERIDAD_BADGE: Record<string, string> = {
   baja: "bg-zinc-100 text-zinc-600",

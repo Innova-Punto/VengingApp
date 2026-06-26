@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import NuevaAsignacionForm from "./NuevaAsignacionForm";
 
-export const metadata = { title: "Nueva asignación · MuscleUp" };
+export const metadata = { title: "Nueva asignación · Innovaypunto" };
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);

@@ -4,7 +4,7 @@ import { requireRole } from "@/lib/auth";
 import { fmtCDMX } from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
 
-export const metadata = { title: "Health check · MuscleUp" };
+export const metadata = { title: "Health check · Innovaypunto" };
 export const dynamic = "force-dynamic";
 
 type Check = {

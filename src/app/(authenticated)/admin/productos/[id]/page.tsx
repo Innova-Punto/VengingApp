@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import ProductoForm from "../ProductoForm";
 
-export const metadata = { title: "Editar producto · MuscleUp" };
+export const metadata = { title: "Editar producto · Innovaypunto" };
 
 export default async function EditarProductoPage({
   params,

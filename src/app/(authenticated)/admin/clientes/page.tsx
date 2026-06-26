@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import { toggleActivoCliente } from "./actions";
 
-export const metadata = { title: "Clientes · MuscleUp" };
+export const metadata = { title: "Clientes · Innovaypunto" };
 
 type SearchParams = { q?: string; estado?: string };
 

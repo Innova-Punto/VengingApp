@@ -2,7 +2,7 @@ import { requireRole } from "@/lib/auth";
 
 import { ScreenshotSlot } from "./ScreenshotSlot";
 
-export const metadata = { title: "Manual del operador · MuscleUp" };
+export const metadata = { title: "Manual del operador · Innovaypunto" };
 
 const BUCKET_PUBLIC_PATH =
   (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "") +

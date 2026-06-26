@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import NuevaVentaForm from "./NuevaVentaForm";
 
-export const metadata = { title: "Nueva venta intercompany · MuscleUp" };
+export const metadata = { title: "Nueva venta intercompany · Innovaypunto" };
 
 export default async function NuevaVentaIntercompanyPage() {
   await requireRole("admin", "direccion", "almacen");

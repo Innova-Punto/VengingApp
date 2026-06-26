@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import { EditarPesajeForm } from "./EditarPesajeForm";
 
-export const metadata = { title: "Editar pesaje · MuscleUp" };
+export const metadata = { title: "Editar pesaje · Innovaypunto" };
 
 export default async function EditarPesajePage({
   params,

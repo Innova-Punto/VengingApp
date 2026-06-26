@@ -2,7 +2,7 @@ import { requireUser } from "@/lib/auth";
 import SetPasswordForm from "./SetPasswordForm";
 
 export const metadata = {
-  title: "Definir contraseña · MuscleUp",
+  title: "Definir contraseña · Innovaypunto",
 };
 
 export default async function SetPasswordPage({

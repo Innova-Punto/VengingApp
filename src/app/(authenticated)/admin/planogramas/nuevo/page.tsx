@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import PlanogramaForm from "../PlanogramaForm";
 
-export const metadata = { title: "Nuevo planograma · MuscleUp" };
+export const metadata = { title: "Nuevo planograma · Innovaypunto" };
 
 export default async function NuevoPlanogramaPage() {
   await requireRole("admin", "direccion");

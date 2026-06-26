@@ -9,7 +9,7 @@ import {
 } from "@/lib/incidencias-catalogo";
 import { createClient } from "@/lib/supabase/server";
 
-export const metadata = { title: "Incidencias por máquina · MuscleUp" };
+export const metadata = { title: "Incidencias por máquina · Innovaypunto" };
 
 const SEVERIDAD_PESO: Record<string, number> = { baja: 1, media: 2, alta: 3 };
 

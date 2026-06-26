@@ -10,7 +10,7 @@ import { createClient } from "@/lib/supabase/server";
 import VentasFilters from "./VentasFilters";
 import { IngresosPorDiaChart, VentasPorClienteChart } from "./Charts";
 
-export const metadata = { title: "Ventas · MuscleUp" };
+export const metadata = { title: "Ventas · Innovaypunto" };
 
 type SearchParams = {
   rango?: string;

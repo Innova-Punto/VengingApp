@@ -1,7 +1,7 @@
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
-export const metadata = { title: "Lotes · MuscleUp" };
+export const metadata = { title: "Lotes · Innovaypunto" };
 
 type SearchParams = { q?: string; estado?: string };
 

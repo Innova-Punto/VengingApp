@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import IncidenciaForm from "./IncidenciaForm";
 
-export const metadata = { title: "Detalle incidencia · MuscleUp" };
+export const metadata = { title: "Detalle incidencia · Innovaypunto" };
 
 const ESTADO_BADGE: Record<string, string> = {
   abierta: "bg-red-100 text-red-700",

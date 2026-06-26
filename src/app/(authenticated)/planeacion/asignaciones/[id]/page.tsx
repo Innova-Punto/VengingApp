@@ -12,7 +12,7 @@ import {
 import { generarSurtido } from "../../surtidos/actions";
 import AgregarMaquinaExcepcionForm from "./AgregarMaquinaExcepcionForm";
 
-export const metadata = { title: "Detalle asignación · MuscleUp" };
+export const metadata = { title: "Detalle asignación · Innovaypunto" };
 
 const ESTADO_BADGE: Record<string, string> = {
   planeada: "bg-blue-100 text-blue-700",

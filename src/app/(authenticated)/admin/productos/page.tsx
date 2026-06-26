@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import { toggleActivoProducto } from "./actions";
 
-export const metadata = { title: "Productos · MuscleUp" };
+export const metadata = { title: "Productos · Innovaypunto" };
 
 type SearchParams = {
   q?: string;

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
-export const metadata = { title: "Inventario · MuscleUp" };
+export const metadata = { title: "Inventario · Innovaypunto" };
 
 type SearchParams = { tipo?: string; estado?: string; cliente?: string };
 

@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import { toggleActivaRuta } from "./actions";
 
-export const metadata = { title: "Rutas · MuscleUp" };
+export const metadata = { title: "Rutas · Innovaypunto" };
 
 type SearchParams = { estado?: string };
 

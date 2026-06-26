@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import { abrirCierre } from "./actions";
 
-export const metadata = { title: "Cierres mensuales · MuscleUp" };
+export const metadata = { title: "Cierres mensuales · Innovaypunto" };
 
 const MESES = [
   "Enero",

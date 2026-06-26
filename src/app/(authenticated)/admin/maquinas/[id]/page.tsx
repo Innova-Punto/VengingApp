@@ -11,7 +11,7 @@ import TolvaRow from "../TolvaRow";
 import AplicarPlanograma from "../AplicarPlanograma";
 import AplicarReceta from "../AplicarReceta";
 
-export const metadata = { title: "Editar máquina · MuscleUp" };
+export const metadata = { title: "Editar máquina · Innovaypunto" };
 
 const ESTADO_BADGE: Record<string, string> = {
   operativa: "bg-green-100 text-green-700",

@@ -4,7 +4,7 @@ import { requireRole } from "@/lib/auth";
 import { fmtCDMXFechaHora } from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
 
-export const metadata = { title: "Nayax · MuscleUp" };
+export const metadata = { title: "Nayax · Innovaypunto" };
 
 export default async function NayaxPage() {
   await requireRole("admin", "direccion");

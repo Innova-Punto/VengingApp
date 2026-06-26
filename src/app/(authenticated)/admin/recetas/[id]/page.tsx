@@ -8,7 +8,7 @@ import RecetaForm from "../RecetaForm";
 
 type Params = { id: string };
 
-export const metadata = { title: "Editar receta · MuscleUp" };
+export const metadata = { title: "Editar receta · Innovaypunto" };
 
 export default async function EditarRecetaPage({ params }: { params: Params }) {
   await requireRole("admin", "direccion");

@@ -4,7 +4,7 @@ import { requireRole } from "@/lib/auth";
 import { fmtCDMXFechaHora } from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
 
-export const metadata = { title: "Mensajes Nayax descartados · MuscleUp" };
+export const metadata = { title: "Mensajes Nayax descartados · Innovaypunto" };
 
 export default async function DescartadosPage() {
   await requireRole("admin", "direccion");

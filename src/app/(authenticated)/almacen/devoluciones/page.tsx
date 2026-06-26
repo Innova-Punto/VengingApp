@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import DevolucionRow from "./DevolucionRow";
 
-export const metadata = { title: "Devoluciones · MuscleUp" };
+export const metadata = { title: "Devoluciones · Innovaypunto" };
 
 const ESTADO_BADGE: Record<string, string> = {
   pendiente_devolucion: "bg-amber-100 text-amber-700",
