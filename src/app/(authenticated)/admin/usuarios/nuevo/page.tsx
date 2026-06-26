@@ -3,7 +3,7 @@ import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import InvitarForm from "./InvitarForm";
 
-export const metadata = { title: "Invitar usuario · MuscleUp" };
+export const metadata = { title: "Invitar usuario · Innovaypunto" };
 
 export default async function NuevoUsuarioPage() {
   await requireRole("admin", "direccion");

@@ -4,7 +4,7 @@ import { requireRole } from "@/lib/auth";
 
 import RecetaForm from "../RecetaForm";
 
-export const metadata = { title: "Nueva receta · MuscleUp" };
+export const metadata = { title: "Nueva receta · Innovaypunto" };
 
 export default async function NuevaRecetaPage() {
   await requireRole("admin", "direccion");

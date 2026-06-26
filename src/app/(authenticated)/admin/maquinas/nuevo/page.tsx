@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import MaquinaForm from "../MaquinaForm";
 
-export const metadata = { title: "Nueva máquina · MuscleUp" };
+export const metadata = { title: "Nueva máquina · Innovaypunto" };
 
 export default async function NuevaMaquinaPage() {
   await requireRole("admin", "direccion");

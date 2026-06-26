@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
-export const metadata = { title: "Detalle recepción · MuscleUp" };
+export const metadata = { title: "Detalle recepción · Innovaypunto" };
 
 export default async function DetalleRecepcionPage({
   params,

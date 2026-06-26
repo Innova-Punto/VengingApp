@@ -4,7 +4,7 @@ import { requireRole } from "@/lib/auth";
 import { urgenciaUltimaVisita } from "@/lib/maquinas-visita";
 import { createClient } from "@/lib/supabase/server";
 
-export const metadata = { title: "Máquinas · MuscleUp" };
+export const metadata = { title: "Máquinas · Innovaypunto" };
 
 type SearchParams = { q?: string; estado?: string };
 

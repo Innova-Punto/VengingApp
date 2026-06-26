@@ -3,7 +3,7 @@ import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
-export const metadata = { title: "Recepciones · MuscleUp" };
+export const metadata = { title: "Recepciones · Innovaypunto" };
 
 export default async function RecepcionesPage() {
   await requireRole("admin", "direccion", "almacen");

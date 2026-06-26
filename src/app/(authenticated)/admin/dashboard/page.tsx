@@ -27,7 +27,7 @@ import {
   VentasPorDiaChart,
 } from "./Charts";
 
-export const metadata = { title: "Dashboard · MuscleUp" };
+export const metadata = { title: "Dashboard · Innovaypunto" };
 
 type SearchParams = { rango?: string };
 

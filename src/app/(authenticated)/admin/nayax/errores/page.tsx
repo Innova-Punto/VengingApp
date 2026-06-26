@@ -4,7 +4,7 @@ import { requireRole } from "@/lib/auth";
 import { fmtCDMXFechaHora } from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
 
-export const metadata = { title: "Errores Nayax · MuscleUp" };
+export const metadata = { title: "Errores Nayax · Innovaypunto" };
 
 type ErrorDetalle = {
   transaction_id: string;

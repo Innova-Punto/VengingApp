@@ -4,7 +4,7 @@ import { requireRole } from "@/lib/auth";
 import { fmtCDMX } from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
 
-export const metadata = { title: "Incidencias · MuscleUp" };
+export const metadata = { title: "Incidencias · Innovaypunto" };
 
 const ESTADO_BADGE: Record<string, string> = {
   abierta: "bg-red-100 text-red-700",

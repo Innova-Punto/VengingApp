@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import { toggleActivoPlanograma } from "./actions";
 
-export const metadata = { title: "Planogramas · MuscleUp" };
+export const metadata = { title: "Planogramas · Innovaypunto" };
 
 type SearchParams = { q?: string; estado?: string };
 

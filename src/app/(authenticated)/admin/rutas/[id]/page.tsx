@@ -8,7 +8,7 @@ import RutaForm from "../RutaForm";
 import AgregarMaquinaForm from "../AgregarMaquinaForm";
 import { quitarMaquinaDeRuta } from "../actions";
 
-export const metadata = { title: "Editar ruta · MuscleUp" };
+export const metadata = { title: "Editar ruta · Innovaypunto" };
 
 export default async function EditarRutaPage({
   params,

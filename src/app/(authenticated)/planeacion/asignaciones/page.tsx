@@ -3,7 +3,7 @@ import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
-export const metadata = { title: "Asignaciones diarias · MuscleUp" };
+export const metadata = { title: "Asignaciones diarias · Innovaypunto" };
 
 const ESTADO_BADGE: Record<string, string> = {
   planeada: "bg-blue-100 text-blue-700",

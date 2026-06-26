@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import BotonImprimir from "./BotonImprimir";
 
-export const metadata = { title: "Packing list · MuscleUp" };
+export const metadata = { title: "Packing list · Innovaypunto" };
 
 export default async function PackingListPage({
   params,

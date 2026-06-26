@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { NuevoErrorButton } from "../../errores-operativos/NuevoErrorButton";
 import { ReabrirRutaButton } from "./ReabrirRutaButton";
 
-export const metadata = { title: "Detalle jornada · MuscleUp" };
+export const metadata = { title: "Detalle jornada · Innovaypunto" };
 
 const ESTADO_BADGE: Record<string, string> = {
   planeada: "bg-zinc-100 text-zinc-600",

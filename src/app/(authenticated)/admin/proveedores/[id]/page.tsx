@@ -8,7 +8,7 @@ import ProveedorForm from "../ProveedorForm";
 import PresentacionForm from "../PresentacionForm";
 import { toggleActivoPresentacion } from "../actions";
 
-export const metadata = { title: "Editar proveedor · MuscleUp" };
+export const metadata = { title: "Editar proveedor · Innovaypunto" };
 
 export default async function EditarProveedorPage({
   params,

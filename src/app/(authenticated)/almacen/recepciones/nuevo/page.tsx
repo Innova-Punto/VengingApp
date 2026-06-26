@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import RecepcionForm from "./RecepcionForm";
 
-export const metadata = { title: "Nueva recepción · MuscleUp" };
+export const metadata = { title: "Nueva recepción · Innovaypunto" };
 
 export default async function NuevaRecepcionPage({
   searchParams,

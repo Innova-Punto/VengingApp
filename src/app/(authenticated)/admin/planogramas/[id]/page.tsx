@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import PlanogramaForm from "../PlanogramaForm";
 
-export const metadata = { title: "Editar planograma · MuscleUp" };
+export const metadata = { title: "Editar planograma · Innovaypunto" };
 
 export default async function EditarPlanogramaPage({
   params,

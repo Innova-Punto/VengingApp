@@ -9,7 +9,7 @@ import { completarSurtido } from "../actions";
 import AgregarItemForm from "./AgregarItemForm";
 import SurtidoItemRow from "./SurtidoItemRow";
 
-export const metadata = { title: "Detalle surtido · MuscleUp" };
+export const metadata = { title: "Detalle surtido · Innovaypunto" };
 
 const ESTADO_BADGE: Record<string, string> = {
   pendiente: "bg-blue-100 text-blue-700",

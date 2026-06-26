@@ -4,7 +4,7 @@ import { getCurrentUser, homeForRoles } from "@/lib/auth";
 import { signOut } from "@/app/(auth)/login/actions";
 
 export const metadata = {
-  title: "Sin rol asignado · MuscleUp",
+  title: "Sin rol asignado · Innovaypunto",
 };
 
 export default async function SinRolPage({

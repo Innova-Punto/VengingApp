@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import RutaForm from "../RutaForm";
 
-export const metadata = { title: "Nueva ruta · MuscleUp" };
+export const metadata = { title: "Nueva ruta · Innovaypunto" };
 
 export default async function NuevaRutaPage() {
   await requireRole("admin", "direccion", "planeador");

@@ -5,7 +5,7 @@ import { requireRole } from "@/lib/auth";
 import { fmtCDMX } from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
 
-export const metadata = { title: "Detalle encartuchado · MuscleUp" };
+export const metadata = { title: "Detalle encartuchado · Innovaypunto" };
 
 export default async function DetalleEncartuchadoPage({
   params,

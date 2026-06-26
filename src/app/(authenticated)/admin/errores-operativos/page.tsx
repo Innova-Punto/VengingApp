@@ -13,7 +13,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import { NuevoErrorButton } from "./NuevoErrorButton";
 
-export const metadata = { title: "Errores operativos · MuscleUp" };
+export const metadata = { title: "Errores operativos · Innovaypunto" };
 
 type SearchParams = {
   estado?: string;

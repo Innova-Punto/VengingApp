@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import ClienteForm from "../ClienteForm";
 import { toggleActivoUbicacion } from "../actions";
 
-export const metadata = { title: "Editar cliente · MuscleUp" };
+export const metadata = { title: "Editar cliente · Innovaypunto" };
 
 export default async function EditarClientePage({
   params,

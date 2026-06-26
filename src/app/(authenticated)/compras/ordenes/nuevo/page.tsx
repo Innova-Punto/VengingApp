@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import NuevaOcForm from "./NuevaOcForm";
 
-export const metadata = { title: "Nueva OC · MuscleUp" };
+export const metadata = { title: "Nueva OC · Innovaypunto" };
 
 export default async function NuevaOcPage() {
   await requireRole("admin", "direccion", "compras");

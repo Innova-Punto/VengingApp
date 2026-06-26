@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { aprobarOc, cancelarOc, cerrarOcIncompleta, eliminarItem } from "../actions";
 import AgregarItemForm from "./AgregarItemForm";
 
-export const metadata = { title: "Detalle OC · MuscleUp" };
+export const metadata = { title: "Detalle OC · Innovaypunto" };
 
 const ESTADO_BADGE: Record<string, string> = {
   borrador: "bg-zinc-100 text-zinc-700",

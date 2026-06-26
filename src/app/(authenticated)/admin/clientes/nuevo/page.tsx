@@ -4,7 +4,7 @@ import { requireRole } from "@/lib/auth";
 
 import ClienteForm from "../ClienteForm";
 
-export const metadata = { title: "Nuevo cliente · MuscleUp" };
+export const metadata = { title: "Nuevo cliente · Innovaypunto" };
 
 export default async function NuevoClientePage() {
   await requireRole("admin", "direccion");

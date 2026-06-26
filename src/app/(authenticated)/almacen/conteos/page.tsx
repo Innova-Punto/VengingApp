@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import { iniciarConteo } from "./actions";
 
-export const metadata = { title: "Conteos de almacén · MuscleUp" };
+export const metadata = { title: "Conteos de almacén · Innovaypunto" };
 
 const MESES = [
   "Enero",

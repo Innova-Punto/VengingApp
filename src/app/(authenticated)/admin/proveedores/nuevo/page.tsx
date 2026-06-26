@@ -4,7 +4,7 @@ import { requireRole } from "@/lib/auth";
 
 import ProveedorForm from "../ProveedorForm";
 
-export const metadata = { title: "Nuevo proveedor · MuscleUp" };
+export const metadata = { title: "Nuevo proveedor · Innovaypunto" };
 
 export default async function NuevoProveedorPage() {
   await requireRole("admin", "direccion", "compras");

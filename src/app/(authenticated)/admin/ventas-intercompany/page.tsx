@@ -4,7 +4,7 @@ import { requireRole } from "@/lib/auth";
 import { fmtCDMX } from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
 
-export const metadata = { title: "Ventas intercompany · MuscleUp" };
+export const metadata = { title: "Ventas intercompany · Innovaypunto" };
 
 function fmtMXN(n: number | string | null | undefined): string {
   const v = Number(n ?? 0);

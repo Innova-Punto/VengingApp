@@ -12,7 +12,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import { EstadoForm } from "./EstadoForm";
 
-export const metadata = { title: "Error operativo · MuscleUp" };
+export const metadata = { title: "Error operativo · Innovaypunto" };
 
 export default async function ErrorOperativoDetallePage({
   params,

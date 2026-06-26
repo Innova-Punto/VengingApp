@@ -1,26 +1,23 @@
 /* eslint-disable @next/next/no-img-element */
 /**
- * Logo de Innovaypunto.
+ * Logo de Innovaypunto (imagen oficial con fondo transparente).
  *
- * Renderizado textual con la "Y" estilizada. Cuando el usuario suba una
- * versión SVG o PNG **con fondo transparente** del logo oficial, se puede
- * volver a renderizar como imagen activando `USE_IMAGE = true` y
- * actualizando LOGO_SRC.
+ * Activos en /public:
+ *   - logo-innovaypunto-wordmark.png  → solo "INNOVAYPUNTO" blanco (headers)
+ *   - logo-innovaypunto.png           → wordmark + tagline blanco (login, fondos oscuros)
+ *   - logo-innovaypunto-dark.png      → wordmark + tagline navy (fondos claros)
  *
- * Por qué texto y no imagen: el archivo que tenemos es JPEG con fondo
- * blanco. Al invertir con filter CSS para que se vea blanco sobre el
- * header navy, el fondo blanco también se invierte y queda blanco
- * (invisible). PNG/SVG con alpha resolvería esto.
+ * Todos son blancos/navy sobre transparente, así que NO se aplican filtros.
  */
 
-const USE_IMAGE = false;
-const LOGO_SRC = "/logo-innovaypunto.jfif"; // requiere PNG/SVG transparente para variants oscuros
+const WORDMARK_RATIO = 3443 / 498; // ancho/alto del crop wordmark
+const FULL_RATIO = 3664 / 1120; // ancho/alto del logo completo
 
-const SIZES = {
-  sm: { name: "text-sm", tag: "text-[8px]", img: 22 },
-  md: { name: "text-base", tag: "text-[9px]", img: 32 },
-  lg: { name: "text-2xl", tag: "text-[11px]", img: 56 },
-  xl: { name: "text-4xl", tag: "text-sm", img: 80 },
+const HEIGHTS = {
+  sm: 20,
+  md: 28,
+  lg: 48,
+  xl: 72,
 };
 
 export function Logo({
@@ -32,49 +29,28 @@ export function Logo({
   variant?: "default" | "dark" | "light";
   size?: "sm" | "md" | "lg" | "xl";
   className?: string;
+  /** Si true usa el logo con tagline; si false solo el wordmark. */
   showTagline?: boolean;
 }) {
-  const s = SIZES[size];
+  const h = HEIGHTS[size];
 
-  if (USE_IMAGE) {
-    const invertir = variant === "default" || variant === "light";
-    return (
-      <img
-        src={LOGO_SRC}
-        alt="Innovaypunto"
-        height={s.img}
-        style={{
-          height: `${s.img}px`,
-          width: "auto",
-          objectFit: "contain",
-          filter: invertir ? "brightness(0) invert(1)" : undefined,
-        }}
-        className={className}
-      />
-    );
-  }
+  // variant "dark" = logo navy (para fondos claros). Resto = blanco.
+  const src = showTagline
+    ? variant === "dark"
+      ? "/logo-innovaypunto-dark.png"
+      : "/logo-innovaypunto.png"
+    : "/logo-innovaypunto-wordmark.png";
 
-  // Render textual
-  const colorBase =
-    variant === "dark" ? "text-brand" : "text-white";
-  const colorY =
-    variant === "dark" ? "text-brand-accent" : "text-brand-accent";
+  const ratio = showTagline ? FULL_RATIO : WORDMARK_RATIO;
 
   return (
-    <div className={`select-none ${className}`}>
-      <div
-        className={`${s.name} ${colorBase} font-extrabold leading-none`}
-        style={{ letterSpacing: "0.04em" }}
-      >
-        INNOVA<span className={`${colorY} font-black`}>Y</span>PUNTO
-      </div>
-      {showTagline && (
-        <div
-          className={`${s.tag} ${colorBase} opacity-80 mt-1 tracking-[0.22em] font-medium`}
-        >
-          INNOVAMOS EL PUNTO DE VENTA
-        </div>
-      )}
-    </div>
+    <img
+      src={src}
+      alt="Innovaypunto"
+      height={h}
+      width={Math.round(h * ratio)}
+      style={{ height: `${h}px`, width: "auto", objectFit: "contain" }}
+      className={className}
+    />
   );
 }

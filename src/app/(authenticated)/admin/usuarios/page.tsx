@@ -17,7 +17,7 @@ const ALL_ROLES: AppRole[] = [
   "admin",
 ];
 
-export const metadata = { title: "Usuarios · MuscleUp" };
+export const metadata = { title: "Usuarios · Innovaypunto" };
 
 export default async function UsuariosPage() {
   await requireRole("admin", "direccion");
