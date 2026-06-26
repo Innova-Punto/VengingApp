@@ -14,10 +14,10 @@ const WORDMARK_RATIO = 3443 / 498; // ancho/alto del crop wordmark
 const FULL_RATIO = 3664 / 1120; // ancho/alto del logo completo
 
 const HEIGHTS = {
-  sm: 20,
-  md: 28,
-  lg: 48,
-  xl: 72,
+  sm: 30,
+  md: 42,
+  lg: 64,
+  xl: 96,
 };
 
 export function Logo({
