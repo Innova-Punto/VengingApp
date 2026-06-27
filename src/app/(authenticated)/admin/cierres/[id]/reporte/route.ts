@@ -24,26 +24,45 @@ const MESES_FILE = [
 ];
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: { id: string } },
 ) {
   await requireRole("admin", "direccion");
   const supabase = createClient();
 
-  const snapshot = await construirSnapshotCierre(supabase, params.id);
+  const { searchParams } = new URL(req.url);
+  const clienteId = searchParams.get("cliente") || null;
 
-  // Guarda el snapshot en BD como respaldo (idempotente — se sobreescribe en cada regeneración)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase as any)
-    .from("cierres_mensuales")
-    .update({
-      snapshot,
-      reporte_generado_at: new Date().toISOString(),
-    })
-    .eq("id", params.id);
+  const snapshot = await construirSnapshotCierre(supabase, params.id, clienteId);
+
+  // Solo el reporte GLOBAL persiste el snapshot en BD (el por-cliente es ad-hoc).
+  if (!clienteId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any)
+      .from("cierres_mensuales")
+      .update({
+        snapshot,
+        reporte_generado_at: new Date().toISOString(),
+      })
+      .eq("id", params.id);
+  }
+
+  // Nombre del cliente para el archivo (si aplica)
+  let sufijoCliente = "";
+  if (clienteId) {
+    const { data: cli } = await supabase
+      .from("clientes")
+      .select("nombre")
+      .eq("id", clienteId)
+      .maybeSingle();
+    if (cli?.nombre) {
+      sufijoCliente =
+        "-" + cli.nombre.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    }
+  }
 
   const buffer = await generarWorkbook(snapshot);
-  const filename = `cierre-${snapshot.periodo.anio}-${MESES_FILE[snapshot.periodo.mes - 1]}.xlsx`;
+  const filename = `cierre-${snapshot.periodo.anio}-${MESES_FILE[snapshot.periodo.mes - 1]}${sufijoCliente}.xlsx`;
 
   return new NextResponse(buffer as unknown as ArrayBuffer, {
     status: 200,
