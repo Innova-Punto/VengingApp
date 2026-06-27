@@ -20,7 +20,7 @@ export default async function CampoHomePage() {
   const { data: asignaciones } = await supabase
     .from("asignaciones_diarias")
     .select(
-      `id, fecha, estado,
+      `id, fecha, estado, es_emergencia,
        ruta:rutas(nombre, color_hex),
        jornada:jornadas(id),
        maquinas:asignacion_maquinas(id)`,
@@ -80,14 +80,20 @@ export default async function CampoHomePage() {
               <div className="flex items-stretch gap-3">
                 <div
                   className="w-1.5 shrink-0"
-                  style={{ backgroundColor: ruta?.color_hex ?? "#a1a1aa" }}
+                  style={{
+                    backgroundColor: a.es_emergencia
+                      ? "#dc2626"
+                      : (ruta?.color_hex ?? "#a1a1aa"),
+                  }}
                 />
                 <div className="flex flex-1 items-center gap-3 py-3 pr-3 min-w-0">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 font-medium text-zinc-900">
                       <Truck className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
                       <span className="truncate">
-                        {ruta?.nombre ?? "Ruta sin nombre"}
+                        {a.es_emergencia
+                          ? "🚨 Emergencia"
+                          : (ruta?.nombre ?? "Ruta sin nombre")}
                       </span>
                     </div>
                     <div className="mt-0.5 flex items-center gap-1 text-xs text-zinc-500">

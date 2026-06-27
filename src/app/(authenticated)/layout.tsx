@@ -50,6 +50,11 @@ const NAV_GROUPS: GroupDef[] = [
     roles: ["admin", "direccion", "planeador", "almacen"],
     items: [
       { label: "Asignaciones", href: "/planeacion/asignaciones" },
+      {
+        label: "Emergencias",
+        href: "/planeacion/emergencias",
+        roles: ["admin", "direccion", "almacen"],
+      },
       { label: "Surtidos", href: "/planeacion/surtidos" },
       { label: "Devoluciones", href: "/almacen/devoluciones" },
     ],

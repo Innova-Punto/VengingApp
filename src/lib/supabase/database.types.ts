@@ -148,37 +148,40 @@ export type Database = {
         Row: {
           creado_por: string | null
           created_at: string
+          es_emergencia: boolean
           estado: Database["public"]["Enums"]["asignacion_estado"]
           fecha: string
           id: string
           motivo_cierre_incompleto: string | null
           notas: string | null
           operador_id: string
-          ruta_id: string
+          ruta_id: string | null
           updated_at: string
         }
         Insert: {
           creado_por?: string | null
           created_at?: string
+          es_emergencia?: boolean
           estado?: Database["public"]["Enums"]["asignacion_estado"]
           fecha: string
           id?: string
           motivo_cierre_incompleto?: string | null
           notas?: string | null
           operador_id: string
-          ruta_id: string
+          ruta_id?: string | null
           updated_at?: string
         }
         Update: {
           creado_por?: string | null
           created_at?: string
+          es_emergencia?: boolean
           estado?: Database["public"]["Enums"]["asignacion_estado"]
           fecha?: string
           id?: string
           motivo_cierre_incompleto?: string | null
           notas?: string | null
           operador_id?: string
-          ruta_id?: string
+          ruta_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -474,6 +477,10 @@ export type Database = {
           valor_almacen_inicio: number | null
           valor_maquinas_fin: number | null
           valor_maquinas_inicio: number | null
+          valor_vasos_almacen_fin: number | null
+          valor_vasos_almacen_inicio: number | null
+          valor_vasos_maquinas_fin: number | null
+          valor_vasos_maquinas_inicio: number | null
         }
         Insert: {
           cerrado_por?: string | null
@@ -500,6 +507,10 @@ export type Database = {
           valor_almacen_inicio?: number | null
           valor_maquinas_fin?: number | null
           valor_maquinas_inicio?: number | null
+          valor_vasos_almacen_fin?: number | null
+          valor_vasos_almacen_inicio?: number | null
+          valor_vasos_maquinas_fin?: number | null
+          valor_vasos_maquinas_inicio?: number | null
         }
         Update: {
           cerrado_por?: string | null
@@ -526,6 +537,10 @@ export type Database = {
           valor_almacen_inicio?: number | null
           valor_maquinas_fin?: number | null
           valor_maquinas_inicio?: number | null
+          valor_vasos_almacen_fin?: number | null
+          valor_vasos_almacen_inicio?: number | null
+          valor_vasos_maquinas_fin?: number | null
+          valor_vasos_maquinas_inicio?: number | null
         }
         Relationships: [
           {
@@ -3837,6 +3852,10 @@ export type Database = {
           valor_merma: number | null
           valor_total_fin: number | null
           valor_total_inicio: number | null
+          valor_vasos_almacen_fin: number | null
+          valor_vasos_almacen_inicio: number | null
+          valor_vasos_maquinas_fin: number | null
+          valor_vasos_maquinas_inicio: number | null
           valor_venta_nayax: number | null
         }
         Relationships: []
@@ -3850,6 +3869,8 @@ export type Database = {
           gramos_maquinas: number
           valor_almacen: number
           valor_maquinas: number
+          valor_vasos_almacen: number
+          valor_vasos_maquinas: number
         }[]
       }
       abrir_cierre_mensual:
@@ -3862,6 +3883,28 @@ export type Database = {
         Args: { p_gramos_medidos: number; p_item_id: string; p_notas?: string }
         Returns: undefined
       }
+      agregar_maquina_excepcion_surtir: {
+        Args: {
+          p_asignacion_id: string
+          p_maquina_id: string
+          p_modo?: string
+          p_motivo?: Database["public"]["Enums"]["excepcion_motivo"]
+          p_notas?: string
+        }
+        Returns: string
+      }
+      agregar_ventas: {
+        Args: {
+          p_cliente_id?: string
+          p_desde: string
+          p_hasta: string
+          p_maquina_id?: string
+          p_metodo?: string
+          p_producto_id?: string
+          p_solo_negativas?: boolean
+        }
+        Returns: Json
+      }
       aplicar_conteo_almacen: {
         Args: { p_cartuchos: Json; p_conteo_id: string; p_granel: Json }
         Returns: string
@@ -3873,6 +3916,10 @@ export type Database = {
           p_notas_resolucion?: string
         }
         Returns: string
+      }
+      cancelar_ruta_surtida: {
+        Args: { p_asignacion_id: string; p_motivo: string; p_uid?: string }
+        Returns: Json
       }
       capital_trabajo: {
         Args: { p_cliente_id?: string }
@@ -3910,6 +3957,10 @@ export type Database = {
         Returns: undefined
       }
       cleanup_evidencias_viejas: { Args: never; Returns: number }
+      crear_asignacion_emergencia: {
+        Args: { p_fecha: string; p_notas?: string; p_operador_id: string }
+        Returns: string
+      }
       distancia_metros: {
         Args: { lat1: number; lat2: number; lng1: number; lng2: number }
         Returns: number
@@ -4029,6 +4080,14 @@ export type Database = {
           costo_por_unidad: number
           lote_id: string
         }[]
+      }
+      preview_costo_intercompany: {
+        Args: {
+          p_cantidad: number
+          p_presentacion: Database["public"]["Enums"]["venta_intercompany_presentacion"]
+          p_producto_id: string
+        }
+        Returns: Json
       }
       procesar_venta_nayax: {
         Args: {

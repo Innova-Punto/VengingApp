@@ -90,8 +90,18 @@ export default async function JornadasPage({
 
   let totalCheckIns = 0;
   let totalIncidencias = 0;
-  /** Mapa asignacion_id → {completadas, total} de máquinas */
-  const avancePorAsig = new Map<string, { completadas: number; total: number }>();
+  let totalVisitasExtra = 0;
+  /**
+   * Mapa asignacion_id → avance de máquinas.
+   * - total/completadas: SOLO máquinas de la ruta base (origen='base_ruta').
+   *   El % de finalización se mide contra lo planeado.
+   * - extra: visitas a máquinas agregadas por excepción/emergencia (o no
+   *   asignadas). Suman crédito, NUNCA bajan el % de ruta.
+   */
+  const avancePorAsig = new Map<
+    string,
+    { completadas: number; total: number; extra: number }
+  >();
 
   if (asigIds.length > 0) {
     const { count: c1 } = await supabase
@@ -100,30 +110,50 @@ export default async function JornadasPage({
       .in("asignacion_id", asigIds);
     totalCheckIns = c1 ?? 0;
 
-    // Totales de máquinas por asignación
+    // Máquinas por asignación, separando base de excepción
+    const baseMaqs = new Map<string, Set<string>>();
     const { data: asigMaquinas } = await supabase
       .from("asignacion_maquinas")
-      .select("asignacion_id")
+      .select("asignacion_id, maquina_id, origen")
       .in("asignacion_id", asigIds);
     for (const am of asigMaquinas ?? []) {
-      const cur = avancePorAsig.get(am.asignacion_id) ?? { completadas: 0, total: 0 };
-      cur.total += 1;
-      avancePorAsig.set(am.asignacion_id, cur);
+      if (am.origen === "base_ruta") {
+        const s = baseMaqs.get(am.asignacion_id) ?? new Set<string>();
+        s.add(am.maquina_id);
+        baseMaqs.set(am.asignacion_id, s);
+      }
+    }
+    for (const asig of asigIds) {
+      avancePorAsig.set(asig, {
+        completadas: 0,
+        total: baseMaqs.get(asig)?.size ?? 0,
+        extra: 0,
+      });
     }
 
-    // Check-ins cerrados (fecha_salida no nulo) = máquinas completadas
+    // Check-ins cerrados (fecha_salida no nulo) = máquinas visitadas
     const { data: checkInsCerrados } = await supabase
       .from("check_ins")
       .select("asignacion_id, maquina_id, fecha_salida")
       .in("asignacion_id", asigIds)
       .not("fecha_salida", "is", null);
-    const completadasUnicas = new Set<string>(); // `${asig}|${maq}` para dedupe
+    const vistas = new Set<string>(); // `${asig}|${maq}` para dedupe
     for (const ci of checkInsCerrados ?? []) {
       const k = `${ci.asignacion_id}|${ci.maquina_id}`;
-      if (completadasUnicas.has(k)) continue;
-      completadasUnicas.add(k);
-      const cur = avancePorAsig.get(ci.asignacion_id) ?? { completadas: 0, total: 0 };
-      cur.completadas += 1;
+      if (vistas.has(k)) continue;
+      vistas.add(k);
+      const cur =
+        avancePorAsig.get(ci.asignacion_id) ?? {
+          completadas: 0,
+          total: 0,
+          extra: 0,
+        };
+      if (baseMaqs.get(ci.asignacion_id)?.has(ci.maquina_id)) {
+        cur.completadas += 1; // máquina base completada
+      } else {
+        cur.extra += 1; // visita extra / emergencia atendida
+        totalVisitasExtra += 1;
+      }
       avancePorAsig.set(ci.asignacion_id, cur);
     }
   }
@@ -148,9 +178,10 @@ export default async function JornadasPage({
         </p>
       </div>
 
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-3">
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label="Jornadas en rango" value={String(filtradas.length)} />
         <Stat label="Check-ins" value={String(totalCheckIns)} />
+        <Stat label="Visitas extra / emergencia" value={String(totalVisitasExtra)} />
         <Stat label="Incidencias (total)" value={String(totalIncidencias)} />
       </section>
 
@@ -269,20 +300,35 @@ export default async function JornadasPage({
                   <td className="px-3 py-2 text-xs tabular-nums">
                     {(() => {
                       const a = avancePorAsig.get(asig?.id ?? "");
-                      if (!a || a.total === 0)
+                      if (!a || (a.total === 0 && a.extra === 0))
                         return <span className="text-zinc-400">—</span>;
-                      const completo = a.completadas === a.total;
+                      const completo =
+                        a.total > 0 && a.completadas === a.total;
                       return (
-                        <span
-                          className={
-                            completo
-                              ? "font-medium text-green-700"
-                              : a.completadas === 0
-                                ? "text-zinc-500"
-                                : "font-medium text-amber-700"
-                          }
-                        >
-                          {a.completadas}/{a.total}
+                        <span className="inline-flex items-center gap-1">
+                          {a.total > 0 ? (
+                            <span
+                              className={
+                                completo
+                                  ? "font-medium text-green-700"
+                                  : a.completadas === 0
+                                    ? "text-zinc-500"
+                                    : "font-medium text-amber-700"
+                              }
+                            >
+                              {a.completadas}/{a.total}
+                            </span>
+                          ) : (
+                            <span className="text-zinc-400">sin ruta base</span>
+                          )}
+                          {a.extra > 0 && (
+                            <span
+                              className="rounded-full bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-700"
+                              title="Visitas extra / emergencia atendidas"
+                            >
+                              +{a.extra} extra
+                            </span>
+                          )}
                         </span>
                       );
                     })()}
