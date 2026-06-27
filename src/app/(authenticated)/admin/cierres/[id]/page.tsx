@@ -48,6 +48,14 @@ export default async function CierreDetallePage({
     .maybeSingle();
   if (!cierre) notFound();
 
+  // Clientes no-intercompany para reportes de cierre por cliente
+  const { data: clientesReporte } = await supabase
+    .from("clientes")
+    .select("id, nombre")
+    .eq("activo", true)
+    .eq("es_intercompany", false)
+    .order("nombre");
+
   const { data: pesajes } = await supabase
     .from("pesajes_maquina")
     .select(
@@ -135,13 +143,25 @@ export default async function CierreDetallePage({
           >
             {cierre.estado.replace(/_/g, " ")}
           </span>
-          <a
-            href={`/admin/cierres/${cierre.id}/reporte`}
-            className="ml-auto rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
-            download
-          >
-            📥 Descargar reporte (Excel)
-          </a>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <a
+              href={`/admin/cierres/${cierre.id}/reporte`}
+              className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-800"
+              download
+            >
+              📥 Reporte global
+            </a>
+            {(clientesReporte ?? []).map((c) => (
+              <a
+                key={c.id}
+                href={`/admin/cierres/${cierre.id}/reporte?cliente=${c.id}`}
+                className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                download
+              >
+                📥 {c.nombre}
+              </a>
+            ))}
+          </div>
         </div>
         <p className="mt-1 text-sm text-zinc-600">
           Abierto:{" "}

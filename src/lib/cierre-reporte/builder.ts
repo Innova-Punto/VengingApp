@@ -125,6 +125,7 @@ export type SnapshotCierre = {
 export async function construirSnapshotCierre(
   supabase: Sb,
   cierreId: string,
+  clienteId?: string | null,
 ): Promise<SnapshotCierre> {
   // 1) Cierre y periodo
   const { data: cierre, error: errCierre } = await supabase
@@ -136,6 +137,21 @@ export async function construirSnapshotCierre(
 
   const desde = startOfMonthCDMX(cierre.periodo_mes, cierre.periodo_anio);
   const hasta = startOfNextMonthCDMX(cierre.periodo_mes, cierre.periodo_anio);
+
+  // Si se filtra por cliente: lista de productos atribuibles a ese cliente
+  // (exclusivos + usados en sus máquinas), vía la misma lógica del panel de
+  // inventario (función productos_de_cliente).
+  let productosClienteSet: Set<string> | null = null;
+  if (clienteId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: prodIds } = await (supabase as any).rpc(
+      "productos_de_cliente",
+      { p_cliente_id: clienteId },
+    );
+    productosClienteSet = new Set(
+      ((prodIds ?? []) as string[]).map((x) => x),
+    );
+  }
 
   // 2) Ventas Nayax del periodo
   type VRow = {
@@ -151,14 +167,15 @@ export async function construirSnapshotCierre(
     utilidad_bruta: number | string | null;
     gramos_dispensados: number | null;
   };
-  const { data: ventas } = await supabase
+  let ventasQuery = supabase
     .from("ventas_maquina")
     .select(
       "id, maquina_id, producto_id, cliente_id, precio_bruto, comision_nayax_estimada, precio_neto, costo_polvo, costo_vaso, utilidad_bruta, gramos_dispensados, fecha_transaccion",
     )
     .gte("fecha_transaccion", desde)
-    .lt("fecha_transaccion", hasta)
-    .range(0, 200000);
+    .lt("fecha_transaccion", hasta);
+  if (clienteId) ventasQuery = ventasQuery.eq("cliente_id", clienteId);
+  const { data: ventas } = await ventasQuery.range(0, 200000);
   const vArr: VRow[] = (ventas ?? []) as unknown as VRow[];
 
   const sum = (arr: VRow[], k: keyof VRow): number =>
@@ -426,6 +443,7 @@ export async function construirSnapshotCierre(
   // 5) Ajustes y mermas — agrupar movimientos_inventario por tipo
   type MovRow = {
     tipo: string;
+    producto_id: string | null;
     cantidad_cartuchos: number | null;
     cantidad_vasos: number | null;
     gramos: number | null;
@@ -434,7 +452,7 @@ export async function construirSnapshotCierre(
   const { data: movs } = await supabase
     .from("movimientos_inventario")
     .select(
-      "tipo, cantidad_cartuchos, cantidad_vasos, gramos, valor_movimiento, fecha",
+      "tipo, producto_id, cantidad_cartuchos, cantidad_vasos, gramos, valor_movimiento, fecha",
     )
     .in("tipo", [
       "ajuste_conteo_maquina",
@@ -446,7 +464,11 @@ export async function construirSnapshotCierre(
     .gte("fecha", desde)
     .lt("fecha", hasta)
     .range(0, 50000);
-  const movArr: MovRow[] = (movs ?? []) as unknown as MovRow[];
+  const movArr: MovRow[] = ((movs ?? []) as unknown as MovRow[]).filter(
+    (m) =>
+      !productosClienteSet ||
+      (m.producto_id != null && productosClienteSet.has(m.producto_id)),
+  );
   const ajustesPorTipo = new Map<
     string,
     {
@@ -473,8 +495,39 @@ export async function construirSnapshotCierre(
     ajustesPorTipo.set(m.tipo, cur);
   }
 
-  // 6) Inventario al cierre — calculado SOBRE EL ESTADO ACTUAL
-  const { data: inv } = await supabase.rpc("snapshot_inventario_desglosado");
+  // 6) Inventario al cierre — calculado SOBRE EL ESTADO ACTUAL.
+  //    Global: snapshot_inventario_desglosado (incluye desglose por cliente).
+  //    Por cliente: capital_trabajo(clienteId) — mismo cálculo del panel de
+  //    inventario, atribuyendo almacén vía productos exclusivos del cliente.
+  let inv: unknown = null;
+  if (clienteId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: ct } = await (supabase as any).rpc("capital_trabajo", {
+      p_cliente_id: clienteId,
+    });
+    const row = Array.isArray(ct) ? ct[0] : ct;
+    if (row) {
+      inv = {
+        almacen_granel_gramos: row.alm_granel_gramos,
+        almacen_granel_valor: row.alm_granel_valor,
+        almacen_cartuchos_unidades: row.alm_cartuchos_unidades,
+        almacen_cartuchos_gramos: row.alm_cartuchos_gramos,
+        almacen_cartuchos_valor: row.alm_cartuchos_valor,
+        almacen_vasos_unidades: row.alm_vasos_unidades,
+        almacen_vasos_valor: row.alm_vasos_valor,
+        maquinas_polvo_gramos: row.maq_polvo_gramos,
+        maquinas_polvo_valor: row.maq_polvo_valor,
+        maquinas_vasos_unidades: row.maq_vasos_unidades,
+        maquinas_vasos_valor: row.maq_vasos_valor,
+        por_cliente: [],
+      };
+    }
+  } else {
+    const { data: invGlobal } = await supabase.rpc(
+      "snapshot_inventario_desglosado",
+    );
+    inv = invGlobal;
+  }
   type InvSnap = {
     almacen_granel_gramos: number;
     almacen_granel_valor: number;
