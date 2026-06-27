@@ -2,6 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { requireRole } from "@/lib/auth";
+import {
+  construirSnapshotCierre,
+  type SnapshotCierre,
+} from "@/lib/cierre-reporte/builder";
 import { fmtCDMX } from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
 
@@ -55,6 +59,16 @@ export default async function CierreDetallePage({
     .eq("activo", true)
     .eq("es_intercompany", false)
     .order("nombre");
+
+  // Snapshot financiero por cliente (mismo cálculo que el Excel por-cliente):
+  // inventario al corte vía capital_trabajo + ventas/ajustes filtrados por
+  // los productos exclusivos del cliente. Se calculan en paralelo.
+  const snapsCliente = await Promise.all(
+    (clientesReporte ?? []).map(async (c) => ({
+      cliente: c,
+      snap: await construirSnapshotCierre(supabase, params.id, c.id),
+    })),
+  );
 
   const { data: pesajes } = await supabase
     .from("pesajes_maquina")
@@ -203,7 +217,7 @@ export default async function CierreDetallePage({
       {reporte && (
         <section className="space-y-3">
           <h2 className="text-lg font-semibold tracking-tight">
-            Reporte financiero
+            Reporte financiero · Global (consolidado)
           </h2>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -280,6 +294,14 @@ export default async function CierreDetallePage({
           </div>
         </section>
       )}
+
+      {snapsCliente.map(({ cliente, snap }) => (
+        <BloqueClienteFinanciero
+          key={cliente.id}
+          nombre={cliente.nombre}
+          snap={snap}
+        />
+      ))}
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">
@@ -502,6 +524,158 @@ export default async function CierreDetallePage({
         </section>
       )}
     </div>
+  );
+}
+
+const TIPO_MOV_LABEL: Record<string, string> = {
+  ajuste_conteo_maquina: "Ajuste por pesaje en máquina",
+  ajuste_conteo_almacen: "Ajuste por conteo de almacén",
+  merma_ruta: "Merma en ruta",
+  merma_encartuchado: "Merma en encartuchado",
+  ajuste_manual: "Ajuste manual",
+};
+
+function BloqueClienteFinanciero({
+  nombre,
+  snap,
+}: {
+  nombre: string;
+  snap: SnapshotCierre;
+}) {
+  const inv = snap.inventario_fin;
+  const vn = snap.ventas_nayax;
+  const costoVentas = vn.costo_polvo + vn.costo_vaso;
+  return (
+    <section className="space-y-3 border-t border-zinc-200 pt-5">
+      <h2 className="text-lg font-semibold tracking-tight">
+        Reporte financiero · {nombre}
+      </h2>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {/* Inventario al corte (actual) atribuido al cliente */}
+        <div className="rounded-lg border border-zinc-200 bg-white p-4">
+          <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+            Inventario al corte (actual)
+          </div>
+          <div className="mt-1 text-2xl font-semibold tabular-nums text-zinc-900">
+            {fmtMxn(inv.total)}
+          </div>
+          <dl className="mt-2 space-y-1 text-xs text-zinc-600">
+            <PairR
+              label="Almacén · granel"
+              gramos={inv.almacen.polvo_granel.gramos}
+              valor={inv.almacen.polvo_granel.valor}
+            />
+            <PairR
+              label="Almacén · cartuchos"
+              gramos={inv.almacen.polvo_cartuchos.gramos}
+              valor={inv.almacen.polvo_cartuchos.valor}
+            />
+            <div className="flex items-baseline justify-between">
+              <span>Almacén · vasos</span>
+              <span className="tabular-nums">
+                {inv.almacen.vasos.unidades.toLocaleString("es-MX")} u ·{" "}
+                <span className="font-medium">
+                  {fmtMxn(inv.almacen.vasos.valor)}
+                </span>
+              </span>
+            </div>
+            <PairR
+              label="Máquinas · polvo"
+              gramos={inv.maquinas.polvo_tolvas.gramos}
+              valor={inv.maquinas.polvo_tolvas.valor}
+            />
+            <div className="flex items-baseline justify-between">
+              <span>Máquinas · vasos</span>
+              <span className="tabular-nums">
+                {inv.maquinas.vasos.unidades.toLocaleString("es-MX")} u ·{" "}
+                <span className="font-medium">
+                  {fmtMxn(inv.maquinas.vasos.valor)}
+                </span>
+              </span>
+            </div>
+          </dl>
+          <div className="mt-2 flex justify-between border-t border-zinc-100 pt-2 text-xs text-zinc-600">
+            <span>Subtotal almacén / máquinas</span>
+            <span className="tabular-nums font-medium">
+              {fmtMxn(inv.almacen.subtotal)} / {fmtMxn(inv.maquinas.subtotal)}
+            </span>
+          </div>
+        </div>
+
+        {/* Ventas Nayax del periodo */}
+        <div className="rounded-lg border border-zinc-200 bg-white p-4">
+          <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+            Ventas Nayax del periodo
+          </div>
+          <div className="mt-1 text-2xl font-semibold tabular-nums text-green-900">
+            {fmtMxn(vn.neto)}
+          </div>
+          <div className="mt-1 text-xs text-zinc-600">
+            {vn.transacciones.toLocaleString("es-MX")} transacciones ·{" "}
+            {fmtG(vn.gramos_dispensados)} dispensados
+          </div>
+          <dl className="mt-2 space-y-1 text-xs text-zinc-600">
+            <div className="flex justify-between">
+              <span>Costo (polvo + vaso)</span>
+              <span className="tabular-nums font-medium">
+                {fmtMxn(costoVentas)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span>Utilidad bruta</span>
+              <span className="tabular-nums font-medium text-green-700">
+                {fmtMxn(vn.utilidad)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span>Margen</span>
+              <span className="tabular-nums font-medium">{vn.margen_pct}%</span>
+            </div>
+          </dl>
+        </div>
+      </div>
+
+      {snap.ajustes_mermas.length > 0 && (
+        <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
+          <table className="w-full text-sm">
+            <thead className="border-b border-zinc-200 bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
+              <tr>
+                <th className="px-3 py-2 font-medium">Ajuste / merma</th>
+                <th className="px-3 py-2 text-right font-medium">Mov.</th>
+                <th className="px-3 py-2 text-right font-medium">Gramos</th>
+                <th className="px-3 py-2 text-right font-medium">Valor</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-100">
+              {snap.ajustes_mermas.map((a) => (
+                <tr key={a.tipo}>
+                  <td className="px-3 py-1.5 text-zinc-700">
+                    {TIPO_MOV_LABEL[a.tipo] ?? a.tipo}
+                  </td>
+                  <td className="px-3 py-1.5 text-right tabular-nums text-zinc-600">
+                    {a.movimientos}
+                  </td>
+                  <td className="px-3 py-1.5 text-right tabular-nums text-zinc-600">
+                    {fmtG(a.gramos)}
+                  </td>
+                  <td className="px-3 py-1.5 text-right tabular-nums font-medium">
+                    {fmtMxn(a.valor)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <p className="text-[11px] text-zinc-500">
+        Inventario atribuido al cliente vía productos exclusivos (mismo cálculo
+        del panel de inventario y del Excel por-cliente). Es el corte actual; la
+        comparación inicio→fin y el consumo calculado solo viven en el bloque
+        global.
+      </p>
+    </section>
   );
 }
 
