@@ -1,7 +1,6 @@
 import { requireRole } from "@/lib/auth";
 import {
   fmtCDMXFechaHora,
-  isoFechaCDMX,
   startOfNDaysAgoCDMX,
   startOfTodayCDMX,
 } from "@/lib/datetime";
@@ -125,75 +124,76 @@ export default async function VentasPage({
     .order("fecha_transaccion", { ascending: false })
     .range(offset, offset + PAGE_SIZE - 1);
 
-  // KPIs y agregaciones requieren TODAS las ventas del rango (no paginadas).
-  let qAgg = supabase
-    .from("ventas_maquina")
-    .select(
-      `precio_bruto, comision_nayax_estimada, precio_neto, utilidad_bruta,
-       costo_polvo, costo_vaso,
-       margen_porcentaje, gramos_dispensados,
-       fecha_transaccion, metodo_pago, maquina_id, producto_id, cliente_id,
-       notas,
-       cliente:clientes(id, nombre),
-       maquina:maquinas(serie, alias),
-       producto:productos(sku, nombre)`,
-    )
-    .gte("fecha_transaccion", desdeISO)
-    .lte("fecha_transaccion", hastaISO);
+  // KPIs y agregaciones se calculan EN LA BASE DE DATOS (RPC) para no chocar
+  // con el límite de filas de PostgREST (1000) que truncaba los totales.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: aggData } = await (supabase as any).rpc("agregar_ventas", {
+    p_desde: desdeISO,
+    p_hasta: hastaISO,
+    p_cliente_id: searchParams.cliente ?? null,
+    p_maquina_id: searchParams.maquina ?? null,
+    p_producto_id: searchParams.producto ?? null,
+    p_metodo: searchParams.metodo ?? null,
+    p_solo_negativas: utilidadFilter === "negativas",
+  });
 
-  if (searchParams.cliente) qAgg = qAgg.eq("cliente_id", searchParams.cliente);
-  if (searchParams.maquina) qAgg = qAgg.eq("maquina_id", searchParams.maquina);
-  if (searchParams.producto) qAgg = qAgg.eq("producto_id", searchParams.producto);
-  if (searchParams.metodo) qAgg = qAgg.eq("metodo_pago", searchParams.metodo);
-  if (utilidadFilter === "negativas") qAgg = qAgg.lt("utilidad_bruta", 0);
+  type AggKpis = {
+    n_ventas: number;
+    venta_publico: number;
+    comision_nayax: number;
+    venta_bruta: number;
+    costo_polvo: number;
+    costo_vaso: number;
+    utilidad: number;
+    gramos: number;
+    margen_prom: number;
+    ticket_prom: number;
+  };
+  const agg = (aggData ?? {}) as {
+    kpis?: AggKpis;
+    por_dia?: { fecha: string; ingresos: number }[];
+    por_cliente?: { cliente: string; valor: number }[];
+    por_maquina?: {
+      filter_id: string;
+      serie: string;
+      alias: string | null;
+      ingresos: number;
+      utilidad: number;
+      ventas: number;
+    }[];
+    por_producto?: {
+      sku: string;
+      nombre: string;
+      filter_id: string;
+      es_receta: boolean;
+      ingresos: number;
+      utilidad: number;
+      ventas: number;
+    }[];
+  };
+  const k = agg.kpis ?? ({} as AggKpis);
 
-  // Sin range Supabase limita a 1000 → KPIs y agregados quedan truncados.
-  // Subimos a 100k para que entren todas las ventas del rango.
-  const { data: allVentas } = await qAgg.range(0, 99999);
-  const aggFiltradas = allVentas ?? [];
+  const nVentas = Number(k.n_ventas ?? 0);
+  const ventaPublico = Number(k.venta_publico ?? 0);
+  const comisionNayax = Number(k.comision_nayax ?? 0);
+  const ventaBruta = Number(k.venta_bruta ?? 0);
+  const costoPolvo = Number(k.costo_polvo ?? 0);
+  const costoVaso = Number(k.costo_vaso ?? 0);
+  const utilidad = Number(k.utilidad ?? 0);
+  const gramos = Number(k.gramos ?? 0);
+  const margenProm = Number(k.margen_prom ?? 0);
+  const ticketProm = Number(k.ticket_prom ?? 0);
 
-  // KPIs
-  const nVentas = aggFiltradas.length;
-  const ventaPublico = aggFiltradas.reduce((s, v) => s + Number(v.precio_bruto ?? 0), 0);
-  const comisionNayax = aggFiltradas.reduce(
-    (s, v) => s + Number(v.comision_nayax_estimada ?? 0),
-    0,
-  );
-  const ventaBruta = aggFiltradas.reduce((s, v) => s + Number(v.precio_neto ?? 0), 0);
-  const costoPolvo = aggFiltradas.reduce((s, v) => s + Number(v.costo_polvo ?? 0), 0);
-  const costoVaso = aggFiltradas.reduce((s, v) => s + Number(v.costo_vaso ?? 0), 0);
-  const utilidad = aggFiltradas.reduce((s, v) => s + Number(v.utilidad_bruta ?? 0), 0);
-  const gramos = aggFiltradas.reduce((s, v) => s + (v.gramos_dispensados ?? 0), 0);
-  const margenProm =
-    nVentas > 0
-      ? aggFiltradas.reduce((s, v) => s + Number(v.margen_porcentaje ?? 0), 0) / nVentas
-      : 0;
-  const ticketProm = nVentas > 0 ? ventaBruta / nVentas : 0;
+  const dataPorDia = (agg.por_dia ?? []).map((d) => ({
+    fecha: d.fecha,
+    ingresos: Number(d.ingresos ?? 0),
+  }));
 
-  // Ingresos por día (solo venta bruta)
-  const porDia = new Map<string, { ingresos: number }>();
-  for (const v of aggFiltradas) {
-    const dia = isoFechaCDMX(v.fecha_transaccion);
-    const cur = porDia.get(dia) ?? { ingresos: 0 };
-    cur.ingresos += Number(v.precio_neto ?? 0);
-    porDia.set(dia, cur);
-  }
-  const dataPorDia = Array.from(porDia.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([fecha, vals]) => ({ fecha, ...vals }));
+  const dataPorCliente = (agg.por_cliente ?? []).map((c) => ({
+    cliente: c.cliente,
+    valor: Number(c.valor ?? 0),
+  }));
 
-  // Ventas por cliente
-  const porCliente = new Map<string, number>();
-  for (const v of aggFiltradas) {
-    const cli = Array.isArray(v.cliente) ? v.cliente[0] : v.cliente;
-    const nombre = cli?.nombre ?? "(sin cliente)";
-    porCliente.set(nombre, (porCliente.get(nombre) ?? 0) + Number(v.precio_neto ?? 0));
-  }
-  const dataPorCliente = Array.from(porCliente.entries())
-    .sort((a, b) => b[1] - a[1])
-    .map(([cliente, valor]) => ({ cliente, valor }));
-
-  // Top máquinas por ingreso
   type TopRow = {
     key: string;
     label: string;
@@ -204,73 +204,29 @@ export default async function VentasPage({
     /** id para usar en el link de drill-down (filtro de tabla detalle). */
     filterId: string;
   };
-  const porMaquina = new Map<string, TopRow>();
-  for (const v of aggFiltradas) {
-    const maq = Array.isArray(v.maquina) ? v.maquina[0] : v.maquina;
-    if (!maq) continue;
-    const key = maq.serie ?? v.maquina_id;
-    const cur =
-      porMaquina.get(key) ??
-      {
-        key,
-        label: maq.alias ?? maq.serie,
-        sublabel: `#${maq.serie}`,
-        ingresos: 0,
-        ventas: 0,
-        utilidad: 0,
-        filterId: v.maquina_id,
-      };
-    cur.ingresos += Number(v.precio_neto ?? 0);
-    cur.utilidad += Number(v.utilidad_bruta ?? 0);
-    cur.ventas += 1;
-    porMaquina.set(key, cur);
-  }
-  const maquinasOrdenadas = Array.from(porMaquina.values()).sort(
-    (a, b) => b.ingresos - a.ingresos,
-  );
+  const maquinasOrdenadas: TopRow[] = (agg.por_maquina ?? []).map((m) => ({
+    key: m.serie ?? m.filter_id,
+    label: m.alias ?? m.serie,
+    sublabel: `#${m.serie}`,
+    ingresos: Number(m.ingresos ?? 0),
+    utilidad: Number(m.utilidad ?? 0),
+    ventas: Number(m.ventas ?? 0),
+    filterId: m.filter_id,
+  }));
   const showAllMaquinas = searchParams.top_maquinas === "all";
   const maquinasParaMostrar = showAllMaquinas
     ? maquinasOrdenadas
     : maquinasOrdenadas.slice(0, 10);
 
-  // Top productos por ingreso
-  const porProducto = new Map<string, TopRow>();
-  for (const v of aggFiltradas) {
-    const prod = Array.isArray(v.producto) ? v.producto[0] : v.producto;
-
-    let key: string;
-    let label: string;
-    let sublabel: string;
-    let filterId: string;
-
-    if (prod && v.producto_id) {
-      // Venta de producto directo (polvo_directo)
-      key = prod.sku;
-      label = prod.nombre;
-      sublabel = prod.sku;
-      filterId = v.producto_id;
-    } else {
-      // Venta de receta (máquina preparado) — agrupar por nombre de bebida
-      const notas = (v.notas as string | null) ?? "";
-      const m = notas.match(/^Receta:\s*(.+)$/);
-      if (!m) continue; // sin producto ni receta identificable
-      key = `receta:${m[1]}`;
-      label = m[1];
-      sublabel = "receta";
-      filterId = ""; // no se puede filtrar por producto_id, queda sin link
-    }
-
-    const cur =
-      porProducto.get(key) ??
-      { key, label, sublabel, ingresos: 0, ventas: 0, utilidad: 0, filterId };
-    cur.ingresos += Number(v.precio_neto ?? 0);
-    cur.utilidad += Number(v.utilidad_bruta ?? 0);
-    cur.ventas += 1;
-    porProducto.set(key, cur);
-  }
-  const productosOrdenados = Array.from(porProducto.values()).sort(
-    (a, b) => b.ingresos - a.ingresos,
-  );
+  const productosOrdenados: TopRow[] = (agg.por_producto ?? []).map((p) => ({
+    key: p.es_receta ? `receta:${p.nombre}` : p.sku,
+    label: p.nombre,
+    sublabel: p.es_receta ? "receta" : p.sku,
+    ingresos: Number(p.ingresos ?? 0),
+    utilidad: Number(p.utilidad ?? 0),
+    ventas: Number(p.ventas ?? 0),
+    filterId: p.filter_id ?? "",
+  }));
   const showAllProductos = searchParams.top_productos === "all";
   const productosParaMostrar = showAllProductos
     ? productosOrdenados
@@ -278,9 +234,14 @@ export default async function VentasPage({
 
   const totalPaginas = Math.max(1, Math.ceil((count ?? 0) / PAGE_SIZE));
 
-  // Métodos disponibles (para el filtro)
+  // Métodos disponibles (para el filtro) — distinct ligero, pocos valores.
+  const { data: metodosRaw } = await supabase
+    .from("ventas_maquina")
+    .select("metodo_pago")
+    .not("metodo_pago", "is", null)
+    .limit(1000);
   const metodosDisponibles = Array.from(
-    new Set((allVentas ?? []).map((v) => v.metodo_pago).filter(Boolean) as string[]),
+    new Set((metodosRaw ?? []).map((v) => v.metodo_pago).filter(Boolean) as string[]),
   ).sort();
 
   return (
