@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 
 import { registrarVentaIntercompany, type Result } from "../actions";
@@ -53,6 +53,49 @@ export default function NuevaVentaForm({
     cantidadNum > 0 &&
     Number.isFinite(margenNum) &&
     margenNum >= 0;
+
+  // Preview en vivo del costo PEPS + precio + utilidad. Consulta al servidor
+  // con debounce cada vez que cambia producto/cantidad.
+  const [preview, setPreview] = useState<{
+    costo_total: number;
+    disponible: number;
+    suficiente: boolean;
+  } | null>(null);
+  const [cargandoPreview, setCargandoPreview] = useState(false);
+
+  useEffect(() => {
+    if (!productoId || !Number.isInteger(cantidadNum) || cantidadNum <= 0) {
+      setPreview(null);
+      return;
+    }
+    let cancelado = false;
+    setCargandoPreview(true);
+    const t = setTimeout(async () => {
+      try {
+        const url = `/admin/ventas-intercompany/preview?producto_id=${productoId}&presentacion=${presentacionFinal}&cantidad=${cantidadNum}`;
+        const r = await fetch(url);
+        const data = await r.json();
+        if (!cancelado) setPreview(data);
+      } catch {
+        if (!cancelado) setPreview(null);
+      } finally {
+        if (!cancelado) setCargandoPreview(false);
+      }
+    }, 350);
+    return () => {
+      cancelado = true;
+      clearTimeout(t);
+    };
+  }, [productoId, presentacionFinal, cantidadNum]);
+
+  const costoTotal = preview?.costo_total ?? 0;
+  const precioVenta =
+    Number.isFinite(margenNum) && margenNum >= 0
+      ? Math.round(costoTotal * (1 + margenNum / 100) * 100) / 100
+      : costoTotal;
+  const utilidad = precioVenta - costoTotal;
+  const fmt = (n: number) =>
+    `$${n.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return (
     <form action={action} className="space-y-4 rounded-lg border border-zinc-200 bg-white p-5">
@@ -163,10 +206,51 @@ export default function NuevaVentaForm({
         />
       </div>
 
-      <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-700">
-        El costo y la utilidad real se calculan en el servidor con el lote más
-        viejo disponible (PEPS) al confirmar. Ese valor queda como snapshot en
-        el registro.
+      {/* Panel en vivo del costo PEPS / precio / utilidad */}
+      <div className="rounded-lg border border-zinc-300 bg-zinc-50 p-4">
+        {!productoId || cantidadNum <= 0 ? (
+          <p className="text-xs text-zinc-500">
+            Selecciona producto y cantidad para ver el costo estimado.
+          </p>
+        ) : cargandoPreview ? (
+          <p className="text-xs text-zinc-500">Calculando costo PEPS…</p>
+        ) : preview && !preview.suficiente ? (
+          <p className="text-sm font-medium text-red-700">
+            Stock insuficiente: solo hay {preview.disponible.toLocaleString("es-MX")}{" "}
+            {unidad} disponibles.
+          </p>
+        ) : (
+          <div className="grid grid-cols-3 gap-3 text-center">
+            <div>
+              <div className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+                Costo (PEPS)
+              </div>
+              <div className="mt-1 text-lg font-semibold tabular-nums text-zinc-900">
+                {fmt(costoTotal)}
+              </div>
+            </div>
+            <div>
+              <div className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+                Precio venta (+{margenNum || 0}%)
+              </div>
+              <div className="mt-1 text-lg font-semibold tabular-nums text-zinc-900">
+                {fmt(precioVenta)}
+              </div>
+            </div>
+            <div>
+              <div className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+                Utilidad
+              </div>
+              <div className="mt-1 text-lg font-semibold tabular-nums text-green-700">
+                {fmt(utilidad)}
+              </div>
+            </div>
+          </div>
+        )}
+        <p className="mt-2 text-[11px] text-zinc-500">
+          Estimado con el lote más viejo (PEPS). El valor final se recalcula y
+          queda como snapshot al confirmar.
+        </p>
       </div>
 
       {state && !state.ok && (
