@@ -37,9 +37,15 @@ export default async function InventarioPage({
       "productos_de_cliente",
       { p_cliente_id: clienteId },
     );
-    productosDelCliente = ((prods ?? []) as { productos_de_cliente: string }[])
-      .map((r) => r.productos_de_cliente)
-      .filter(Boolean);
+    // productos_de_cliente es `returns setof uuid`, así que PostgREST puede
+    // devolver un array de strings (escalares) o de objetos. Soportamos ambos.
+    productosDelCliente = ((prods ?? []) as unknown[])
+      .map((r) =>
+        typeof r === "string"
+          ? r
+          : (r as { productos_de_cliente?: string }).productos_de_cliente,
+      )
+      .filter((x): x is string => Boolean(x));
   }
 
   let query = supabase
