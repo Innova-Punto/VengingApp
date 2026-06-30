@@ -48,6 +48,17 @@ export default async function ConteoDetallePage({
     .eq("conteo_id", params.id)
     .order("created_at");
 
+  // Vasos (tabla nueva; sin tipos generados, usamos cliente sin tipar)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: vasosRaw } = await (supabase as any)
+    .from("conteo_vasos_items")
+    .select(
+      `id, producto_id, unidades_sistema, unidades_fisicas, valor_diferencia,
+       producto:productos(sku, nombre)`,
+    )
+    .eq("conteo_id", params.id)
+    .order("created_at");
+
   // Consolidar por producto (en bodega el inventario está junto, no por lote).
   type Grp = {
     producto_id: string;
@@ -100,10 +111,34 @@ export default async function ConteoDetallePage({
     cur.valor += Number(c.valor_diferencia ?? 0);
     cartuchosMap.set(prodId, cur);
   }
+  const vasosMap = new Map<string, Grp>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const v of (vasosRaw ?? []) as any[]) {
+    const prodId = v.producto_id as string | null;
+    if (!prodId) continue;
+    const prod = Array.isArray(v.producto) ? v.producto[0] : v.producto;
+    const cur =
+      vasosMap.get(prodId) ?? {
+        producto_id: prodId,
+        producto_sku: prod?.sku ?? "—",
+        producto_nombre: prod?.nombre ?? "—",
+        sistema: 0,
+        fisico: 0,
+        valor: 0,
+      };
+    cur.sistema += v.unidades_sistema ?? 0;
+    cur.fisico += v.unidades_fisicas ?? 0;
+    cur.valor += Number(v.valor_diferencia ?? 0);
+    vasosMap.set(prodId, cur);
+  }
+
   const granelGrupos = Array.from(granelMap.values()).sort((a, b) =>
     a.producto_nombre.localeCompare(b.producto_nombre),
   );
   const cartuchosGrupos = Array.from(cartuchosMap.values()).sort((a, b) =>
+    a.producto_nombre.localeCompare(b.producto_nombre),
+  );
+  const vasosGrupos = Array.from(vasosMap.values()).sort((a, b) =>
     a.producto_nombre.localeCompare(b.producto_nombre),
   );
 
@@ -161,6 +196,14 @@ export default async function ConteoDetallePage({
           cantidad_sistema: c.sistema,
           cantidad_fisica: c.fisico,
           valor_diferencia: c.valor,
+        }))}
+        vasos={vasosGrupos.map((v) => ({
+          producto_id: v.producto_id,
+          producto_sku: v.producto_sku,
+          producto_nombre: v.producto_nombre,
+          unidades_sistema: v.sistema,
+          unidades_fisicas: v.fisico,
+          valor_diferencia: v.valor,
         }))}
       />
     </div>

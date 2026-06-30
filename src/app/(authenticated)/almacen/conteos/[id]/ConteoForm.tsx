@@ -22,16 +22,27 @@ type GrupoCartucho = {
   valor_diferencia: number;
 };
 
+type GrupoVaso = {
+  producto_id: string;
+  producto_sku: string;
+  producto_nombre: string;
+  unidades_sistema: number;
+  unidades_fisicas: number;
+  valor_diferencia: number;
+};
+
 export default function ConteoForm({
   conteoId,
   editable,
   granel,
   cartuchos,
+  vasos,
 }: {
   conteoId: string;
   editable: boolean;
   granel: GrupoGranel[];
   cartuchos: GrupoCartucho[];
+  vasos: GrupoVaso[];
 }) {
   const [granelLocal, setGranelLocal] = useState(
     granel.map((g) => ({
@@ -43,6 +54,12 @@ export default function ConteoForm({
     cartuchos.map((c) => ({
       ...c,
       input: c.cantidad_fisica > 0 ? String(c.cantidad_fisica) : "",
+    })),
+  );
+  const [vasosLocal, setVasosLocal] = useState(
+    vasos.map((v) => ({
+      ...v,
+      input: v.unidades_fisicas > 0 ? String(v.unidades_fisicas) : "",
     })),
   );
   const [estado, setEstado] = useState<"idle" | "enviando" | "error" | "ok">(
@@ -68,11 +85,18 @@ export default function ConteoForm({
         producto_id: c.producto_id,
         cantidad_fisica: Number(c.input) || 0,
       }));
+    const payloadVasos = vasosLocal
+      .filter((v) => v.input.trim() !== "")
+      .map((v) => ({
+        producto_id: v.producto_id,
+        unidades_fisicas: Number(v.input) || 0,
+      }));
     startTransition(async () => {
       const r = await aplicarConteo({
         conteoId,
         granel: payloadGranel,
         cartuchos: payloadCartuchos,
+        vasos: payloadVasos,
       });
       if (!r.ok) {
         setError(r.message);
@@ -243,6 +267,88 @@ export default function ConteoForm({
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums text-zinc-500">
                         {!editable ? fmtMxn(c.valor_diferencia) : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold tracking-tight">
+          Vasos (por producto)
+        </h2>
+        <p className="text-xs text-zinc-500">
+          Captura el total físico de vasos por producto. El reparto entre lotes
+          se hace por PEPS al aplicar.
+        </p>
+        {vasosLocal.length === 0 ? (
+          <p className="text-sm text-zinc-500">
+            Sin vasos en sistema en este momento.
+          </p>
+        ) : (
+          <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
+            <table className="w-full text-sm">
+              <thead className="border-b border-zinc-200 bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Producto</th>
+                  <th className="px-3 py-2 text-right font-medium">Sistema</th>
+                  <th className="px-3 py-2 text-right font-medium">Físico</th>
+                  <th className="px-3 py-2 text-right font-medium">Dif.</th>
+                  <th className="px-3 py-2 text-right font-medium">Valor</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100">
+                {vasosLocal.map((v, idx) => {
+                  const fisico = Number(v.input) || 0;
+                  const diferencia =
+                    v.input.trim() === "" ? 0 : fisico - v.unidades_sistema;
+                  return (
+                    <tr key={v.producto_id}>
+                      <td className="px-3 py-2">
+                        <div className="font-medium">{v.producto_nombre}</div>
+                        <div className="font-mono text-[10px] text-zinc-500">
+                          {v.producto_sku}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums text-zinc-600">
+                        {v.unidades_sistema.toLocaleString("es-MX")}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <input
+                          type="number"
+                          min={0}
+                          step={1}
+                          value={v.input}
+                          disabled={!editable}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setVasosLocal((prev) => {
+                              const copy = [...prev];
+                              copy[idx] = { ...copy[idx], input: val };
+                              return copy;
+                            });
+                          }}
+                          className="w-28 rounded-md border border-zinc-300 px-2 py-1 text-right text-sm shadow-sm focus:border-zinc-900 focus:outline-none disabled:bg-zinc-50"
+                        />
+                      </td>
+                      <td
+                        className={`px-3 py-2 text-right tabular-nums font-medium ${
+                          diferencia < 0
+                            ? "text-red-700"
+                            : diferencia > 0
+                              ? "text-amber-700"
+                              : "text-zinc-500"
+                        }`}
+                      >
+                        {diferencia > 0 ? "+" : ""}
+                        {diferencia.toLocaleString("es-MX")}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums text-zinc-500">
+                        {!editable ? fmtMxn(v.valor_diferencia) : "—"}
                       </td>
                     </tr>
                   );
