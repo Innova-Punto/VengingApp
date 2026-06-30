@@ -64,6 +64,7 @@ export async function aplicarConteo(input: {
   conteoId: string;
   granel: { producto_id: string; gramos_fisicos: number }[];
   cartuchos: { producto_id: string; cantidad_fisica: number }[];
+  vasos: { producto_id: string; unidades_fisicas: number }[];
 }): Promise<ActionResult> {
   await requireRole("admin", "direccion", "almacen");
 
@@ -88,6 +89,15 @@ export async function aplicarConteo(input: {
     )
     .eq("conteo_id", input.conteoId);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: vasosItems } = await (supabase as any)
+    .from("conteo_vasos_items")
+    .select(
+      `id, producto_id, unidades_sistema,
+       lote:lotes(fecha_recepcion, created_at)`,
+    )
+    .eq("conteo_id", input.conteoId);
+
   // 2) Agrupar por producto y ordenar por antigüedad (viejo → nuevo)
   type Row = { id: string; sistema: number; orden: string; producto: string };
   const granelRows: Row[] = (granelItems ?? []).map((g) => {
@@ -108,6 +118,16 @@ export async function aplicarConteo(input: {
       orden: `${enc?.fecha ?? ""}|${enc?.created_at ?? ""}`,
     };
   });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const vasosRows: Row[] = ((vasosItems ?? []) as any[]).map((v) => {
+    const lote = Array.isArray(v.lote) ? v.lote[0] : v.lote;
+    return {
+      id: v.id as string,
+      sistema: (v.unidades_sistema as number) ?? 0,
+      producto: (v.producto_id as string) ?? "",
+      orden: `${lote?.fecha_recepcion ?? ""}|${lote?.created_at ?? ""}`,
+    };
+  });
 
   const agrupar = (rows: Row[]) => {
     const m = new Map<string, Row[]>();
@@ -124,6 +144,7 @@ export async function aplicarConteo(input: {
   };
   const granelPorProd = agrupar(granelRows);
   const cartuchosPorProd = agrupar(cartuchosRows);
+  const vasosPorProd = agrupar(vasosRows);
 
   // 3) Repartir el físico de cada producto entre sus lotes/encartuchados
   const pGranel: { id: string; gramos_fisicos: number }[] = [];
@@ -142,6 +163,14 @@ export async function aplicarConteo(input: {
       pCartuchos.push({ id: r.id, cantidad_fisica: r.fisico });
     }
   }
+  const pVasos: { id: string; unidades_fisicas: number }[] = [];
+  for (const { producto_id, unidades_fisicas } of input.vasos) {
+    const items = vasosPorProd.get(producto_id);
+    if (!items) continue;
+    for (const r of repartirPeps(items, unidades_fisicas)) {
+      pVasos.push({ id: r.id, unidades_fisicas: r.fisico });
+    }
+  }
 
   // 4) Aplicar con el motor de ajuste por lote existente
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -150,6 +179,7 @@ export async function aplicarConteo(input: {
     p_conteo_id: input.conteoId,
     p_granel: pGranel,
     p_cartuchos: pCartuchos,
+    p_vasos: pVasos,
   });
 
   if (error) return { ok: false, message: error.message };
