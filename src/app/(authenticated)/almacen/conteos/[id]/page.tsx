@@ -27,29 +27,85 @@ export default async function ConteoDetallePage({
     .maybeSingle();
   if (!conteo) notFound();
 
-  const { data: granel } = await supabase
+  const { data: granelRaw } = await supabase
     .from("conteo_granel_items")
     .select(
-      `id, gramos_sistema, gramos_fisicos, diferencia, valor_diferencia,
+      `id, gramos_sistema, gramos_fisicos, valor_diferencia,
        lote:lotes(
-         id, codigo_lote,
+         id, producto_id,
          producto:productos(sku, nombre)
        )`,
     )
     .eq("conteo_id", params.id)
     .order("created_at");
 
-  const { data: cartuchos } = await supabase
+  const { data: cartuchosRaw } = await supabase
     .from("conteo_cartuchos_items")
     .select(
-      `id, cantidad_sistema, cantidad_fisica, diferencia, valor_diferencia,
-       encartuchado:encartuchados!conteo_cartuchos_items_encartuchado_id_fkey(
-         id, folio,
-         producto:productos(sku, nombre)
-       )`,
+      `id, producto_id, cantidad_sistema, cantidad_fisica, valor_diferencia,
+       producto:productos(sku, nombre)`,
     )
     .eq("conteo_id", params.id)
     .order("created_at");
+
+  // Consolidar por producto (en bodega el inventario está junto, no por lote).
+  type Grp = {
+    producto_id: string;
+    producto_sku: string;
+    producto_nombre: string;
+    sistema: number;
+    fisico: number;
+    valor: number;
+  };
+  const granelMap = new Map<string, Grp>();
+  for (const g of granelRaw ?? []) {
+    const lote = Array.isArray(g.lote) ? g.lote[0] : g.lote;
+    const prodId = lote?.producto_id;
+    if (!prodId) continue;
+    const prod = lote?.producto
+      ? Array.isArray(lote.producto)
+        ? lote.producto[0]
+        : lote.producto
+      : null;
+    const cur =
+      granelMap.get(prodId) ?? {
+        producto_id: prodId,
+        producto_sku: prod?.sku ?? "—",
+        producto_nombre: prod?.nombre ?? "—",
+        sistema: 0,
+        fisico: 0,
+        valor: 0,
+      };
+    cur.sistema += g.gramos_sistema ?? 0;
+    cur.fisico += g.gramos_fisicos ?? 0;
+    cur.valor += Number(g.valor_diferencia ?? 0);
+    granelMap.set(prodId, cur);
+  }
+  const cartuchosMap = new Map<string, Grp>();
+  for (const c of cartuchosRaw ?? []) {
+    const prodId = c.producto_id;
+    if (!prodId) continue;
+    const prod = Array.isArray(c.producto) ? c.producto[0] : c.producto;
+    const cur =
+      cartuchosMap.get(prodId) ?? {
+        producto_id: prodId,
+        producto_sku: prod?.sku ?? "—",
+        producto_nombre: prod?.nombre ?? "—",
+        sistema: 0,
+        fisico: 0,
+        valor: 0,
+      };
+    cur.sistema += c.cantidad_sistema ?? 0;
+    cur.fisico += c.cantidad_fisica ?? 0;
+    cur.valor += Number(c.valor_diferencia ?? 0);
+    cartuchosMap.set(prodId, cur);
+  }
+  const granelGrupos = Array.from(granelMap.values()).sort((a, b) =>
+    a.producto_nombre.localeCompare(b.producto_nombre),
+  );
+  const cartuchosGrupos = Array.from(cartuchosMap.values()).sort((a, b) =>
+    a.producto_nombre.localeCompare(b.producto_nombre),
+  );
 
   const editable = conteo.estado === "en_proceso";
 
@@ -90,44 +146,22 @@ export default async function ConteoDetallePage({
       <ConteoForm
         conteoId={conteo.id}
         editable={editable}
-        granel={(granel ?? []).map((g) => {
-          const lote = Array.isArray(g.lote) ? g.lote[0] : g.lote;
-          const prod = lote?.producto
-            ? Array.isArray(lote.producto)
-              ? lote.producto[0]
-              : lote.producto
-            : null;
-          return {
-            id: g.id,
-            lote: lote?.codigo_lote ?? "—",
-            producto_sku: prod?.sku ?? "—",
-            producto_nombre: prod?.nombre ?? "—",
-            gramos_sistema: g.gramos_sistema,
-            gramos_fisicos: g.gramos_fisicos ?? 0,
-            diferencia: g.diferencia ?? 0,
-            valor_diferencia: Number(g.valor_diferencia ?? 0),
-          };
-        })}
-        cartuchos={(cartuchos ?? []).map((c) => {
-          const enc = Array.isArray(c.encartuchado)
-            ? c.encartuchado[0]
-            : c.encartuchado;
-          const prod = enc?.producto
-            ? Array.isArray(enc.producto)
-              ? enc.producto[0]
-              : enc.producto
-            : null;
-          return {
-            id: c.id,
-            encartuchado_folio: enc?.folio ?? "—",
-            producto_sku: prod?.sku ?? "—",
-            producto_nombre: prod?.nombre ?? "—",
-            cantidad_sistema: c.cantidad_sistema,
-            cantidad_fisica: c.cantidad_fisica ?? 0,
-            diferencia: c.diferencia ?? 0,
-            valor_diferencia: Number(c.valor_diferencia ?? 0),
-          };
-        })}
+        granel={granelGrupos.map((g) => ({
+          producto_id: g.producto_id,
+          producto_sku: g.producto_sku,
+          producto_nombre: g.producto_nombre,
+          gramos_sistema: g.sistema,
+          gramos_fisicos: g.fisico,
+          valor_diferencia: g.valor,
+        }))}
+        cartuchos={cartuchosGrupos.map((c) => ({
+          producto_id: c.producto_id,
+          producto_sku: c.producto_sku,
+          producto_nombre: c.producto_nombre,
+          cantidad_sistema: c.sistema,
+          cantidad_fisica: c.fisico,
+          valor_diferencia: c.valor,
+        }))}
       />
     </div>
   );
