@@ -230,7 +230,7 @@ export default async function SupervisionDashboardPage({
     )
     .gte("fecha", inicio30d)
     .order("fecha", { ascending: false })
-    .range(0, 9999);
+    .range(0, 200000);
 
   const errores = errores30d ?? [];
   const erroresAbiertos = errores.filter((e) => e.estado === "abierto").length;
@@ -324,7 +324,7 @@ export default async function SupervisionDashboardPage({
     )
     .gte("fecha_apertura", inicio30d)
     .order("fecha_apertura", { ascending: false })
-    .range(0, 999);
+    .range(0, 200000);
 
   const incidencias = incidenciasRaw ?? [];
   const incAbiertas = incidencias.filter((i) => i.estado === "abierta").length;

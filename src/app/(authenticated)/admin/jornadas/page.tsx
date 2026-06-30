@@ -47,7 +47,7 @@ export default async function JornadasPage({
        operador:profiles!jornadas_operador_id_fkey(full_name)`,
     )
     .order("hora_inicio", { ascending: false })
-    .limit(100);
+    .limit(5000);
 
   if (searchParams.operador) {
     query = query.eq("operador_id", searchParams.operador);
