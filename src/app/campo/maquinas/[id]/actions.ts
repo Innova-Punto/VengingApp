@@ -258,7 +258,20 @@ export async function registrarPesaje(input: {
     p_vasos_medidos: input.vasosMedidos,
   });
 
-  if (error) return { ok: false, message: error.message };
+  if (error) {
+    // 23505 = unique_violation en (cierre_id, maquina_id): ya fue pesada.
+    if (
+      (error as { code?: string }).code === "23505" ||
+      /duplicate key|pesajes_maquina_cierre_id_maquina_id/i.test(error.message)
+    ) {
+      return {
+        ok: false,
+        message:
+          "Esta máquina ya fue pesada en este cierre. No es necesario volver a pesarla; puedes continuar con el llenado o cerrar la visita.",
+      };
+    }
+    return { ok: false, message: error.message };
+  }
 
   revalidatePath(`/campo/maquinas/${input.maquinaId}`);
   revalidatePath(`/campo/jornada/${input.asignacionId}`);

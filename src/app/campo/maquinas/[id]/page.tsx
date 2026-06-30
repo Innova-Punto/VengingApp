@@ -166,6 +166,18 @@ export default async function MaquinaCampoPage({
         .maybeSingle()
     : { data: null };
 
+  // ¿Esta máquina YA fue pesada en el cierre activo? (aunque haya sido en otra
+  // visita/check-in). El constraint único es (cierre_id, maquina_id), así que
+  // si ya existe, no debemos volver a pedir el pesaje.
+  const { data: pesajeEnCierre } = cierreActivo
+    ? await supabase
+        .from("pesajes_maquina")
+        .select("id")
+        .eq("maquina_id", params.id)
+        .eq("cierre_id", cierreActivo.id)
+        .maybeSingle()
+    : { data: null };
+
   // ¿Esta máquina ha sido pesada alguna vez? Si no, primera visita →
   // pesaje obligatorio para capturar inventario inicial.
   const { count: pesajesHistoricos } = await supabase
@@ -306,6 +318,7 @@ export default async function MaquinaCampoPage({
             const requierePesaje =
               (esPrimerPesaje || !!cierreActivo || maquinaRequierePesaje) &&
               !pesajeExistente &&
+              !pesajeEnCierre &&
               tolvasConProducto > 0;
 
             if (requierePesaje) {
@@ -370,11 +383,12 @@ export default async function MaquinaCampoPage({
 
             return (
               <>
-                {cierreActivo && pesajeExistente && (
+                {cierreActivo && (pesajeExistente || pesajeEnCierre) && (
                   <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
-                    ✓ Pesaje registrado para el cierre{" "}
+                    ✓ Esta máquina ya fue pesada en el cierre{" "}
                     {String(cierreActivo.periodo_mes).padStart(2, "0")}/
-                    {cierreActivo.periodo_anio}.
+                    {cierreActivo.periodo_anio}. No es necesario volver a
+                    pesarla.
                   </div>
                 )}
 
