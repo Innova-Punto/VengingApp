@@ -85,6 +85,28 @@ export default async function CierreDetallePage({
     .eq("cierre_id", cierre.id)
     .order("fecha", { ascending: false });
 
+  // Avance de pesaje: máquinas activas vs máquinas ya pesadas en este cierre
+  // (mismo criterio que usa cerrar_cierre_mensual para validar el 100%).
+  const [{ data: maquinasActivas }, { data: pesadasRows }] = await Promise.all([
+    supabase
+      .from("maquinas")
+      .select("id, serie, alias")
+      .eq("activo", true)
+      .neq("estado", "baja")
+      .order("serie"),
+    supabase
+      .from("pesajes_maquina")
+      .select("maquina_id")
+      .eq("cierre_id", cierre.id),
+  ]);
+  const pesadasSet = new Set((pesadasRows ?? []).map((r) => r.maquina_id));
+  const maqActivas = maquinasActivas ?? [];
+  const totalMaquinas = maqActivas.length;
+  const maquinasPesadasCount = maqActivas.filter((m) =>
+    pesadasSet.has(m.id),
+  ).length;
+  const maquinasPendientes = maqActivas.filter((m) => !pesadasSet.has(m.id));
+
   // Reporte financiero
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: reporteRaw } = await (supabase as any)
@@ -191,7 +213,17 @@ export default async function CierreDetallePage({
         </p>
       </div>
 
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-5">
+        <Stat
+          label="Máquinas pesadas"
+          value={`${maquinasPesadasCount}/${totalMaquinas}`}
+          hint={
+            maquinasPendientes.length > 0
+              ? `faltan ${maquinasPendientes.length}`
+              : "todas ✓"
+          }
+          tone={maquinasPendientes.length > 0 ? "amber" : "zinc"}
+        />
         <Stat
           label="Tolvas pesadas"
           value={String(totalItems)}
@@ -213,6 +245,27 @@ export default async function CierreDetallePage({
           tone={totalAlertas > 0 ? "red" : "zinc"}
         />
       </section>
+
+      {cierre.estado !== "cerrado" && maquinasPendientes.length > 0 && (
+        <section className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+          <p className="text-sm font-medium text-amber-900">
+            Faltan {maquinasPendientes.length} máquina
+            {maquinasPendientes.length === 1 ? "" : "s"} por pesar (
+            {maquinasPesadasCount}/{totalMaquinas})
+          </p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {maquinasPendientes.map((m) => (
+              <span
+                key={m.id}
+                className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-xs text-amber-800 ring-1 ring-amber-200"
+              >
+                <span className="font-mono font-medium">{m.serie}</span>
+                {m.alias ? <span className="text-amber-600">· {m.alias}</span> : null}
+              </span>
+            ))}
+          </div>
+        </section>
+      )}
 
       {reporte && (
         <section className="space-y-3">
@@ -481,9 +534,18 @@ export default async function CierreDetallePage({
               {cierre.conteo_almacen_completado ? "✓" : "○"} Conteo de
               almacén aplicado
             </li>
-            <li className="text-zinc-600">
-              {(pesajes ?? []).length > 0 ? "✓" : "○"} {(pesajes ?? []).length}{" "}
-              pesaje(s) de máquina registrados
+            <li
+              className={
+                maquinasPendientes.length === 0
+                  ? "text-green-700"
+                  : "text-amber-700"
+              }
+            >
+              {maquinasPendientes.length === 0 ? "✓" : "○"} Máquinas pesadas:{" "}
+              {maquinasPesadasCount}/{totalMaquinas}
+              {maquinasPendientes.length > 0
+                ? ` — faltan ${maquinasPendientes.length}`
+                : ""}
             </li>
           </ul>
           <form action={cerrarCierre} className="flex flex-wrap items-center gap-3">
