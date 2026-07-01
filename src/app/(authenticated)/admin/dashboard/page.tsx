@@ -74,12 +74,12 @@ export default async function DashboardPage({
          maquina:maquinas(serie, alias)`,
       )
       .gte("fecha_transaccion", desde)
-      .range(0, 99999),
+      .range(0, 200000),
     supabase
       .from("ventas_maquina")
       .select("precio_neto, utilidad_bruta")
       .gte("fecha_transaccion", hoyInicioIso)
-      .range(0, 99999),
+      .range(0, 200000),
     supabase
       .from("cierres_mensuales")
       .select("id, estado, conteo_almacen_completado, periodo_mes, periodo_anio")

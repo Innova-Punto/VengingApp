@@ -372,7 +372,7 @@ export async function construirSnapshotCierre(
     )
     .gte("fecha", desde)
     .lt("fecha", hasta)
-    .range(0, 50000);
+    .range(0, 200000);
   const vicArr: VICRow[] = (vic ?? []) as unknown as VICRow[];
   const vicEmpresaIds = Array.from(
     new Set(vicArr.map((v) => v.empresa_destino_id)),
@@ -416,7 +416,7 @@ export async function construirSnapshotCierre(
     .select("proveedor_id, valor_total, fecha_recepcion")
     .gte("fecha_recepcion", desde)
     .lt("fecha_recepcion", hasta)
-    .range(0, 5000);
+    .range(0, 200000);
   const recArr: RecRow[] = (recepciones ?? []) as unknown as RecRow[];
   const recProvIds = Array.from(new Set(recArr.map((r) => r.proveedor_id)));
   const { data: provs } =
@@ -463,7 +463,7 @@ export async function construirSnapshotCierre(
     ])
     .gte("fecha", desde)
     .lt("fecha", hasta)
-    .range(0, 50000);
+    .range(0, 200000);
   const movArr: MovRow[] = ((movs ?? []) as unknown as MovRow[]).filter(
     (m) =>
       !productosClienteSet ||
