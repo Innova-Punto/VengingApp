@@ -11,11 +11,6 @@ function startOfMonthCDMX(mes: number, anio: number): string {
   // ISO con offset CDMX (UTC-6, sin DST). 00:00 CDMX = 06:00 UTC.
   return `${anio}-${String(mes).padStart(2, "0")}-01T06:00:00.000Z`;
 }
-function startOfNextMonthCDMX(mes: number, anio: number): string {
-  const nextMes = mes === 12 ? 1 : mes + 1;
-  const nextAnio = mes === 12 ? anio + 1 : anio;
-  return startOfMonthCDMX(nextMes, nextAnio);
-}
 
 export type SnapshotCierre = {
   periodo: {
@@ -127,16 +122,23 @@ export async function construirSnapshotCierre(
   cierreId: string,
   clienteId?: string | null,
 ): Promise<SnapshotCierre> {
-  // 1) Cierre y periodo
+  // 1) Cierre y periodo. La ventana del cierre es [fecha_inicio_cierre,
+  //    fecha_cierre] (o hasta ahora si sigue abierto): los flujos se cuentan
+  //    dentro de esa ventana, no por mes calendario. Así respeta el encadenado
+  //    y en junio cuenta ventas solo a partir del primer pesaje.
   const { data: cierre, error: errCierre } = await supabase
     .from("cierres_mensuales")
-    .select("id, periodo_mes, periodo_anio")
+    .select("id, periodo_mes, periodo_anio, fecha_inicio_cierre, fecha_cierre")
     .eq("id", cierreId)
     .maybeSingle();
   if (errCierre || !cierre) throw new Error("Cierre no encontrado");
 
-  const desde = startOfMonthCDMX(cierre.periodo_mes, cierre.periodo_anio);
-  const hasta = startOfNextMonthCDMX(cierre.periodo_mes, cierre.periodo_anio);
+  const desde =
+    cierre.fecha_inicio_cierre ??
+    startOfMonthCDMX(cierre.periodo_mes, cierre.periodo_anio);
+  const hasta =
+    cierre.fecha_cierre ??
+    new Date().toISOString();
 
   // Si se filtra por cliente: lista de productos atribuibles a ese cliente
   // (exclusivos + usados en sus máquinas), vía la misma lógica del panel de
