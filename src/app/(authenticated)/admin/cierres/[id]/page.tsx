@@ -144,11 +144,22 @@ export default async function CierreDetallePage({
       }
     | null;
 
-  // Stats agregados
+  // Stats agregados + resumen consolidado de pesaje por producto
   let totalDiferenciaG = 0;
   let totalValorDiferencia = 0;
   let totalAlertas = 0;
   let totalItems = 0;
+  const pesajePorProducto = new Map<
+    string,
+    {
+      sku: string;
+      nombre: string;
+      teorico: number;
+      medido: number;
+      dif: number;
+      valor: number;
+    }
+  >();
   for (const p of pesajes ?? []) {
     const items = Array.isArray(p.items) ? p.items : [];
     for (const it of items) {
@@ -156,8 +167,34 @@ export default async function CierreDetallePage({
       totalValorDiferencia += Number(it.valor_diferencia ?? 0);
       if (it.alerta_generada) totalAlertas += 1;
       totalItems += 1;
+
+      const t = Array.isArray(it.tolva) ? it.tolva[0] : it.tolva;
+      const prod = t?.producto
+        ? Array.isArray(t.producto)
+          ? t.producto[0]
+          : t.producto
+        : null;
+      const key = prod?.sku ?? prod?.nombre ?? "—";
+      const cur =
+        pesajePorProducto.get(key) ?? {
+          sku: prod?.sku ?? "—",
+          nombre: prod?.nombre ?? "—",
+          teorico: 0,
+          medido: 0,
+          dif: 0,
+          valor: 0,
+        };
+      cur.teorico += it.gramos_teoricos ?? 0;
+      cur.medido += it.gramos_medidos ?? 0;
+      cur.dif += it.diferencia_gramos ?? 0;
+      cur.valor += Number(it.valor_diferencia ?? 0);
+      pesajePorProducto.set(key, cur);
     }
   }
+  // Ordenado por mayor faltante en valor (más negativo primero)
+  const resumenPesaje = Array.from(pesajePorProducto.values()).sort(
+    (a, b) => a.valor - b.valor,
+  );
 
   return (
     <div className="space-y-6">
@@ -355,6 +392,95 @@ export default async function CierreDetallePage({
           snap={snap}
         />
       ))}
+
+      {resumenPesaje.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold tracking-tight">
+            Variación de pesaje por producto (consolidado)
+          </h2>
+          <p className="text-sm text-zinc-500">
+            Teórico (lo que el sistema esperaba en las tolvas) vs. medido (peso
+            físico), sumando todas las máquinas pesadas del cierre.
+          </p>
+          <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
+            <table className="w-full text-sm">
+              <thead className="border-b border-zinc-200 bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Producto</th>
+                  <th className="px-3 py-2 text-right font-medium">Teórico</th>
+                  <th className="px-3 py-2 text-right font-medium">Medido</th>
+                  <th className="px-3 py-2 text-right font-medium">Diferencia</th>
+                  <th className="px-3 py-2 text-right font-medium">Variación</th>
+                  <th className="px-3 py-2 text-right font-medium">Valor</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100">
+                {resumenPesaje.map((r) => {
+                  const pct =
+                    r.teorico > 0 ? (r.dif / r.teorico) * 100 : 0;
+                  const tone =
+                    r.dif < 0
+                      ? "text-red-700"
+                      : r.dif > 0
+                        ? "text-amber-700"
+                        : "text-zinc-500";
+                  return (
+                    <tr key={r.sku}>
+                      <td className="px-3 py-2">
+                        <div className="font-medium">{r.nombre}</div>
+                        <div className="font-mono text-[10px] text-zinc-500">
+                          {r.sku}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums text-zinc-600">
+                        {fmtG(r.teorico)}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums text-zinc-600">
+                        {fmtG(r.medido)}
+                      </td>
+                      <td className={`px-3 py-2 text-right tabular-nums font-medium ${tone}`}>
+                        {r.dif > 0 ? "+" : ""}
+                        {fmtG(r.dif)}
+                      </td>
+                      <td className={`px-3 py-2 text-right tabular-nums font-medium ${tone}`}>
+                        {pct > 0 ? "+" : ""}
+                        {pct.toFixed(1)}%
+                      </td>
+                      <td className={`px-3 py-2 text-right tabular-nums font-medium ${tone}`}>
+                        {fmtMxn(r.valor)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot className="border-t border-zinc-200 bg-zinc-50">
+                <tr>
+                  <td className="px-3 py-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
+                    Total
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums text-zinc-600">
+                    {fmtG(resumenPesaje.reduce((s, r) => s + r.teorico, 0))}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums text-zinc-600">
+                    {fmtG(resumenPesaje.reduce((s, r) => s + r.medido, 0))}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums font-medium">
+                    {fmtG(totalDiferenciaG)}
+                  </td>
+                  <td className="px-3 py-2" />
+                  <td
+                    className={`px-3 py-2 text-right tabular-nums font-semibold ${
+                      totalValorDiferencia < 0 ? "text-red-700" : "text-zinc-900"
+                    }`}
+                  >
+                    {fmtMxn(totalValorDiferencia)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </section>
+      )}
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">
