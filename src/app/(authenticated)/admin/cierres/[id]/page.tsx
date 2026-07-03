@@ -70,6 +70,72 @@ export default async function CierreDetallePage({
     })),
   );
 
+  // Inventario inicial/final + consumo por cliente, desde el snapshot por
+  // producto (cada producto pertenece a un cliente vía cliente_exclusivo_id).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: snapProdRows } = await (supabase as any)
+    .from("cierre_snapshot_producto")
+    .select(
+      `momento, aproximado,
+       alm_granel_valor, alm_cartuchos_valor, alm_vasos_valor,
+       maq_polvo_valor, maq_vasos_valor,
+       producto:productos(cliente_exclusivo_id)`,
+    )
+    .eq("cierre_id", params.id);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: enviadoRows } = await (supabase as any)
+    .from("movimientos_inventario")
+    .select("valor_movimiento, producto:productos(cliente_exclusivo_id)")
+    .eq("tipo", "llenado_entrada_tolva")
+    .gte("fecha", cierre.fecha_inicio_cierre ?? "1900-01-01")
+    .lt("fecha", cierre.fecha_cierre ?? new Date().toISOString())
+    .range(0, 200000);
+
+  type ResumenCli = {
+    inicio: number;
+    fin: number;
+    maqIni: number;
+    maqFin: number;
+    enviado: number;
+    aprox: boolean;
+  };
+  const resumenPorCliente = new Map<string, ResumenCli>();
+  const getRes = (cid: string): ResumenCli => {
+    let r = resumenPorCliente.get(cid);
+    if (!r) {
+      r = { inicio: 0, fin: 0, maqIni: 0, maqFin: 0, enviado: 0, aprox: false };
+      resumenPorCliente.set(cid, r);
+    }
+    return r;
+  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const row of (snapProdRows ?? []) as any[]) {
+    const prod = Array.isArray(row.producto) ? row.producto[0] : row.producto;
+    const cid = prod?.cliente_exclusivo_id;
+    if (!cid) continue;
+    const alm =
+      Number(row.alm_granel_valor ?? 0) +
+      Number(row.alm_cartuchos_valor ?? 0) +
+      Number(row.alm_vasos_valor ?? 0);
+    const maq = Number(row.maq_polvo_valor ?? 0) + Number(row.maq_vasos_valor ?? 0);
+    const r = getRes(cid);
+    if (row.momento === "inicio") {
+      r.inicio += alm + maq;
+      r.maqIni += maq;
+      if (row.aproximado) r.aprox = true;
+    } else {
+      r.fin += alm + maq;
+      r.maqFin += maq;
+    }
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const row of (enviadoRows ?? []) as any[]) {
+    const prod = Array.isArray(row.producto) ? row.producto[0] : row.producto;
+    const cid = prod?.cliente_exclusivo_id;
+    if (!cid) continue;
+    getRes(cid).enviado += Math.abs(Number(row.valor_movimiento ?? 0));
+  }
+
   const { data: pesajes } = await supabase
     .from("pesajes_maquina")
     .select(
@@ -385,13 +451,26 @@ export default async function CierreDetallePage({
         </section>
       )}
 
-      {snapsCliente.map(({ cliente, snap }) => (
-        <BloqueClienteFinanciero
-          key={cliente.id}
-          nombre={cliente.nombre}
-          snap={snap}
-        />
-      ))}
+      {snapsCliente.map(({ cliente, snap }) => {
+        const r = resumenPorCliente.get(cliente.id);
+        return (
+          <BloqueClienteFinanciero
+            key={cliente.id}
+            nombre={cliente.nombre}
+            snap={snap}
+            inventario={
+              r
+                ? {
+                    inicio: r.inicio,
+                    fin: r.fin,
+                    consumo: r.maqIni + r.enviado - r.maqFin,
+                    aprox: r.aprox,
+                  }
+                : null
+            }
+          />
+        );
+      })}
 
       {resumenPesaje.length > 0 && (
         <section className="space-y-3">
@@ -726,9 +805,16 @@ const TIPO_MOV_LABEL: Record<string, string> = {
 function BloqueClienteFinanciero({
   nombre,
   snap,
+  inventario,
 }: {
   nombre: string;
   snap: SnapshotCierre;
+  inventario: {
+    inicio: number;
+    fin: number;
+    consumo: number;
+    aprox: boolean;
+  } | null;
 }) {
   const inv = snap.inventario_fin;
   const vn = snap.ventas_nayax;
@@ -738,6 +824,41 @@ function BloqueClienteFinanciero({
       <h2 className="text-lg font-semibold tracking-tight">
         Reporte financiero · {nombre}
       </h2>
+
+      {inventario && (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="rounded-lg border border-zinc-200 bg-white p-4">
+            <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+              Inventario inicial
+              {inventario.aprox && (
+                <span className="ml-1 text-[10px] text-amber-600">(aprox)</span>
+              )}
+            </div>
+            <div className="mt-1 text-2xl font-semibold tabular-nums text-zinc-900">
+              {fmtMxn(inventario.inicio)}
+            </div>
+          </div>
+          <div className="rounded-lg border border-zinc-200 bg-white p-4">
+            <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+              Inventario final
+            </div>
+            <div className="mt-1 text-2xl font-semibold tabular-nums text-zinc-900">
+              {fmtMxn(inventario.fin)}
+            </div>
+          </div>
+          <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+            <div className="text-xs font-medium uppercase tracking-wide text-green-900">
+              Consumo real (COGS máquinas)
+            </div>
+            <div className="mt-1 text-2xl font-semibold tabular-nums text-green-900">
+              {fmtMxn(inventario.consumo)}
+            </div>
+            <div className="mt-1 text-[11px] text-green-800">
+              inicial máq + enviado − final máq
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {/* Inventario al corte (actual) atribuido al cliente */}
