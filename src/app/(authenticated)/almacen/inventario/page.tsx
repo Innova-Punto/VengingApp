@@ -90,6 +90,22 @@ export default async function InventarioPage({
     maquinas_total?: number;
     capital_total?: number;
   };
+  // Costo (valor en almacén) por producto, desde el snapshot por producto.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: costoRows } = await (supabase as any).rpc(
+    "snapshot_inventario_por_producto",
+  );
+  const costoPorProducto = new Map<string, number>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const c of (costoRows ?? []) as any[]) {
+    costoPorProducto.set(
+      c.producto_id,
+      Number(c.alm_granel_valor ?? 0) +
+        Number(c.alm_cartuchos_valor ?? 0) +
+        Number(c.alm_vasos_valor ?? 0),
+    );
+  }
+
   let filas = filasRaw ?? [];
 
   if (estado === "criticos") {
@@ -261,6 +277,7 @@ export default async function InventarioPage({
               <th className="px-3 py-2 text-right font-medium">
                 Stock total
               </th>
+              <th className="px-3 py-2 text-right font-medium">Costo</th>
               <th className="px-3 py-2 text-right font-medium">Mín</th>
               <th className="px-3 py-2 text-right font-medium">Reorden</th>
               <th className="px-3 py-2 text-right font-medium">Máx</th>
@@ -320,6 +337,9 @@ export default async function InventarioPage({
                   <td className="px-3 py-2 text-right tabular-nums font-medium">
                     {Number(stock).toLocaleString()} {unidad}
                   </td>
+                  <td className="px-3 py-2 text-right tabular-nums text-zinc-700">
+                    {fmtMXN(costoPorProducto.get(r.id ?? "") ?? 0)}
+                  </td>
                   <td className="px-3 py-2 text-right tabular-nums text-xs text-zinc-500">
                     {Number(r.stock_minimo).toLocaleString()}
                   </td>
@@ -344,7 +364,7 @@ export default async function InventarioPage({
             {filas.length === 0 && (
               <tr>
                 <td
-                  colSpan={10}
+                  colSpan={11}
                   className="px-4 py-8 text-center text-zinc-500"
                 >
                   No hay productos que cumplan los filtros.
