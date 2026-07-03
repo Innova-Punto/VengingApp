@@ -140,6 +140,8 @@ export default async function VentasPage({
   type AggKpis = {
     n_ventas: number;
     venta_publico: number;
+    iva: number;
+    ingreso_sin_iva: number;
     comision_nayax: number;
     venta_bruta: number;
     costo_polvo: number;
@@ -175,6 +177,8 @@ export default async function VentasPage({
 
   const nVentas = Number(k.n_ventas ?? 0);
   const ventaPublico = Number(k.venta_publico ?? 0);
+  const iva = Number(k.iva ?? 0);
+  const ingresoSinIva = Number(k.ingreso_sin_iva ?? 0);
   const comisionNayax = Number(k.comision_nayax ?? 0);
   const ventaBruta = Number(k.venta_bruta ?? 0);
   const costoPolvo = Number(k.costo_polvo ?? 0);
@@ -279,14 +283,16 @@ export default async function VentasPage({
         <h2 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
           Desglose Nayax
         </h2>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <Kpi label="Venta al público" value={fmtMxn(ventaPublico)} />
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3 lg:grid-cols-5">
+          <Kpi label="Venta al público (con IVA)" value={fmtMxn(ventaPublico)} />
+          <Kpi label="IVA (16%) — al SAT" value={fmtMxn(iva)} tone="red" />
+          <Kpi label="Ingreso neto (sin IVA)" value={fmtMxn(ingresoSinIva)} tone="green" />
           <Kpi
-            label="Comisión Nayax (3.4% + IVA)"
+            label="Comisión Nayax"
             value={fmtMxn(comisionNayax)}
             tone="red"
           />
-          <Kpi label="Venta bruta (neto en banco)" value={fmtMxn(ventaBruta)} tone="green" />
+          <Kpi label="Ingreso después de comisión" value={fmtMxn(ventaBruta)} tone="green" />
         </div>
       </section>
 

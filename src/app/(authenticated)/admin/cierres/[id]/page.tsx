@@ -236,6 +236,29 @@ export default async function CierreDetallePage({
       }
     | null;
 
+  // Estado de resultados del periodo (ventas del cierre, agregadas en SQL)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: erData } = await (supabase as any).rpc("agregar_ventas", {
+    p_desde: cierre.fecha_inicio_cierre ?? "1900-01-01",
+    p_hasta: cierre.fecha_cierre ?? new Date().toISOString(),
+    p_cliente_id: null,
+    p_maquina_id: null,
+    p_producto_id: null,
+    p_metodo: null,
+    p_solo_negativas: false,
+  });
+  const erk = (erData?.kpis ?? {}) as {
+    venta_publico?: number;
+    iva?: number;
+    ingreso_sin_iva?: number;
+    comision_nayax?: number;
+    costo_polvo?: number;
+    costo_vaso?: number;
+    utilidad?: number;
+    margen_prom?: number;
+    n_ventas?: number;
+  };
+
   // Stats agregados + resumen consolidado de pesaje por producto
   let totalDiferenciaG = 0;
   let totalValorDiferencia = 0;
@@ -393,6 +416,40 @@ export default async function CierreDetallePage({
               </span>
             ))}
           </div>
+        </section>
+      )}
+
+      {(erk.venta_publico ?? 0) > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold tracking-tight">
+            Estado de resultados del periodo
+          </h2>
+          <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
+            <table className="w-full text-sm">
+              <tbody className="divide-y divide-zinc-100">
+                <ErLine label="Venta al público (con IVA)" valor={erk.venta_publico ?? 0} />
+                <ErLine label="(−) IVA trasladado (16%) → SAT" valor={-(erk.iva ?? 0)} tono="red" />
+                <ErLine label="(=) Ingreso neto (sin IVA)" valor={erk.ingreso_sin_iva ?? 0} bold />
+                <ErLine label="(−) Comisión Nayax" valor={-(erk.comision_nayax ?? 0)} tono="red" />
+                <ErLine
+                  label="(−) Costo de ventas (COGS)"
+                  valor={-((erk.costo_polvo ?? 0) + (erk.costo_vaso ?? 0))}
+                  tono="red"
+                />
+                <ErLine label="(=) Utilidad del periodo" valor={erk.utilidad ?? 0} bold tono="green" />
+              </tbody>
+            </table>
+          </div>
+          <p className="text-xs text-zinc-500">
+            Margen: <strong>{(erk.margen_prom ?? 0).toFixed(1)}%</strong> ·{" "}
+            {(erk.n_ventas ?? 0).toLocaleString("es-MX")} tickets · ventana{" "}
+            {fmtCDMX(cierre.fecha_inicio_cierre ?? "", { day: "2-digit", month: "short" })}
+            {" → "}
+            {cierre.fecha_cierre
+              ? fmtCDMX(cierre.fecha_cierre, { day: "2-digit", month: "short" })
+              : "hoy"}
+            . El IVA no es ingreso (se traslada al SAT); costos y utilidad son sin IVA.
+          </p>
         </section>
       )}
 
@@ -1094,6 +1151,39 @@ function BloqueClienteFinanciero({
         global.
       </p>
     </section>
+  );
+}
+
+function ErLine({
+  label,
+  valor,
+  bold,
+  tono,
+}: {
+  label: string;
+  valor: number;
+  bold?: boolean;
+  tono?: "red" | "green";
+}) {
+  const cls =
+    tono === "red"
+      ? "text-red-700"
+      : tono === "green"
+        ? "text-green-700"
+        : "text-zinc-900";
+  return (
+    <tr className={bold ? "bg-zinc-50" : undefined}>
+      <td
+        className={`px-3 py-2 ${bold ? "font-semibold text-zinc-900" : "text-zinc-700"}`}
+      >
+        {label}
+      </td>
+      <td
+        className={`px-3 py-2 text-right tabular-nums ${bold ? "font-semibold" : "font-medium"} ${cls}`}
+      >
+        {fmtMxn(valor)}
+      </td>
+    </tr>
   );
 }
 
