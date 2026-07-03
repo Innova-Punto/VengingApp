@@ -284,15 +284,11 @@ export default async function VentasPage({
           Desglose Nayax
         </h2>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3 lg:grid-cols-5">
-          <Kpi label="Venta al público (con IVA)" value={fmtMxn(ventaPublico)} />
+          <Kpi label="Venta al público (bruta, con IVA)" value={fmtMxn(ventaPublico)} />
           <Kpi label="IVA (16%) — al SAT" value={fmtMxn(iva)} tone="red" />
-          <Kpi label="Ingreso neto (sin IVA)" value={fmtMxn(ingresoSinIva)} tone="green" />
-          <Kpi
-            label="Comisión Nayax"
-            value={fmtMxn(comisionNayax)}
-            tone="red"
-          />
-          <Kpi label="Ingreso después de comisión" value={fmtMxn(ventaBruta)} tone="green" />
+          <Kpi label="Venta sin IVA" value={fmtMxn(ingresoSinIva)} tone="green" />
+          <Kpi label="Comisión Nayax" value={fmtMxn(comisionNayax)} tone="red" />
+          <Kpi label="Venta sin IVA y comisión" value={fmtMxn(ventaBruta)} tone="green" />
         </div>
       </section>
 
@@ -303,16 +299,16 @@ export default async function VentasPage({
         </h2>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-7">
           <Kpi label="Ventas" value={nVentas.toLocaleString("es-MX")} />
-          <Kpi label="Costo polvo" value={fmtMxn(costoPolvo)} tone="red" />
-          <Kpi label="Costo vaso" value={fmtMxn(costoVaso)} tone="red" />
-          <Kpi label="Utilidad" value={fmtMxn(utilidad)} tone="green" />
+          <Kpi label="Costo teórico" value={fmtMxn(costoPolvo + costoVaso)} tone="red" />
+          <Kpi label="Utilidad teórica" value={fmtMxn(utilidad)} tone="green" />
           <Kpi
-            label="Margen promedio"
+            label="Margen teórico"
             value={`${margenProm.toFixed(1)}%`}
             tone={margenProm < 0 ? "red" : "green"}
           />
           <Kpi label="Ticket promedio" value={fmtMxn(ticketProm)} />
           <Kpi label="Gramos" value={`${(gramos / 1000).toFixed(1)} kg`} />
+          <Kpi label="Costo polvo / vaso" value={`${fmtMxn(costoPolvo)} / ${fmtMxn(costoVaso)}`} />
         </div>
       </section>
 
