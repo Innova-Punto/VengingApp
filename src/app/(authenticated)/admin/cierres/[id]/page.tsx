@@ -981,7 +981,6 @@ function BloqueClienteFinanciero({
     n_ventas?: number;
   } | null;
 }) {
-  const inv = snap.inventario_fin;
   const vn = snap.ventas_nayax;
   const costoVentas = vn.costo_polvo + vn.costo_vaso;
   const merma = inventario ? inventario.consumo - costoVentas : 0;
@@ -1133,57 +1132,7 @@ function BloqueClienteFinanciero({
         </details>
       )}
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {/* Inventario al corte (actual) atribuido al cliente */}
-        <div className="rounded-lg border border-zinc-200 bg-white p-4">
-          <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-            Inventario al corte (actual)
-          </div>
-          <div className="mt-1 text-2xl font-semibold tabular-nums text-zinc-900">
-            {fmtMxn(inv.total)}
-          </div>
-          <dl className="mt-2 space-y-1 text-xs text-zinc-600">
-            <PairR
-              label="Almacén · granel"
-              gramos={inv.almacen.polvo_granel.gramos}
-              valor={inv.almacen.polvo_granel.valor}
-            />
-            <PairR
-              label="Almacén · cartuchos"
-              gramos={inv.almacen.polvo_cartuchos.gramos}
-              valor={inv.almacen.polvo_cartuchos.valor}
-            />
-            <div className="flex items-baseline justify-between">
-              <span>Almacén · vasos</span>
-              <span className="tabular-nums">
-                {inv.almacen.vasos.unidades.toLocaleString("es-MX")} u ·{" "}
-                <span className="font-medium">
-                  {fmtMxn(inv.almacen.vasos.valor)}
-                </span>
-              </span>
-            </div>
-            <PairR
-              label="Máquinas · polvo"
-              gramos={inv.maquinas.polvo_tolvas.gramos}
-              valor={inv.maquinas.polvo_tolvas.valor}
-            />
-            <div className="flex items-baseline justify-between">
-              <span>Máquinas · vasos</span>
-              <span className="tabular-nums">
-                {inv.maquinas.vasos.unidades.toLocaleString("es-MX")} u ·{" "}
-                <span className="font-medium">
-                  {fmtMxn(inv.maquinas.vasos.valor)}
-                </span>
-              </span>
-            </div>
-          </dl>
-          <div className="mt-2 flex justify-between border-t border-zinc-100 pt-2 text-xs text-zinc-600">
-            <span>Subtotal almacén / máquinas</span>
-            <span className="tabular-nums font-medium">
-              {fmtMxn(inv.almacen.subtotal)} / {fmtMxn(inv.maquinas.subtotal)}
-            </span>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 gap-4">
 
         {/* Ventas Nayax del periodo */}
         <div className="rounded-lg border border-zinc-200 bg-white p-4">
