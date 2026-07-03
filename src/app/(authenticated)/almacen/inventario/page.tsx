@@ -372,6 +372,27 @@ export default async function InventarioPage({
               </tr>
             )}
           </tbody>
+          {filas.length > 0 && (
+            <tfoot className="border-t border-zinc-200 bg-zinc-50">
+              <tr>
+                <td
+                  colSpan={6}
+                  className="px-3 py-2 text-xs font-medium uppercase tracking-wide text-zinc-500"
+                >
+                  Total costo en almacén ({filas.length} productos)
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums font-semibold text-zinc-900">
+                  {fmtMXN(
+                    filas.reduce(
+                      (s, r) => s + (costoPorProducto.get(r.id ?? "") ?? 0),
+                      0,
+                    ),
+                  )}
+                </td>
+                <td colSpan={4} />
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
 
