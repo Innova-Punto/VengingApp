@@ -78,11 +78,12 @@ export async function abrirCierre(formData: FormData): Promise<void> {
   const supabase = createClient();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabaseAny = supabase as any;
-  const force = formData.get("force") === "1";
+  // La versión encadenada es abrir_cierre_mensual(int, int): es idempotente
+  // (si el mes ya existe lo devuelve) y encadena inicial = final anterior.
+  // No se pasa p_force — eso seleccionaba el overload viejo (sin encadenado).
   const { data, error } = await supabaseAny.rpc("abrir_cierre_mensual", {
     p_mes: mes,
     p_anio: anio,
-    p_force: force,
   });
   if (error) {
     redirect("/admin/cierres?error=" + encodeURIComponent(error.message));
