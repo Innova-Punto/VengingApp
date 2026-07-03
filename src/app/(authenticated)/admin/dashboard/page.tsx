@@ -69,7 +69,7 @@ export default async function DashboardPage({
     supabase
       .from("ventas_maquina")
       .select(
-        `precio_neto, utilidad_bruta, gramos_dispensados, producto_id, maquina_id, fecha_transaccion,
+        `precio_bruto, iva, precio_sin_iva, comision_nayax_estimada, precio_neto, utilidad_bruta, gramos_dispensados, producto_id, maquina_id, fecha_transaccion,
          producto:productos(sku, nombre),
          maquina:maquinas(serie, alias)`,
       )
@@ -77,7 +77,7 @@ export default async function DashboardPage({
       .range(0, 200000),
     supabase
       .from("ventas_maquina")
-      .select("precio_neto, utilidad_bruta")
+      .select("precio_bruto, iva, precio_sin_iva, precio_neto, utilidad_bruta")
       .gte("fecha_transaccion", hoyInicioIso)
       .range(0, 200000),
     supabase
@@ -109,6 +109,15 @@ export default async function DashboardPage({
 
   const ventasArr = ventasRango ?? [];
   const totalVentas = ventasArr.length;
+  const ventaPublicoRango = ventasArr.reduce(
+    (s, v) => s + Number(v.precio_bruto ?? 0),
+    0,
+  );
+  const ivaRango = ventasArr.reduce((s, v) => s + Number(v.iva ?? 0), 0);
+  const ventaSinIvaRango = ventasArr.reduce(
+    (s, v) => s + Number(v.precio_sin_iva ?? 0),
+    0,
+  );
   const ingresosRango = ventasArr.reduce(
     (s, v) => s + Number(v.precio_neto ?? 0),
     0,
@@ -343,17 +352,20 @@ export default async function DashboardPage({
         <h2 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
           {rango.label}
         </h2>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-8">
           <Stat label="Ventas" value={totalVentas.toLocaleString("es-MX")} icon={Receipt} />
-          <Stat label="Ingresos netos" value={fmt(ingresosRango)} icon={DollarSign} />
+          <Stat label="Venta al público" value={fmt(ventaPublicoRango)} icon={DollarSign} />
+          <Stat label="IVA (16%)" value={fmt(ivaRango)} tone="red" />
+          <Stat label="Venta sin IVA" value={fmt(ventaSinIvaRango)} tone="green" />
+          <Stat label="Venta s/IVA − comisión" value={fmt(ingresosRango)} tone="green" />
           <Stat
-            label="Utilidad"
+            label="Utilidad teórica"
             value={fmt(utilidadRango)}
             tone={utilidadRango >= 0 ? "green" : "red"}
             icon={Coins}
           />
           <Stat
-            label="Margen promedio"
+            label="Margen teórico"
             value={`${margenPromedio.toFixed(1)}%`}
             tone={margenPromedio >= 0 ? "green" : "red"}
             icon={Percent}

@@ -34,7 +34,7 @@ export default async function NayaxPage() {
       .limit(50),
     supabase
       .from("ventas_maquina")
-      .select("precio_neto, utilidad_bruta, gramos_dispensados, fecha_transaccion")
+      .select("precio_bruto, iva, precio_sin_iva, precio_neto, utilidad_bruta, gramos_dispensados, fecha_transaccion")
       .gte(
         "fecha_transaccion",
         new Date(Date.now() - 30 * 86400000).toISOString(),
@@ -43,11 +43,17 @@ export default async function NayaxPage() {
   ]);
 
   // Stats últimos 30 días
+  let ventaPublico30d = 0;
+  let iva30d = 0;
+  let ventaSinIva30d = 0;
   let ingresos30d = 0;
   let utilidad30d = 0;
   let gramos30d = 0;
   let nVentas30d = 0;
   for (const v of stats ?? []) {
+    ventaPublico30d += Number(v.precio_bruto ?? 0);
+    iva30d += Number(v.iva ?? 0);
+    ventaSinIva30d += Number(v.precio_sin_iva ?? 0);
     ingresos30d += Number(v.precio_neto ?? 0);
     utilidad30d += Number(v.utilidad_bruta ?? 0);
     gramos30d += v.gramos_dispensados ?? 0;
@@ -87,14 +93,29 @@ export default async function NayaxPage() {
         </div>
       </div>
 
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
         <Stat label="Ventas 30d" value={nVentas30d.toLocaleString("es-MX")} />
         <Stat
-          label="Venta bruta 30d"
-          value={`$${ingresos30d.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          label="Venta al público 30d"
+          value={`$${ventaPublico30d.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
         />
         <Stat
-          label="Utilidad 30d"
+          label="IVA 30d"
+          value={`$${iva30d.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          tone="red"
+        />
+        <Stat
+          label="Venta sin IVA 30d"
+          value={`$${ventaSinIva30d.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          tone="green"
+        />
+        <Stat
+          label="Venta s/IVA − comisión 30d"
+          value={`$${ingresos30d.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          tone="green"
+        />
+        <Stat
+          label="Utilidad teórica 30d"
           value={`$${utilidad30d.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           tone="green"
         />
@@ -276,9 +297,14 @@ function Stat({
 }: {
   label: string;
   value: string;
-  tone?: "green" | "zinc";
+  tone?: "green" | "zinc" | "red";
 }) {
-  const color = tone === "green" ? "text-green-700" : "text-zinc-900";
+  const color =
+    tone === "green"
+      ? "text-green-700"
+      : tone === "red"
+        ? "text-red-700"
+        : "text-zinc-900";
   return (
     <div className="rounded-lg border border-zinc-200 bg-white p-3">
       <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">

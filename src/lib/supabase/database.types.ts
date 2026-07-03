@@ -451,6 +451,92 @@ export type Database = {
           },
         ]
       }
+      cierre_snapshot_producto: {
+        Row: {
+          alm_cartuchos_gramos: number
+          alm_cartuchos_unidades: number
+          alm_cartuchos_valor: number
+          alm_granel_gramos: number
+          alm_granel_valor: number
+          alm_vasos_unidades: number
+          alm_vasos_valor: number
+          aproximado: boolean
+          cierre_id: string
+          created_at: string
+          maq_polvo_gramos: number
+          maq_polvo_valor: number
+          maq_vasos_unidades: number
+          maq_vasos_valor: number
+          momento: string
+          producto_id: string
+        }
+        Insert: {
+          alm_cartuchos_gramos?: number
+          alm_cartuchos_unidades?: number
+          alm_cartuchos_valor?: number
+          alm_granel_gramos?: number
+          alm_granel_valor?: number
+          alm_vasos_unidades?: number
+          alm_vasos_valor?: number
+          aproximado?: boolean
+          cierre_id: string
+          created_at?: string
+          maq_polvo_gramos?: number
+          maq_polvo_valor?: number
+          maq_vasos_unidades?: number
+          maq_vasos_valor?: number
+          momento: string
+          producto_id: string
+        }
+        Update: {
+          alm_cartuchos_gramos?: number
+          alm_cartuchos_unidades?: number
+          alm_cartuchos_valor?: number
+          alm_granel_gramos?: number
+          alm_granel_valor?: number
+          alm_vasos_unidades?: number
+          alm_vasos_valor?: number
+          aproximado?: boolean
+          cierre_id?: string
+          created_at?: string
+          maq_polvo_gramos?: number
+          maq_polvo_valor?: number
+          maq_vasos_unidades?: number
+          maq_vasos_valor?: number
+          momento?: string
+          producto_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cierre_snapshot_producto_cierre_id_fkey"
+            columns: ["cierre_id"]
+            isOneToOne: false
+            referencedRelation: "cierres_mensuales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cierre_snapshot_producto_cierre_id_fkey"
+            columns: ["cierre_id"]
+            isOneToOne: false
+            referencedRelation: "vista_reporte_cierre"
+            referencedColumns: ["cierre_id"]
+          },
+          {
+            foreignKeyName: "cierre_snapshot_producto_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: false
+            referencedRelation: "productos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cierre_snapshot_producto_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: false
+            referencedRelation: "v_inventario_producto"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cierres_mensuales: {
         Row: {
           cerrado_por: string | null
@@ -759,6 +845,74 @@ export type Database = {
             columns: ["lote_id"]
             isOneToOne: false
             referencedRelation: "lotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conteo_vasos_items: {
+        Row: {
+          conteo_id: string
+          created_at: string
+          diferencia: number | null
+          id: string
+          lote_id: string
+          notas: string | null
+          producto_id: string
+          unidades_fisicas: number
+          unidades_sistema: number
+          valor_diferencia: number | null
+        }
+        Insert: {
+          conteo_id: string
+          created_at?: string
+          diferencia?: number | null
+          id?: string
+          lote_id: string
+          notas?: string | null
+          producto_id: string
+          unidades_fisicas?: number
+          unidades_sistema: number
+          valor_diferencia?: number | null
+        }
+        Update: {
+          conteo_id?: string
+          created_at?: string
+          diferencia?: number | null
+          id?: string
+          lote_id?: string
+          notas?: string | null
+          producto_id?: string
+          unidades_fisicas?: number
+          unidades_sistema?: number
+          valor_diferencia?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conteo_vasos_items_conteo_id_fkey"
+            columns: ["conteo_id"]
+            isOneToOne: false
+            referencedRelation: "conteos_almacen"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conteo_vasos_items_lote_id_fkey"
+            columns: ["lote_id"]
+            isOneToOne: false
+            referencedRelation: "lotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conteo_vasos_items_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: false
+            referencedRelation: "productos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conteo_vasos_items_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: false
+            referencedRelation: "v_inventario_producto"
             referencedColumns: ["id"]
           },
         ]
@@ -3647,6 +3801,7 @@ export type Database = {
           fecha_transaccion: string
           gramos_dispensados: number
           id: string
+          iva: number | null
           maquina_id: string
           margen_porcentaje: number | null
           metodo_pago: string | null
@@ -3654,6 +3809,7 @@ export type Database = {
           notas: string | null
           precio_bruto: number
           precio_neto: number
+          precio_sin_iva: number | null
           producto_id: string | null
           sync_log_id: string | null
           ticket_id_nayax: string | null
@@ -3670,6 +3826,7 @@ export type Database = {
           fecha_transaccion: string
           gramos_dispensados?: number
           id?: string
+          iva?: number | null
           maquina_id: string
           margen_porcentaje?: number | null
           metodo_pago?: string | null
@@ -3677,6 +3834,7 @@ export type Database = {
           notas?: string | null
           precio_bruto?: number
           precio_neto?: number
+          precio_sin_iva?: number | null
           producto_id?: string | null
           sync_log_id?: string | null
           ticket_id_nayax?: string | null
@@ -3693,6 +3851,7 @@ export type Database = {
           fecha_transaccion?: string
           gramos_dispensados?: number
           id?: string
+          iva?: number | null
           maquina_id?: string
           margen_porcentaje?: number | null
           metodo_pago?: string | null
@@ -3700,6 +3859,7 @@ export type Database = {
           notas?: string | null
           precio_bruto?: number
           precio_neto?: number
+          precio_sin_iva?: number | null
           producto_id?: string | null
           sync_log_id?: string | null
           ticket_id_nayax?: string | null
@@ -3836,6 +3996,8 @@ export type Database = {
           gramos_maquinas_fin: number | null
           gramos_maquinas_inicio: number | null
           gramos_merma: number | null
+          gramos_pesaje_faltante: number | null
+          gramos_pesaje_sobrante: number | null
           gramos_venta_nayax: number | null
           num_ventas_nayax: number | null
           periodo_anio: number | null
@@ -3850,6 +4012,8 @@ export type Database = {
           valor_maquinas_fin: number | null
           valor_maquinas_inicio: number | null
           valor_merma: number | null
+          valor_pesaje_faltante: number | null
+          valor_pesaje_sobrante: number | null
           valor_total_fin: number | null
           valor_total_inicio: number | null
           valor_vasos_almacen_fin: number | null
@@ -3906,7 +4070,12 @@ export type Database = {
         Returns: Json
       }
       aplicar_conteo_almacen: {
-        Args: { p_cartuchos: Json; p_conteo_id: string; p_granel: Json }
+        Args: {
+          p_cartuchos: Json
+          p_conteo_id: string
+          p_granel: Json
+          p_vasos?: Json
+        }
         Returns: string
       }
       autorizar_merma_incidencia: {
@@ -4135,6 +4304,23 @@ export type Database = {
         Returns: string
       }
       snapshot_inventario_desglosado: { Args: never; Returns: Json }
+      snapshot_inventario_por_producto: {
+        Args: never
+        Returns: {
+          alm_cartuchos_gramos: number
+          alm_cartuchos_unidades: number
+          alm_cartuchos_valor: number
+          alm_granel_gramos: number
+          alm_granel_valor: number
+          alm_vasos_unidades: number
+          alm_vasos_valor: number
+          maq_polvo_gramos: number
+          maq_polvo_valor: number
+          maq_vasos_unidades: number
+          maq_vasos_valor: number
+          producto_id: string
+        }[]
+      }
       user_has_role: {
         Args: { check_role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean
