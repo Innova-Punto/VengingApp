@@ -64,10 +64,22 @@ export default async function CierreDetallePage({
   // inventario al corte vía capital_trabajo + ventas/ajustes filtrados por
   // los productos exclusivos del cliente. Se calculan en paralelo.
   const snapsCliente = await Promise.all(
-    (clientesReporte ?? []).map(async (c) => ({
-      cliente: c,
-      snap: await construirSnapshotCierre(supabase, params.id, c.id),
-    })),
+    (clientesReporte ?? []).map(async (c) => {
+      const [snap, erRes] = await Promise.all([
+        construirSnapshotCierre(supabase, params.id, c.id),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase as any).rpc("agregar_ventas", {
+          p_desde: cierre.fecha_inicio_cierre ?? "1900-01-01",
+          p_hasta: cierre.fecha_cierre ?? new Date().toISOString(),
+          p_cliente_id: c.id,
+          p_maquina_id: null,
+          p_producto_id: null,
+          p_metodo: null,
+          p_solo_negativas: false,
+        }),
+      ]);
+      return { cliente: c, snap, er: erRes?.data?.kpis ?? null };
+    }),
   );
 
   // Inventario inicial/final + consumo por cliente, desde el snapshot por
@@ -541,7 +553,7 @@ export default async function CierreDetallePage({
         </section>
       )}
 
-      {snapsCliente.map(({ cliente, snap }) => {
+      {snapsCliente.map(({ cliente, snap, er }) => {
         const r = resumenPorCliente.get(cliente.id);
         const skus = Array.from(
           (skusPorCliente.get(cliente.id) ?? new Map<string, SkuRow>()).values(),
@@ -562,6 +574,7 @@ export default async function CierreDetallePage({
                 : null
             }
             skus={skus}
+            er={er}
           />
         );
       })}
@@ -901,6 +914,7 @@ function BloqueClienteFinanciero({
   snap,
   inventario,
   skus,
+  er,
 }: {
   nombre: string;
   snap: SnapshotCierre;
@@ -911,6 +925,17 @@ function BloqueClienteFinanciero({
     aprox: boolean;
   } | null;
   skus: { sku: string; nombre: string; inicio: number; fin: number }[];
+  er: {
+    venta_publico?: number;
+    iva?: number;
+    ingreso_sin_iva?: number;
+    comision_nayax?: number;
+    costo_polvo?: number;
+    costo_vaso?: number;
+    utilidad?: number;
+    margen_prom?: number;
+    n_ventas?: number;
+  } | null;
 }) {
   const inv = snap.inventario_fin;
   const vn = snap.ventas_nayax;
@@ -921,6 +946,39 @@ function BloqueClienteFinanciero({
       <h2 className="text-lg font-semibold tracking-tight">
         Reporte financiero · {nombre}
       </h2>
+
+      {er && (er.venta_publico ?? 0) > 0 && (
+        <div className="space-y-1">
+          <h3 className="text-sm font-medium uppercase tracking-wide text-zinc-500">
+            Estado de resultados · {nombre}
+          </h3>
+          <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
+            <table className="w-full text-sm">
+              <tbody className="divide-y divide-zinc-100">
+                <ErLine label="Venta al público (bruta, con IVA)" valor={er.venta_publico ?? 0} />
+                <ErLine label="(−) IVA (16%) → SAT" valor={-(er.iva ?? 0)} tono="red" />
+                <ErLine label="(=) Venta sin IVA" valor={er.ingreso_sin_iva ?? 0} bold />
+                <ErLine label="(−) Comisión Nayax" valor={-(er.comision_nayax ?? 0)} tono="red" />
+                <ErLine
+                  label="(=) Venta sin IVA y comisión"
+                  valor={(er.ingreso_sin_iva ?? 0) - (er.comision_nayax ?? 0)}
+                  bold
+                />
+                <ErLine
+                  label="(−) Costo teórico (COGS)"
+                  valor={-((er.costo_polvo ?? 0) + (er.costo_vaso ?? 0))}
+                  tono="red"
+                />
+                <ErLine label="(=) Utilidad teórica" valor={er.utilidad ?? 0} bold tono="green" />
+              </tbody>
+            </table>
+          </div>
+          <p className="text-[11px] text-zinc-500">
+            Margen: <strong>{(er.margen_prom ?? 0).toFixed(1)}%</strong> ·{" "}
+            {(er.n_ventas ?? 0).toLocaleString("es-MX")} tickets
+          </p>
+        </div>
+      )}
 
       {inventario && (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
