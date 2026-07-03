@@ -442,6 +442,17 @@ export async function construirSnapshotCierre(
     recPorProv.set(r.proveedor_id, cur);
   }
 
+  // Pesajes que pertenecen a ESTE cierre. El ajuste_conteo_maquina se atribuye
+  // por el cierre del pesaje (no por fecha), para no incluir pesajes de captura
+  // inicial (cierre_id null) que caen en la ventana e inflan el ajuste.
+  const { data: pesajesCierre } = await supabase
+    .from("pesajes_maquina")
+    .select("id")
+    .eq("cierre_id", cierreId);
+  const pesajeIdsCierre = new Set(
+    ((pesajesCierre ?? []) as { id: string }[]).map((p) => p.id),
+  );
+
   // 5) Ajustes y mermas — agrupar movimientos_inventario por tipo
   type MovRow = {
     tipo: string;
@@ -450,11 +461,12 @@ export async function construirSnapshotCierre(
     cantidad_vasos: number | null;
     gramos: number | null;
     valor_movimiento: number | string | null;
+    referencia_id: string | null;
   };
   const { data: movs } = await supabase
     .from("movimientos_inventario")
     .select(
-      "tipo, producto_id, cantidad_cartuchos, cantidad_vasos, gramos, valor_movimiento, fecha",
+      "tipo, producto_id, cantidad_cartuchos, cantidad_vasos, gramos, valor_movimiento, fecha, referencia_id",
     )
     .in("tipo", [
       "ajuste_conteo_maquina",
@@ -468,8 +480,11 @@ export async function construirSnapshotCierre(
     .range(0, 200000);
   const movArr: MovRow[] = ((movs ?? []) as unknown as MovRow[]).filter(
     (m) =>
-      !productosClienteSet ||
-      (m.producto_id != null && productosClienteSet.has(m.producto_id)),
+      (!productosClienteSet ||
+        (m.producto_id != null && productosClienteSet.has(m.producto_id))) &&
+      // El ajuste por pesaje solo cuenta si el pesaje es de este cierre.
+      (m.tipo !== "ajuste_conteo_maquina" ||
+        (m.referencia_id != null && pesajeIdsCierre.has(m.referencia_id))),
   );
   const ajustesPorTipo = new Map<
     string,
