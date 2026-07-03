@@ -427,16 +427,21 @@ export default async function CierreDetallePage({
           <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
             <table className="w-full text-sm">
               <tbody className="divide-y divide-zinc-100">
-                <ErLine label="Venta al público (con IVA)" valor={erk.venta_publico ?? 0} />
-                <ErLine label="(−) IVA trasladado (16%) → SAT" valor={-(erk.iva ?? 0)} tono="red" />
-                <ErLine label="(=) Ingreso neto (sin IVA)" valor={erk.ingreso_sin_iva ?? 0} bold />
+                <ErLine label="Venta al público (bruta, con IVA)" valor={erk.venta_publico ?? 0} />
+                <ErLine label="(−) IVA (16%) → SAT" valor={-(erk.iva ?? 0)} tono="red" />
+                <ErLine label="(=) Venta sin IVA" valor={erk.ingreso_sin_iva ?? 0} bold />
                 <ErLine label="(−) Comisión Nayax" valor={-(erk.comision_nayax ?? 0)} tono="red" />
                 <ErLine
-                  label="(−) Costo de ventas (COGS)"
+                  label="(=) Venta sin IVA y comisión"
+                  valor={(erk.ingreso_sin_iva ?? 0) - (erk.comision_nayax ?? 0)}
+                  bold
+                />
+                <ErLine
+                  label="(−) Costo teórico (COGS)"
                   valor={-((erk.costo_polvo ?? 0) + (erk.costo_vaso ?? 0))}
                   tono="red"
                 />
-                <ErLine label="(=) Utilidad del periodo" valor={erk.utilidad ?? 0} bold tono="green" />
+                <ErLine label="(=) Utilidad teórica" valor={erk.utilidad ?? 0} bold tono="green" />
               </tbody>
             </table>
           </div>
