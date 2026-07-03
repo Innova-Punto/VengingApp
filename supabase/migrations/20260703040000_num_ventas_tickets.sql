@@ -1,0 +1,14 @@
+-- ============================================================================
+-- 82 · num_ventas_nayax = tickets reales (no movimientos)
+--
+-- La fila "Ventas Nayax (N)" mostraba N = # de movimientos venta_salida_tolva,
+-- que son 2+ por ticket (1 polvo + 1 vaso; recetas más). Ahora cuenta ventas
+-- distintas (referencia_id) → tickets reales. El valor de la fila es el COSTO
+-- (COGS: polvo + vaso) de lo vendido, no el ingreso (la UI se renombró a
+-- "Costo de ventas · Nayax").
+--
+-- Cambio en vista_reporte_cierre, CTE movs:
+--   num_ventas = count(distinct case when tipo='venta_salida_tolva'
+--                                    then referencia_id end)
+-- (Cuerpo completo aplicado en el remoto.)
+-- ============================================================================

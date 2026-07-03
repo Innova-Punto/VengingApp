@@ -468,7 +468,7 @@ export default async function CierreDetallePage({
                 <FilaR label="Pesaje · neto" gramos={reporte.gramos_ajuste_pesaje} valor={reporte.valor_ajuste_pesaje} />
                 <FilaR label="Ajustes por conteo de almacén" gramos={reporte.gramos_ajuste_almacen} valor={reporte.valor_ajuste_almacen} />
                 <FilaR
-                  label={`Ventas Nayax (${reporte.num_ventas_nayax})`}
+                  label={`Costo de ventas · Nayax (${reporte.num_ventas_nayax.toLocaleString("es-MX")} tickets)`}
                   gramos={reporte.gramos_venta_nayax}
                   valor={reporte.valor_venta_nayax}
                   tono="green"
