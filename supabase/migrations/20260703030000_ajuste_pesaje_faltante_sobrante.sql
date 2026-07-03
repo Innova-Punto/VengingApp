@@ -1,0 +1,17 @@
+-- ============================================================================
+-- 81 · Separa el ajuste por pesaje en FALTANTE (merma real) vs SOBRANTE
+--
+-- El "ajuste por pesaje" era el neto (faltantes + sobrantes), lo que podía
+-- esconder una merma real detrás de un sobrante de otra máquina. Se agregan
+-- columnas para verlos por separado. El cuerpo completo de la vista está
+-- aplicado en el remoto; aquí queda el registro del cambio.
+--
+-- pes CTE:
+--   valor_pesaje_faltante = suma de ajustes con valor < 0 (merma real)
+--   valor_pesaje_sobrante = suma de ajustes con valor > 0
+--   valor_ajuste_pesaje   = neto (faltante + sobrante), como antes
+-- ============================================================================
+
+-- (Ver definición vigente de public.vista_reporte_cierre en el proyecto remoto;
+--  agrega las columnas gramos/valor_pesaje_faltante y gramos/valor_pesaje_sobrante
+--  al bloque `pes` y al SELECT final, atribuidas por pesajes_maquina.cierre_id.)

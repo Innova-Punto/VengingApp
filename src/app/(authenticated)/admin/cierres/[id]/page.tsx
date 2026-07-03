@@ -76,10 +76,10 @@ export default async function CierreDetallePage({
   const { data: snapProdRows } = await (supabase as any)
     .from("cierre_snapshot_producto")
     .select(
-      `momento, aproximado,
+      `momento, aproximado, producto_id,
        alm_granel_valor, alm_cartuchos_valor, alm_vasos_valor,
        maq_polvo_valor, maq_vasos_valor,
-       producto:productos(cliente_exclusivo_id)`,
+       producto:productos(sku, nombre, cliente_exclusivo_id)`,
     )
     .eq("cierre_id", params.id);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -108,6 +108,9 @@ export default async function CierreDetallePage({
     }
     return r;
   };
+  // Desglose por SKU dentro de cada cliente: producto_id → {sku, nombre, inicio, fin}
+  type SkuRow = { sku: string; nombre: string; inicio: number; fin: number };
+  const skusPorCliente = new Map<string, Map<string, SkuRow>>();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const row of (snapProdRows ?? []) as any[]) {
     const prod = Array.isArray(row.producto) ? row.producto[0] : row.producto;
@@ -118,15 +121,34 @@ export default async function CierreDetallePage({
       Number(row.alm_cartuchos_valor ?? 0) +
       Number(row.alm_vasos_valor ?? 0);
     const maq = Number(row.maq_polvo_valor ?? 0) + Number(row.maq_vasos_valor ?? 0);
+    const total = alm + maq;
     const r = getRes(cid);
     if (row.momento === "inicio") {
-      r.inicio += alm + maq;
+      r.inicio += total;
       r.maqIni += maq;
       if (row.aproximado) r.aprox = true;
     } else {
-      r.fin += alm + maq;
+      r.fin += total;
       r.maqFin += maq;
     }
+    // por SKU
+    let m = skusPorCliente.get(cid);
+    if (!m) {
+      m = new Map<string, SkuRow>();
+      skusPorCliente.set(cid, m);
+    }
+    let sr = m.get(row.producto_id);
+    if (!sr) {
+      sr = {
+        sku: prod?.sku ?? "—",
+        nombre: prod?.nombre ?? "—",
+        inicio: 0,
+        fin: 0,
+      };
+      m.set(row.producto_id, sr);
+    }
+    if (row.momento === "inicio") sr.inicio += total;
+    else sr.fin += total;
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const row of (enviadoRows ?? []) as any[]) {
@@ -200,6 +222,10 @@ export default async function CierreDetallePage({
         valor_merma: number;
         gramos_ajuste_pesaje: number;
         valor_ajuste_pesaje: number;
+        gramos_pesaje_faltante: number;
+        valor_pesaje_faltante: number;
+        gramos_pesaje_sobrante: number;
+        valor_pesaje_sobrante: number;
         gramos_ajuste_almacen: number;
         valor_ajuste_almacen: number;
         gramos_venta_nayax: number;
@@ -437,7 +463,9 @@ export default async function CierreDetallePage({
                 <FilaR label="Cartuchos enviados a máquinas (llenados)" gramos={reporte.gramos_enviados_maquinas} valor={reporte.valor_enviado_maquinas} />
                 <FilaR label="Cartuchos devueltos al almacén" gramos={reporte.gramos_devueltos} valor={reporte.valor_devuelto} tono="green" />
                 <FilaR label="Mermas autorizadas" gramos={reporte.gramos_merma} valor={reporte.valor_merma} tono="red" />
-                <FilaR label="Ajustes por pesaje en máquina" gramos={reporte.gramos_ajuste_pesaje} valor={reporte.valor_ajuste_pesaje} />
+                <FilaR label="Pesaje · faltante (merma)" gramos={reporte.gramos_pesaje_faltante} valor={reporte.valor_pesaje_faltante} tono="red" />
+                <FilaR label="Pesaje · sobrante" gramos={reporte.gramos_pesaje_sobrante} valor={reporte.valor_pesaje_sobrante} tono="green" />
+                <FilaR label="Pesaje · neto" gramos={reporte.gramos_ajuste_pesaje} valor={reporte.valor_ajuste_pesaje} />
                 <FilaR label="Ajustes por conteo de almacén" gramos={reporte.gramos_ajuste_almacen} valor={reporte.valor_ajuste_almacen} />
                 <FilaR
                   label={`Ventas Nayax (${reporte.num_ventas_nayax})`}
@@ -453,6 +481,9 @@ export default async function CierreDetallePage({
 
       {snapsCliente.map(({ cliente, snap }) => {
         const r = resumenPorCliente.get(cliente.id);
+        const skus = Array.from(
+          (skusPorCliente.get(cliente.id) ?? new Map<string, SkuRow>()).values(),
+        ).sort((a, b) => a.nombre.localeCompare(b.nombre));
         return (
           <BloqueClienteFinanciero
             key={cliente.id}
@@ -468,6 +499,7 @@ export default async function CierreDetallePage({
                   }
                 : null
             }
+            skus={skus}
           />
         );
       })}
@@ -806,6 +838,7 @@ function BloqueClienteFinanciero({
   nombre,
   snap,
   inventario,
+  skus,
 }: {
   nombre: string;
   snap: SnapshotCierre;
@@ -815,6 +848,7 @@ function BloqueClienteFinanciero({
     consumo: number;
     aprox: boolean;
   } | null;
+  skus: { sku: string; nombre: string; inicio: number; fin: number }[];
 }) {
   const inv = snap.inventario_fin;
   const vn = snap.ventas_nayax;
@@ -858,6 +892,55 @@ function BloqueClienteFinanciero({
             </div>
           </div>
         </div>
+      )}
+
+      {skus.length > 0 && (
+        <details className="rounded-lg border border-zinc-200 bg-white">
+          <summary className="cursor-pointer px-4 py-2 text-sm font-medium text-zinc-700">
+            Detalle por producto (SKU) — inventario inicial vs final
+          </summary>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="border-t border-zinc-200 bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Producto</th>
+                  <th className="px-3 py-2 text-right font-medium">Inicial</th>
+                  <th className="px-3 py-2 text-right font-medium">Final</th>
+                  <th className="px-3 py-2 text-right font-medium">Δ</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100">
+                {skus.map((s) => {
+                  const delta = s.fin - s.inicio;
+                  return (
+                    <tr key={s.sku}>
+                      <td className="px-3 py-1.5">
+                        <div className="font-medium">{s.nombre}</div>
+                        <div className="font-mono text-[10px] text-zinc-500">
+                          {s.sku}
+                        </div>
+                      </td>
+                      <td className="px-3 py-1.5 text-right tabular-nums text-zinc-600">
+                        {fmtMxn(s.inicio)}
+                      </td>
+                      <td className="px-3 py-1.5 text-right tabular-nums text-zinc-600">
+                        {fmtMxn(s.fin)}
+                      </td>
+                      <td
+                        className={`px-3 py-1.5 text-right tabular-nums font-medium ${
+                          delta < 0 ? "text-red-700" : delta > 0 ? "text-green-700" : "text-zinc-500"
+                        }`}
+                      >
+                        {delta > 0 ? "+" : ""}
+                        {fmtMxn(delta)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </details>
       )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
