@@ -1,0 +1,16 @@
+-- ============================================================================
+-- 83 · valor_consumo_calculado incluye vasos (consistencia con enviado)
+--
+-- El consumo mezclaba: inicial/final de máquina solo polvo, pero el enviado
+-- incluía polvo+vaso. Ahora el consumo suma también el vaso en inicial/final,
+-- así queda comparable directo contra el costo de ventas (polvo+vaso).
+--
+--   valor_consumo_calculado =
+--     (valor_maquinas_inicio + valor_vasos_maquinas_inicio)
+--     + enviado (polvo+vaso)
+--     - (valor_maquinas_fin + valor_vasos_maquinas_fin)
+--
+-- (Cuerpo completo de vista_reporte_cierre aplicado en el remoto.)
+-- La UI del cierre agrega la línea "Merma = Consumo real − Costo de ventas"
+-- en cada bloque de cliente.
+-- ============================================================================

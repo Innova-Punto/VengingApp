@@ -853,6 +853,7 @@ function BloqueClienteFinanciero({
   const inv = snap.inventario_fin;
   const vn = snap.ventas_nayax;
   const costoVentas = vn.costo_polvo + vn.costo_vaso;
+  const merma = inventario ? inventario.consumo - costoVentas : 0;
   return (
     <section className="space-y-3 border-t border-zinc-200 pt-5">
       <h2 className="text-lg font-semibold tracking-tight">
@@ -860,7 +861,7 @@ function BloqueClienteFinanciero({
       </h2>
 
       {inventario && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <div className="rounded-lg border border-zinc-200 bg-white p-4">
             <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">
               Inventario inicial
@@ -882,13 +883,38 @@ function BloqueClienteFinanciero({
           </div>
           <div className="rounded-lg border border-green-200 bg-green-50 p-4">
             <div className="text-xs font-medium uppercase tracking-wide text-green-900">
-              Consumo real (COGS máquinas)
+              Consumo real · COGS (polvo + vaso)
             </div>
             <div className="mt-1 text-2xl font-semibold tabular-nums text-green-900">
               {fmtMxn(inventario.consumo)}
             </div>
             <div className="mt-1 text-[11px] text-green-800">
               inicial máq + enviado − final máq
+            </div>
+          </div>
+          <div
+            className={`rounded-lg border p-4 ${
+              merma > 0 ? "border-red-200 bg-red-50" : "border-zinc-200 bg-white"
+            }`}
+          >
+            <div
+              className={`text-xs font-medium uppercase tracking-wide ${
+                merma > 0 ? "text-red-900" : "text-zinc-500"
+              }`}
+            >
+              Merma (consumo − ventas)
+            </div>
+            <div
+              className={`mt-1 text-2xl font-semibold tabular-nums ${
+                merma > 0 ? "text-red-700" : "text-zinc-900"
+              }`}
+            >
+              {fmtMxn(merma)}
+            </div>
+            <div
+              className={`mt-1 text-[11px] ${merma > 0 ? "text-red-800" : "text-zinc-500"}`}
+            >
+              consumo físico − costo de ventas
             </div>
           </div>
         </div>
