@@ -174,7 +174,8 @@ export default async function CierreDetallePage({
     .from("pesajes_maquina")
     .select(
       `id, fecha,
-       maquina:maquinas(serie, alias),
+       vasos_teoricos, vasos_medidos, vasos_valor_diferencia,
+       maquina:maquinas(serie, alias, vaso_producto:productos!maquinas_vaso_producto_id_fkey(sku, nombre)),
        operador:profiles!pesajes_maquina_operador_id_fkey(full_name),
        items:pesaje_tolva_items(
          id, gramos_medidos, gramos_teoricos, diferencia_gramos,
@@ -285,6 +286,7 @@ export default async function CierreDetallePage({
       medido: number;
       dif: number;
       valor: number;
+      esVaso: boolean;
     }
   >();
   for (const p of pesajes ?? []) {
@@ -310,11 +312,43 @@ export default async function CierreDetallePage({
           medido: 0,
           dif: 0,
           valor: 0,
+          esVaso: false,
         };
       cur.teorico += it.gramos_teoricos ?? 0;
       cur.medido += it.gramos_medidos ?? 0;
       cur.dif += it.diferencia_gramos ?? 0;
       cur.valor += Number(it.valor_diferencia ?? 0);
+      pesajePorProducto.set(key, cur);
+    }
+
+    // Conteo de vasos (mismo contexto que pesaje, pero en unidades)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pv = p as any;
+    if (pv.vasos_teoricos != null || pv.vasos_medidos != null) {
+      const maq = Array.isArray(p.maquina) ? p.maquina[0] : p.maquina;
+      const vp = maq?.vaso_producto
+        ? Array.isArray(maq.vaso_producto)
+          ? maq.vaso_producto[0]
+          : maq.vaso_producto
+        : null;
+      const key = "vaso:" + (vp?.sku ?? vp?.nombre ?? "—");
+      const teo = Number(pv.vasos_teoricos ?? 0);
+      const med = Number(pv.vasos_medidos ?? 0);
+      const cur =
+        pesajePorProducto.get(key) ?? {
+          sku: vp?.sku ?? "—",
+          nombre: vp?.nombre ?? "Vaso",
+          teorico: 0,
+          medido: 0,
+          dif: 0,
+          valor: 0,
+          esVaso: true,
+        };
+      cur.teorico += teo;
+      cur.medido += med;
+      cur.dif += med - teo;
+      cur.valor += Number(pv.vasos_valor_diferencia ?? 0);
+      totalValorDiferencia += Number(pv.vasos_valor_diferencia ?? 0);
       pesajePorProducto.set(key, cur);
     }
   }
@@ -585,8 +619,9 @@ export default async function CierreDetallePage({
             Variación de pesaje por producto (consolidado)
           </h2>
           <p className="text-sm text-zinc-500">
-            Teórico (lo que el sistema esperaba en las tolvas) vs. medido (peso
-            físico), sumando todas las máquinas pesadas del cierre.
+            Teórico (lo que el sistema esperaba) vs. medido (pesaje físico en
+            polvo, conteo en vasos), sumando todas las máquinas pesadas del
+            cierre.
           </p>
           <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
             <table className="w-full text-sm">
@@ -610,23 +645,32 @@ export default async function CierreDetallePage({
                       : r.dif > 0
                         ? "text-amber-700"
                         : "text-zinc-500";
+                  const cant = (n: number) =>
+                    r.esVaso ? `${n.toLocaleString("es-MX")} u` : fmtG(n);
                   return (
                     <tr key={r.sku}>
                       <td className="px-3 py-2">
-                        <div className="font-medium">{r.nombre}</div>
+                        <div className="font-medium">
+                          {r.nombre}
+                          {r.esVaso && (
+                            <span className="ml-1 rounded bg-zinc-100 px-1 text-[10px] text-zinc-500">
+                              vaso
+                            </span>
+                          )}
+                        </div>
                         <div className="font-mono text-[10px] text-zinc-500">
                           {r.sku}
                         </div>
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums text-zinc-600">
-                        {fmtG(r.teorico)}
+                        {cant(r.teorico)}
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums text-zinc-600">
-                        {fmtG(r.medido)}
+                        {cant(r.medido)}
                       </td>
                       <td className={`px-3 py-2 text-right tabular-nums font-medium ${tone}`}>
                         {r.dif > 0 ? "+" : ""}
-                        {fmtG(r.dif)}
+                        {cant(r.dif)}
                       </td>
                       <td className={`px-3 py-2 text-right tabular-nums font-medium ${tone}`}>
                         {pct > 0 ? "+" : ""}
@@ -642,13 +686,13 @@ export default async function CierreDetallePage({
               <tfoot className="border-t border-zinc-200 bg-zinc-50">
                 <tr>
                   <td className="px-3 py-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
-                    Total
+                    Total (polvo en g; valor incluye vasos)
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums text-zinc-600">
-                    {fmtG(resumenPesaje.reduce((s, r) => s + r.teorico, 0))}
+                    {fmtG(resumenPesaje.filter((r) => !r.esVaso).reduce((s, r) => s + r.teorico, 0))}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums text-zinc-600">
-                    {fmtG(resumenPesaje.reduce((s, r) => s + r.medido, 0))}
+                    {fmtG(resumenPesaje.filter((r) => !r.esVaso).reduce((s, r) => s + r.medido, 0))}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums font-medium">
                     {fmtG(totalDiferenciaG)}
