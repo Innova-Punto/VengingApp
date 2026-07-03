@@ -89,8 +89,11 @@ export default async function CierreDetallePage({
     .from("cierre_snapshot_producto")
     .select(
       `momento, aproximado, producto_id,
-       alm_granel_valor, alm_cartuchos_valor, alm_vasos_valor,
-       maq_polvo_valor, maq_vasos_valor,
+       alm_granel_gramos, alm_granel_valor,
+       alm_cartuchos_gramos, alm_cartuchos_unidades, alm_cartuchos_valor,
+       alm_vasos_unidades, alm_vasos_valor,
+       maq_polvo_gramos, maq_polvo_valor,
+       maq_vasos_unidades, maq_vasos_valor,
        producto:productos(sku, nombre, cliente_exclusivo_id)`,
     )
     .eq("cierre_id", params.id);
@@ -120,6 +123,18 @@ export default async function CierreDetallePage({
     }
     return r;
   };
+  // Desglose por bucket (almacén granel/cartuchos/vasos, máquinas polvo/vasos)
+  // por cliente, para inicio y fin — mismo detalle que el KPI de inventario.
+  type DesgloseCli = { inicio: InvBucket; fin: InvBucket };
+  const desglosePorCliente = new Map<string, DesgloseCli>();
+  const getDes = (cid: string): DesgloseCli => {
+    let d = desglosePorCliente.get(cid);
+    if (!d) {
+      d = { inicio: emptyBucket(), fin: emptyBucket() };
+      desglosePorCliente.set(cid, d);
+    }
+    return d;
+  };
   // Desglose por SKU dentro de cada cliente: producto_id → {sku, nombre, inicio, fin}
   type SkuRow = { sku: string; nombre: string; inicio: number; fin: number };
   const skusPorCliente = new Map<string, Map<string, SkuRow>>();
@@ -143,6 +158,18 @@ export default async function CierreDetallePage({
       r.fin += total;
       r.maqFin += maq;
     }
+    // Desglose por bucket (gramos/unidades + valor) para inicio/fin
+    const b = row.momento === "inicio" ? getDes(cid).inicio : getDes(cid).fin;
+    b.almGranel.gramos += Number(row.alm_granel_gramos ?? 0);
+    b.almGranel.valor += Number(row.alm_granel_valor ?? 0);
+    b.almCartuchos.gramos += Number(row.alm_cartuchos_gramos ?? 0);
+    b.almCartuchos.valor += Number(row.alm_cartuchos_valor ?? 0);
+    b.almVasos.unidades += Number(row.alm_vasos_unidades ?? 0);
+    b.almVasos.valor += Number(row.alm_vasos_valor ?? 0);
+    b.maqPolvo.gramos += Number(row.maq_polvo_gramos ?? 0);
+    b.maqPolvo.valor += Number(row.maq_polvo_valor ?? 0);
+    b.maqVasos.unidades += Number(row.maq_vasos_unidades ?? 0);
+    b.maqVasos.valor += Number(row.maq_vasos_valor ?? 0);
     // por SKU
     let m = skusPorCliente.get(cid);
     if (!m) {
@@ -609,6 +636,7 @@ export default async function CierreDetallePage({
             }
             skus={skus}
             er={er}
+            desglose={desglosePorCliente.get(cliente.id) ?? null}
           />
         );
       })}
@@ -959,6 +987,7 @@ function BloqueClienteFinanciero({
   inventario,
   skus,
   er,
+  desglose,
 }: {
   nombre: string;
   snap: SnapshotCierre;
@@ -968,6 +997,7 @@ function BloqueClienteFinanciero({
     consumo: number;
     aprox: boolean;
   } | null;
+  desglose: { inicio: InvBucket; fin: InvBucket } | null;
   skus: { sku: string; nombre: string; inicio: number; fin: number }[];
   er: {
     venta_publico?: number;
@@ -1024,60 +1054,56 @@ function BloqueClienteFinanciero({
       )}
 
       {inventario && (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <div className="rounded-lg border border-zinc-200 bg-white p-4">
-            <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-              Inventario inicial
-              {inventario.aprox && (
-                <span className="ml-1 text-[10px] text-amber-600">(aprox)</span>
-              )}
-            </div>
-            <div className="mt-1 text-2xl font-semibold tabular-nums text-zinc-900">
-              {fmtMxn(inventario.inicio)}
-            </div>
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <TarjetaInventario
+              titulo="Inventario inicial"
+              total={inventario.inicio}
+              aprox={inventario.aprox}
+              bucket={desglose?.inicio ?? null}
+            />
+            <TarjetaInventario
+              titulo="Inventario final"
+              total={inventario.fin}
+              bucket={desglose?.fin ?? null}
+            />
           </div>
-          <div className="rounded-lg border border-zinc-200 bg-white p-4">
-            <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-              Inventario final
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+              <div className="text-xs font-medium uppercase tracking-wide text-green-900">
+                Consumo real · COGS (polvo + vaso)
+              </div>
+              <div className="mt-1 text-2xl font-semibold tabular-nums text-green-900">
+                {fmtMxn(inventario.consumo)}
+              </div>
+              <div className="mt-1 text-[11px] text-green-800">
+                inicial máq + enviado − final máq
+              </div>
             </div>
-            <div className="mt-1 text-2xl font-semibold tabular-nums text-zinc-900">
-              {fmtMxn(inventario.fin)}
-            </div>
-          </div>
-          <div className="rounded-lg border border-green-200 bg-green-50 p-4">
-            <div className="text-xs font-medium uppercase tracking-wide text-green-900">
-              Consumo real · COGS (polvo + vaso)
-            </div>
-            <div className="mt-1 text-2xl font-semibold tabular-nums text-green-900">
-              {fmtMxn(inventario.consumo)}
-            </div>
-            <div className="mt-1 text-[11px] text-green-800">
-              inicial máq + enviado − final máq
-            </div>
-          </div>
-          <div
-            className={`rounded-lg border p-4 ${
-              merma > 0 ? "border-red-200 bg-red-50" : "border-zinc-200 bg-white"
-            }`}
-          >
             <div
-              className={`text-xs font-medium uppercase tracking-wide ${
-                merma > 0 ? "text-red-900" : "text-zinc-500"
+              className={`rounded-lg border p-4 ${
+                merma > 0 ? "border-red-200 bg-red-50" : "border-zinc-200 bg-white"
               }`}
             >
-              Merma (consumo − ventas)
-            </div>
-            <div
-              className={`mt-1 text-2xl font-semibold tabular-nums ${
-                merma > 0 ? "text-red-700" : "text-zinc-900"
-              }`}
-            >
-              {fmtMxn(merma)}
-            </div>
-            <div
-              className={`mt-1 text-[11px] ${merma > 0 ? "text-red-800" : "text-zinc-500"}`}
-            >
-              consumo físico − costo de ventas
+              <div
+                className={`text-xs font-medium uppercase tracking-wide ${
+                  merma > 0 ? "text-red-900" : "text-zinc-500"
+                }`}
+              >
+                Merma (consumo − ventas)
+              </div>
+              <div
+                className={`mt-1 text-2xl font-semibold tabular-nums ${
+                  merma > 0 ? "text-red-700" : "text-zinc-900"
+                }`}
+              >
+                {fmtMxn(merma)}
+              </div>
+              <div
+                className={`mt-1 text-[11px] ${merma > 0 ? "text-red-800" : "text-zinc-500"}`}
+              >
+                consumo físico − costo de ventas
+              </div>
             </div>
           </div>
         </div>
@@ -1243,6 +1269,24 @@ function ErLine({
   );
 }
 
+type InvBucket = {
+  almGranel: { gramos: number; valor: number };
+  almCartuchos: { gramos: number; valor: number };
+  almVasos: { unidades: number; valor: number };
+  maqPolvo: { gramos: number; valor: number };
+  maqVasos: { unidades: number; valor: number };
+};
+
+function emptyBucket(): InvBucket {
+  return {
+    almGranel: { gramos: 0, valor: 0 },
+    almCartuchos: { gramos: 0, valor: 0 },
+    almVasos: { unidades: 0, valor: 0 },
+    maqPolvo: { gramos: 0, valor: 0 },
+    maqVasos: { unidades: 0, valor: 0 },
+  };
+}
+
 function fmtMxn(n: number | null | undefined): string {
   const v = Number(n ?? 0);
   return `$${v.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -1269,6 +1313,81 @@ function PairR({
       <span className="tabular-nums">
         {fmtG(gramos)} · <span className="font-medium">{fmtMxn(valor)}</span>
       </span>
+    </div>
+  );
+}
+
+function TarjetaInventario({
+  titulo,
+  total,
+  aprox,
+  bucket,
+}: {
+  titulo: string;
+  total: number;
+  aprox?: boolean;
+  bucket: InvBucket | null;
+}) {
+  const almSub = bucket
+    ? bucket.almGranel.valor + bucket.almCartuchos.valor + bucket.almVasos.valor
+    : 0;
+  const maqSub = bucket ? bucket.maqPolvo.valor + bucket.maqVasos.valor : 0;
+  return (
+    <div className="rounded-lg border border-zinc-200 bg-white p-4">
+      <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+        {titulo}
+        {aprox && (
+          <span className="ml-1 text-[10px] text-amber-600">(aprox)</span>
+        )}
+      </div>
+      <div className="mt-1 text-2xl font-semibold tabular-nums text-zinc-900">
+        {fmtMxn(total)}
+      </div>
+      {bucket && (
+        <>
+          <dl className="mt-2 space-y-1 text-xs text-zinc-600">
+            <PairR
+              label="Almacén · granel"
+              gramos={bucket.almGranel.gramos}
+              valor={bucket.almGranel.valor}
+            />
+            <PairR
+              label="Almacén · cartuchos"
+              gramos={bucket.almCartuchos.gramos}
+              valor={bucket.almCartuchos.valor}
+            />
+            <div className="flex items-baseline justify-between">
+              <span>Almacén · vasos</span>
+              <span className="tabular-nums">
+                {bucket.almVasos.unidades.toLocaleString("es-MX")} u ·{" "}
+                <span className="font-medium">
+                  {fmtMxn(bucket.almVasos.valor)}
+                </span>
+              </span>
+            </div>
+            <PairR
+              label="Máquinas · polvo"
+              gramos={bucket.maqPolvo.gramos}
+              valor={bucket.maqPolvo.valor}
+            />
+            <div className="flex items-baseline justify-between">
+              <span>Máquinas · vasos</span>
+              <span className="tabular-nums">
+                {bucket.maqVasos.unidades.toLocaleString("es-MX")} u ·{" "}
+                <span className="font-medium">
+                  {fmtMxn(bucket.maqVasos.valor)}
+                </span>
+              </span>
+            </div>
+          </dl>
+          <div className="mt-2 flex justify-between border-t border-zinc-100 pt-2 text-xs text-zinc-600">
+            <span>Subtotal almacén / máquinas</span>
+            <span className="tabular-nums font-medium">
+              {fmtMxn(almSub)} / {fmtMxn(maqSub)}
+            </span>
+          </div>
+        </>
+      )}
     </div>
   );
 }
