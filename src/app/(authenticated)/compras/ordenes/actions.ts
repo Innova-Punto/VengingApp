@@ -195,9 +195,11 @@ export async function agregarItem(
   }
 
   // Desglose: si el precio incluye IVA, dividir por (1+tasa) antes de guardar.
+  // costo_unitario a 6 decimales (necesario para costos por gramo); el
+  // subtotal_item es un total en pesos, se mantiene a 2 decimales.
   const costo_unitario = incluyeIva
-    ? Math.round((costoCapturado / (1 + iva_tasa)) * 100) / 100
-    : Math.round(costoCapturado * 100) / 100;
+    ? Math.round((costoCapturado / (1 + iva_tasa)) * 1e6) / 1e6
+    : Math.round(costoCapturado * 1e6) / 1e6;
   const subtotal_item = Math.round(cantidad * costo_unitario * 100) / 100;
 
   const supabase = createClient();

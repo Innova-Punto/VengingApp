@@ -117,7 +117,7 @@ export default function PresentacionForm({
             name="costo_unitario"
             type="number"
             min={0}
-            step="0.01"
+            step="0.000001"
             required
             placeholder="1500.00"
             className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm shadow-sm focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900"

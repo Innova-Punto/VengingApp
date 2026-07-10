@@ -109,7 +109,7 @@ export default function AgregarItemForm({
             name="costo_unitario"
             type="number"
             min={0}
-            step="0.01"
+            step="0.000001"
             required
             key={seleccionada?.id ?? "empty"}
             defaultValue={seleccionada?.costo_unitario ?? ""}
