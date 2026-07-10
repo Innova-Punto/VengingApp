@@ -204,9 +204,10 @@ function parsePresentacion(formData: FormData): ParsedPresentacion | string {
   }
 
   // Si el precio capturado incluye IVA, desglosar para guardar SIN IVA.
+  // 6 decimales para soportar costos por gramo.
   const costo_unitario = incluyeIva
-    ? Math.round((costoCapturado / (1 + iva_tasa)) * 100) / 100
-    : Math.round(costoCapturado * 100) / 100;
+    ? Math.round((costoCapturado / (1 + iva_tasa)) * 1e6) / 1e6
+    : Math.round(costoCapturado * 1e6) / 1e6;
 
   return {
     proveedor_id,
