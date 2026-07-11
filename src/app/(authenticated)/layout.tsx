@@ -49,6 +49,7 @@ const NAV_GROUPS: GroupDef[] = [
     label: "Planeación",
     roles: ["admin", "direccion", "planeador", "almacen"],
     items: [
+      { label: "Salud de máquinas", href: "/planeacion/salud-maquinas" },
       { label: "Asignaciones", href: "/planeacion/asignaciones" },
       {
         label: "Emergencias",
