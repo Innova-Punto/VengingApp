@@ -19,7 +19,11 @@ type Fila = {
   prom_dia_pasado: number | string;
   ultima_venta: string | null;
   activa: boolean;
+  horas_op_sin_venta: number | string;
+  abierta_ahora: boolean;
 };
+
+const UMBRAL_HORAS = 12;
 
 function fmtMxn(n: number): string {
   return `$${n.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -44,6 +48,13 @@ export default async function SaludMaquinasPage() {
   const proDia =
     filas.length > 0 ? totServ / filas.length : 0;
 
+  // Máquinas que planeación DEBE revisar: sin vender ≥12 h en horario de operación.
+  const revisar = filas
+    .filter(
+      (f) => f.abierta_ahora && Number(f.horas_op_sin_venta) >= UMBRAL_HORAS,
+    )
+    .sort((a, b) => Number(b.horas_op_sin_venta) - Number(a.horas_op_sin_venta));
+
   return (
     <div className="space-y-6">
       <div>
@@ -63,7 +74,39 @@ export default async function SaludMaquinasPage() {
         </div>
       )}
 
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      {revisar.length > 0 && (
+        <section className="rounded-lg border border-red-300 bg-red-50 p-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-red-800">
+              🚨 {revisar.length} máquina{revisar.length > 1 ? "s" : ""} requiere
+              {revisar.length > 1 ? "n" : ""} revisión — sin vender ≥{UMBRAL_HORAS} h
+              en horario de operación. Enviar operador.
+            </span>
+          </div>
+          <ul className="mt-2 grid grid-cols-1 gap-x-6 gap-y-1 text-sm text-red-900 sm:grid-cols-2 lg:grid-cols-3">
+            {revisar.map((f) => (
+              <li key={f.maquina_id} className="flex justify-between gap-2">
+                <span className="truncate">
+                  {f.alias ?? `Serie ${f.serie}`}
+                  {f.ubicacion ? (
+                    <span className="text-red-700/70"> · {f.ubicacion}</span>
+                  ) : null}
+                </span>
+                <span className="shrink-0 font-semibold tabular-nums">
+                  {Math.round(Number(f.horas_op_sin_venta))} h
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-5">
+        <Stat
+          label="Requieren revisión"
+          value={revisar.length.toLocaleString("es-MX")}
+          tone={revisar.length > 0 ? "red" : "green"}
+        />
         <Stat label="Máquinas activas" value={filas.length.toLocaleString("es-MX")} />
         <Stat
           label="Sin venta ayer"
@@ -86,6 +129,7 @@ export default async function SaludMaquinasPage() {
               <th className="px-3 py-2 text-right font-medium">Prom/día mes pasado</th>
               <th className="px-3 py-2 text-center font-medium">vs pasado</th>
               <th className="px-3 py-2 text-right font-medium">Última venta</th>
+              <th className="px-3 py-2 text-right font-medium">Sin venta (oper.)</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
@@ -94,10 +138,12 @@ export default async function SaludMaquinasPage() {
               const promPas = Number(f.prom_dia_pasado);
               const hrs = horasDesde(f.ultima_venta);
               const muerta = f.servicios_ayer === 0;
+              const horasOp = Number(f.horas_op_sin_venta);
+              const revisarEsta = f.abierta_ahora && horasOp >= UMBRAL_HORAS;
               return (
                 <tr
                   key={f.maquina_id}
-                  className={muerta ? "bg-red-50/60" : "hover:bg-zinc-50"}
+                  className={revisarEsta ? "bg-red-50" : "hover:bg-zinc-50"}
                 >
                   <td className="px-3 py-2">
                     <div className="font-medium">
@@ -149,12 +195,23 @@ export default async function SaludMaquinasPage() {
                       <span className="text-zinc-400">sin ventas</span>
                     )}
                   </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {revisarEsta ? (
+                      <span className="font-semibold text-red-700">
+                        {Math.round(horasOp)} h 🚨
+                      </span>
+                    ) : (
+                      <span className="text-zinc-500">
+                        {Math.round(horasOp)} h
+                      </span>
+                    )}
+                  </td>
                 </tr>
               );
             })}
             {filas.length === 0 && !error && (
               <tr>
-                <td colSpan={8} className="px-3 py-8 text-center text-sm text-zinc-500">
+                <td colSpan={9} className="px-3 py-8 text-center text-sm text-zinc-500">
                   Sin datos.
                 </td>
               </tr>
@@ -165,7 +222,7 @@ export default async function SaludMaquinasPage() {
               <td className="px-3 py-2">Total ({filas.length} máquinas)</td>
               <td className="px-3 py-2 text-right tabular-nums">{totServ}</td>
               <td className="px-3 py-2 text-right tabular-nums">{fmtMxn(totMonto)}</td>
-              <td className="px-3 py-2 text-right tabular-nums text-zinc-500" colSpan={5}>
+              <td className="px-3 py-2 text-right tabular-nums text-zinc-500" colSpan={6}>
                 Prom. servicios/máquina/día: {proDia.toFixed(2)}
               </td>
             </tr>
@@ -179,7 +236,10 @@ export default async function SaludMaquinasPage() {
         mes ÷ días transcurridos (mes actual hasta ayer; mes pasado completo).
         Semáforo: <span className="text-red-700">BAJO</span> si ayer &lt;
         promedio, <span className="text-green-700">ARRIBA</span> si ayer ≥
-        promedio.
+        promedio. <strong>Sin venta (oper.)</strong> = horas sin vender contando
+        solo el horario de operación del gym (default 06:00–23:00); a partir de{" "}
+        {UMBRAL_HORAS} h se marca para revisión y se genera alerta automática
+        cada hora.
       </p>
     </div>
   );
