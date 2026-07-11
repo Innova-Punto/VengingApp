@@ -1,5 +1,7 @@
+import { BannerMaquinasRevisar } from "@/components/BannerMaquinasRevisar";
 import { requireRole } from "@/lib/auth";
 import { fmtCDMXFechaHora } from "@/lib/datetime";
+import { UMBRAL_HORAS, filtrarRevisar } from "@/lib/salud-maquinas";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Salud de máquinas · Innovaypunto" };
@@ -22,8 +24,6 @@ type Fila = {
   horas_op_sin_venta: number | string;
   abierta_ahora: boolean;
 };
-
-const UMBRAL_HORAS = 12;
 
 function fmtMxn(n: number): string {
   return `$${n.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -49,11 +49,7 @@ export default async function SaludMaquinasPage() {
     filas.length > 0 ? totServ / filas.length : 0;
 
   // Máquinas que planeación DEBE revisar: sin vender ≥12 h en horario de operación.
-  const revisar = filas
-    .filter(
-      (f) => f.abierta_ahora && Number(f.horas_op_sin_venta) >= UMBRAL_HORAS,
-    )
-    .sort((a, b) => Number(b.horas_op_sin_venta) - Number(a.horas_op_sin_venta));
+  const revisar = filtrarRevisar(filas);
 
   return (
     <div className="space-y-6">
@@ -74,32 +70,7 @@ export default async function SaludMaquinasPage() {
         </div>
       )}
 
-      {revisar.length > 0 && (
-        <section className="rounded-lg border border-red-300 bg-red-50 p-4">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-red-800">
-              🚨 {revisar.length} máquina{revisar.length > 1 ? "s" : ""} requiere
-              {revisar.length > 1 ? "n" : ""} revisión — sin vender ≥{UMBRAL_HORAS} h
-              en horario de operación. Enviar operador.
-            </span>
-          </div>
-          <ul className="mt-2 grid grid-cols-1 gap-x-6 gap-y-1 text-sm text-red-900 sm:grid-cols-2 lg:grid-cols-3">
-            {revisar.map((f) => (
-              <li key={f.maquina_id} className="flex justify-between gap-2">
-                <span className="truncate">
-                  {f.alias ?? `Serie ${f.serie}`}
-                  {f.ubicacion ? (
-                    <span className="text-red-700/70"> · {f.ubicacion}</span>
-                  ) : null}
-                </span>
-                <span className="shrink-0 font-semibold tabular-nums">
-                  {Math.round(Number(f.horas_op_sin_venta))} h
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      <BannerMaquinasRevisar items={revisar} />
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <Stat

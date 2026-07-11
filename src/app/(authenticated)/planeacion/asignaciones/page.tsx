@@ -1,6 +1,8 @@
 import Link from "next/link";
 
+import { BannerMaquinasRevisar } from "@/components/BannerMaquinasRevisar";
 import { requireRole } from "@/lib/auth";
+import { getMaquinasRevisar } from "@/lib/salud-maquinas";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Asignaciones diarias · Innovaypunto" };
@@ -54,6 +56,8 @@ export default async function AsignacionesPage({
 
   const { data: asigs, error } = await query;
 
+  const revisar = await getMaquinasRevisar();
+
   const counts = {
     planeada: 0,
     surtida: 0,
@@ -85,6 +89,8 @@ export default async function AsignacionesPage({
           Nueva asignación
         </Link>
       </div>
+
+      <BannerMaquinasRevisar items={revisar} conLink />
 
       <form
         method="get"
