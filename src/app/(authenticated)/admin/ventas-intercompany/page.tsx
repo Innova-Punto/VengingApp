@@ -37,6 +37,11 @@ export default async function VentasIntercompanyPage() {
   const totalUtilidad = filas.reduce((s, v) => s + Number(v.utilidad ?? 0), 0);
   const margenGlobal =
     totalVenta > 0 ? (totalUtilidad / totalVenta) * 100 : 0;
+  const totalIva = filas.reduce(
+    (s, v) => s + Math.round(Number(v.precio_venta_neto ?? 0) * 0.16 * 100) / 100,
+    0,
+  );
+  const totalConIva = totalVenta + totalIva;
 
   return (
     <div className="space-y-6">
@@ -58,15 +63,23 @@ export default async function VentasIntercompanyPage() {
         </Link>
       </div>
 
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
         <Stat label="Ventas" value={String(filas.length)} />
         <Stat label="Costo total" value={fmtMXN(totalCosto)} />
-        <Stat label="Venta total" value={fmtMXN(totalVenta)} />
+        <Stat label="Venta neta (sin IVA)" value={fmtMXN(totalVenta)} />
+        <Stat label="IVA (16%)" value={fmtMXN(totalIva)} />
+        <Stat label="Total con IVA" value={fmtMXN(totalConIva)} />
         <Stat
           label="Utilidad / Margen"
           value={`${fmtMXN(totalUtilidad)} · ${margenGlobal.toFixed(1)}%`}
         />
       </section>
+
+      <p className="text-[11px] text-zinc-500">
+        La venta se registra en <strong>neto (sin IVA)</strong>. El
+        <strong> IVA (16%)</strong> y el <strong>Total con IVA</strong> son
+        informativos para conciliar con la factura.
+      </p>
 
       <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
         <table className="w-full text-sm">
@@ -79,7 +92,9 @@ export default async function VentasIntercompanyPage() {
               <th className="px-3 py-2 text-right font-medium">Cantidad</th>
               <th className="px-3 py-2 text-right font-medium">Costo</th>
               <th className="px-3 py-2 text-right font-medium">Margen</th>
-              <th className="px-3 py-2 text-right font-medium">Venta</th>
+              <th className="px-3 py-2 text-right font-medium">Venta neta</th>
+              <th className="px-3 py-2 text-right font-medium">IVA 16%</th>
+              <th className="px-3 py-2 text-right font-medium">Total c/IVA</th>
               <th className="px-3 py-2 text-right font-medium">Utilidad</th>
               <th className="px-3 py-2 font-medium">Por</th>
             </tr>
@@ -131,6 +146,12 @@ export default async function VentasIntercompanyPage() {
                   <td className="px-3 py-2 text-right tabular-nums font-medium">
                     {fmtMXN(v.precio_venta_neto)}
                   </td>
+                  <td className="px-3 py-2 text-right tabular-nums text-zinc-600">
+                    {fmtMXN(Number(v.precio_venta_neto ?? 0) * 0.16)}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums font-medium">
+                    {fmtMXN(Number(v.precio_venta_neto ?? 0) * 1.16)}
+                  </td>
                   <td className="px-3 py-2 text-right tabular-nums font-medium text-green-700">
                     {fmtMXN(v.utilidad)}
                   </td>
@@ -143,7 +164,7 @@ export default async function VentasIntercompanyPage() {
             {filas.length === 0 && (
               <tr>
                 <td
-                  colSpan={10}
+                  colSpan={12}
                   className="px-3 py-8 text-center text-sm text-zinc-500"
                 >
                   Aún no hay ventas intercompany registradas.

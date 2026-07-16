@@ -94,6 +94,8 @@ export default function NuevaVentaForm({
       ? Math.round(costoTotal * (1 + margenNum / 100) * 100) / 100
       : costoTotal;
   const utilidad = precioVenta - costoTotal;
+  const iva = Math.round(precioVenta * 0.16 * 100) / 100;
+  const totalConIva = precioVenta + iva;
   const fmt = (n: number) =>
     `$${n.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -220,7 +222,7 @@ export default function NuevaVentaForm({
             {unidad} disponibles.
           </p>
         ) : (
-          <div className="grid grid-cols-3 gap-3 text-center">
+          <div className="grid grid-cols-2 gap-3 text-center md:grid-cols-5">
             <div>
               <div className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
                 Costo (PEPS)
@@ -231,10 +233,26 @@ export default function NuevaVentaForm({
             </div>
             <div>
               <div className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
-                Precio venta (+{margenNum || 0}%)
+                Precio venta neto (+{margenNum || 0}%)
               </div>
               <div className="mt-1 text-lg font-semibold tabular-nums text-zinc-900">
                 {fmt(precioVenta)}
+              </div>
+            </div>
+            <div>
+              <div className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+                IVA (16%)
+              </div>
+              <div className="mt-1 text-lg font-semibold tabular-nums text-zinc-600">
+                {fmt(iva)}
+              </div>
+            </div>
+            <div>
+              <div className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+                Total con IVA
+              </div>
+              <div className="mt-1 text-lg font-semibold tabular-nums text-zinc-900">
+                {fmt(totalConIva)}
               </div>
             </div>
             <div>
@@ -248,8 +266,10 @@ export default function NuevaVentaForm({
           </div>
         )}
         <p className="mt-2 text-[11px] text-zinc-500">
-          Estimado con el lote más viejo (PEPS). El valor final se recalcula y
-          queda como snapshot al confirmar.
+          Estimado con el lote más viejo (PEPS). Se guarda el precio
+          <strong> neto (sin IVA)</strong>; el IVA y el total con IVA son
+          informativos para la factura. El valor final se recalcula y queda como
+          snapshot al confirmar.
         </p>
       </div>
 
