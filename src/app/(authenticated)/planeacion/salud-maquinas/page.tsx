@@ -40,7 +40,11 @@ export default async function SaludMaquinasPage() {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase as any).rpc("reporte_ventas_maquinas");
-  const filas: Fila[] = (data as Fila[]) ?? [];
+  const filas: Fila[] = ((data as Fila[]) ?? [])
+    .slice()
+    .sort(
+      (a, b) => Number(b.horas_op_sin_venta) - Number(a.horas_op_sin_venta),
+    );
 
   const totServ = filas.reduce((s, f) => s + f.servicios_ayer, 0);
   const totMonto = filas.reduce((s, f) => s + Number(f.monto_ayer), 0);
@@ -59,8 +63,9 @@ export default async function SaludMaquinasPage() {
         </h1>
         <p className="mt-1 text-sm text-zinc-600">
           Venta de <strong>ayer</strong> por máquina vs. su promedio diario del
-          mes en curso y del mes pasado. Las máquinas sin venta aparecen primero:
-          son las candidatas a revisión.
+          mes en curso y del mes pasado. Ordenadas de <strong>mayor a menor por
+          horas sin venta (en operación)</strong>: las que llevan más tiempo sin
+          vender aparecen hasta arriba.
         </p>
       </div>
 
