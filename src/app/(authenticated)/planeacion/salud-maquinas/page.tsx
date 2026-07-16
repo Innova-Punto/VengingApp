@@ -23,6 +23,10 @@ type Fila = {
   activa: boolean;
   horas_op_sin_venta: number | string;
   abierta_ahora: boolean;
+  ruta_id: string | null;
+  ruta_nombre: string | null;
+  operador_id: string | null;
+  operador_nombre: string | null;
 };
 
 function fmtMxn(n: number): string {
@@ -34,17 +38,43 @@ function horasDesde(iso: string | null): number | null {
   return (Date.now() - new Date(iso).getTime()) / 3_600_000;
 }
 
-export default async function SaludMaquinasPage() {
+export default async function SaludMaquinasPage({
+  searchParams,
+}: {
+  searchParams: { ruta?: string; operador?: string };
+}) {
   await requireRole("admin", "direccion", "planeador", "almacen");
   const supabase = createClient();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase as any).rpc("reporte_ventas_maquinas");
-  const filas: Fila[] = ((data as Fila[]) ?? [])
+  const todas: Fila[] = ((data as Fila[]) ?? [])
     .slice()
     .sort(
       (a, b) => Number(b.horas_op_sin_venta) - Number(a.horas_op_sin_venta),
     );
+
+  // Opciones de filtro (distintas rutas y operadores presentes)
+  const rutasOpts = Array.from(
+    new Map(
+      todas.filter((f) => f.ruta_id).map((f) => [f.ruta_id, f.ruta_nombre]),
+    ),
+  ).sort((a, b) => (a[1] ?? "").localeCompare(b[1] ?? ""));
+  const operadoresOpts = Array.from(
+    new Map(
+      todas
+        .filter((f) => f.operador_id)
+        .map((f) => [f.operador_id, f.operador_nombre]),
+    ),
+  ).sort((a, b) => (a[1] ?? "").localeCompare(b[1] ?? ""));
+
+  const rutaSel = searchParams.ruta ?? "";
+  const operadorSel = searchParams.operador ?? "";
+  const filas = todas.filter(
+    (f) =>
+      (!rutaSel || f.ruta_id === rutaSel) &&
+      (!operadorSel || f.operador_id === operadorSel),
+  );
 
   const totServ = filas.reduce((s, f) => s + f.servicios_ayer, 0);
   const totMonto = filas.reduce((s, f) => s + Number(f.monto_ayer), 0);
@@ -74,6 +104,63 @@ export default async function SaludMaquinasPage() {
           Error al cargar el reporte: {error.message}
         </div>
       )}
+
+      <form
+        method="get"
+        className="flex flex-wrap items-end gap-3 rounded-lg border border-zinc-200 bg-white p-4"
+      >
+        <div>
+          <label className="block text-xs font-medium uppercase tracking-wide text-zinc-500">
+            Ruta
+          </label>
+          <select
+            name="ruta"
+            defaultValue={rutaSel}
+            className="mt-1 w-52 rounded-md border border-zinc-300 px-3 py-1.5 text-sm shadow-sm focus:border-zinc-900 focus:outline-none"
+          >
+            <option value="">Todas las rutas</option>
+            {rutasOpts.map(([id, nombre]) => (
+              <option key={id} value={id ?? ""}>
+                {nombre}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium uppercase tracking-wide text-zinc-500">
+            Operador
+          </label>
+          <select
+            name="operador"
+            defaultValue={operadorSel}
+            className="mt-1 w-52 rounded-md border border-zinc-300 px-3 py-1.5 text-sm shadow-sm focus:border-zinc-900 focus:outline-none"
+          >
+            <option value="">Todos los operadores</option>
+            {operadoresOpts.map(([id, nombre]) => (
+              <option key={id} value={id ?? ""}>
+                {nombre}
+              </option>
+            ))}
+          </select>
+        </div>
+        <button
+          type="submit"
+          className="rounded-md bg-zinc-900 px-4 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-zinc-800"
+        >
+          Filtrar
+        </button>
+        {(rutaSel || operadorSel) && (
+          <a
+            href="/planeacion/salud-maquinas"
+            className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+          >
+            Limpiar
+          </a>
+        )}
+        <span className="ml-auto self-center text-xs text-zinc-500">
+          {filas.length} de {todas.length} máquinas
+        </span>
+      </form>
 
       <BannerMaquinasRevisar items={revisar} />
 
@@ -129,6 +216,10 @@ export default async function SaludMaquinasPage() {
                       #{f.serie}
                       {f.ubicacion ? ` · ${f.ubicacion}` : ""}
                       {f.cliente ? ` · ${f.cliente}` : ""}
+                    </div>
+                    <div className="text-[11px] text-zinc-400">
+                      {f.ruta_nombre ? `🛣 ${f.ruta_nombre}` : "sin ruta"}
+                      {f.operador_nombre ? ` · 👤 ${f.operador_nombre}` : ""}
                     </div>
                   </td>
                   <td
