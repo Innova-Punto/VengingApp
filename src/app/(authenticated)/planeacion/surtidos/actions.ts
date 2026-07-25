@@ -561,6 +561,28 @@ export async function completarSurtido(formData: FormData): Promise<void> {
     );
   }
 
+  // -- Paso 1.5: CLAIM atómico (idempotencia). Marcamos el surtido como
+  // completado ANTES de descontar. El UPDATE condicional (estado <> 'completado')
+  // solo lo gana UNA ejecución gracias al bloqueo de fila de Postgres; si hay un
+  // doble clic o un reintento concurrente, las demás ejecuciones obtienen 0 filas
+  // y salen sin volver a descontar inventario. Esto evita el descuadre por
+  // salidas de cartucho/vaso duplicadas.
+  const { data: claim } = await supabase
+    .from("surtidos")
+    .update({
+      estado: "completado",
+      surtido_por: current.id,
+      fecha_completado: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .neq("estado", "completado")
+    .select("id")
+    .maybeSingle();
+  if (!claim) {
+    // Otra ejecución ya lo completó: no re-descontar.
+    redirect(`/planeacion/surtidos/${id}`);
+  }
+
   // -- Paso 2: aplicar PEPS y descontar inventario por cada item
   for (const it of items ?? []) {
     const prod = Array.isArray(it.producto) ? it.producto[0] : it.producto;
@@ -683,15 +705,7 @@ export async function completarSurtido(formData: FormData): Promise<void> {
     }
   }
 
-  // -- Paso 3: marcar completado
-  await supabase
-    .from("surtidos")
-    .update({
-      estado: "completado",
-      surtido_por: current.id,
-      fecha_completado: new Date().toISOString(),
-    })
-    .eq("id", id);
+  // -- Paso 3: el surtido ya se marcó completado en el claim atómico (Paso 1.5).
 
   await supabase
     .from("asignaciones_diarias")
