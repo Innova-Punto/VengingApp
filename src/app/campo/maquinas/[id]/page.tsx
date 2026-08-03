@@ -10,6 +10,7 @@ import CheckInForm from "./CheckInForm";
 import IncidenciaForm from "./IncidenciaForm";
 import LlenadoForm from "./LlenadoForm";
 import PesajeForm from "./PesajeForm";
+import ServicioForm, { type ChecklistItemUI } from "./ServicioForm";
 
 export default async function MaquinaCampoPage({
   params,
@@ -68,7 +69,7 @@ export default async function MaquinaCampoPage({
   const { data: maquina } = await supabase
     .from("maquinas")
     .select(
-      `id, serie, alias, vaso_producto_id, vaso_capacidad_max, vaso_inventario_actual,
+      `id, serie, alias, tipo, vaso_producto_id, vaso_capacidad_max, vaso_inventario_actual,
        requiere_pesaje,
        ubicacion:ubicaciones(nombre, lat, lng, cliente:clientes(nombre)),
        tolvas:tolvas(
@@ -144,8 +145,42 @@ export default async function MaquinaCampoPage({
         .order("created_at", { ascending: false })
     : { data: [] };
 
+  const esServicio = maquina.tipo === "servicio";
+
+  // Visita de servicio existente (máquinas tipo 'servicio')
+  const { data: servicioVisita } = checkIn
+    ? await supabase
+        .from("servicio_visitas")
+        .select(
+          `id, folio, fecha, producto_repuesto, cantidad_repuesta,
+           lider_nombre, firma_no_disponible, firma_motivo, observaciones,
+           respuestas:servicio_respuestas(
+             id, estado, descripcion,
+             item:checklist_items(seccion, orden, nombre)
+           )`,
+        )
+        .eq("check_in_id", checkIn.id)
+        .maybeSingle()
+    : { data: null };
+
+  // Plantilla de checklist activa (para el formulario de servicio)
+  const { data: plantilla } =
+    esServicio && checkIn && !servicioVisita
+      ? await supabase
+          .from("checklist_plantillas")
+          .select(
+            `id, nombre, version,
+             items:checklist_items(id, seccion, orden, nombre, tipo, obligatorio)`,
+          )
+          .eq("activo", true)
+          .order("version", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      : { data: null };
+
   const tieneCheckIn = !!checkIn;
-  const visitaCerrada = !!checkIn?.fecha_salida || !!llenado;
+  const visitaCerrada =
+    !!checkIn?.fecha_salida || !!llenado || !!servicioVisita;
 
   // Cierre mensual activo (para habilitar pesaje)
   const { data: cierreActivo } = await supabase
@@ -304,7 +339,24 @@ export default async function MaquinaCampoPage({
             </div>
           </div>
 
-          {(() => {
+          {esServicio ? (
+            plantilla ? (
+              <ServicioForm
+                checkInId={checkIn.id}
+                asignacionId={asignacionId}
+                maquinaId={maquina.id}
+                plantillaId={plantilla.id}
+                plantillaNombre={`${plantilla.nombre} v${plantilla.version}`}
+                items={((plantilla.items ?? []) as ChecklistItemUI[])
+                  .slice()
+                  .sort((a, b) => a.orden - b.orden)}
+              />
+            ) : (
+              <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                No hay un checklist de servicio activo. Contacta a dirección.
+              </div>
+            )
+          ) : (() => {
             const maquinaRequierePesaje =
               (maquina as { requiere_pesaje?: boolean }).requiere_pesaje ?? false;
             const tolvasConProducto = tolvasPolvo.filter(
@@ -457,6 +509,79 @@ export default async function MaquinaCampoPage({
               </div>
             )}
           </div>
+
+          {servicioVisita && (
+            <div className="rounded-lg border border-zinc-200 bg-white">
+              <div className="flex items-center justify-between border-b border-zinc-200 bg-zinc-50 px-3 py-2">
+                <span className="text-xs uppercase tracking-wide text-zinc-500">
+                  Servicio
+                </span>
+                <span className="font-mono text-xs text-zinc-700">
+                  {servicioVisita.folio}
+                </span>
+              </div>
+              <div className="space-y-2 p-3 text-sm">
+                {(() => {
+                  const resp = servicioVisita.respuestas ?? [];
+                  const mal = resp.filter((r) => r.estado === "mal");
+                  return (
+                    <>
+                      <div className="text-zinc-700">
+                        {resp.length} puntos revisados ·{" "}
+                        {mal.length === 0 ? (
+                          <span className="font-medium text-green-700">
+                            todo bien
+                          </span>
+                        ) : (
+                          <span className="font-medium text-red-700">
+                            {mal.length} con falla
+                          </span>
+                        )}
+                      </div>
+                      {mal.map((r) => {
+                        const item = Array.isArray(r.item) ? r.item[0] : r.item;
+                        return (
+                          <div
+                            key={r.id}
+                            className="rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-xs"
+                          >
+                            <span className="font-medium text-red-900">
+                              {item?.seccion} · {item?.nombre}
+                            </span>
+                            {r.descripcion && (
+                              <p className="mt-0.5 text-red-800">
+                                {r.descripcion}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </>
+                  );
+                })()}
+                {servicioVisita.producto_repuesto && (
+                  <div className="text-xs text-zinc-600">
+                    Producto repuesto:{" "}
+                    <span className="font-medium">
+                      {servicioVisita.cantidad_repuesta ?? "sí"}
+                    </span>
+                  </div>
+                )}
+                <div className="text-xs text-zinc-600">
+                  {servicioVisita.firma_no_disponible ? (
+                    <>Sin firma: {servicioVisita.firma_motivo}</>
+                  ) : (
+                    <>Recibió: {servicioVisita.lider_nombre} ✓ firmado</>
+                  )}
+                </div>
+                {servicioVisita.observaciones && (
+                  <p className="text-xs text-zinc-600">
+                    {servicioVisita.observaciones}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
 
           {llenado?.items && llenado.items.length > 0 && (
             <div className="rounded-lg border border-zinc-200 bg-white">
