@@ -161,6 +161,30 @@ export default async function JornadaDetallePage({
   >();
   for (const p of pesajes ?? []) pesajePorCheckIn.set(p.check_in_id, p);
 
+  // Visitas de servicio de la jornada (máquinas tipo 'servicio')
+  const { data: servicios } =
+    checkInIds.length > 0
+      ? await supabase
+          .from("servicio_visitas")
+          .select(
+            `id, check_in_id, folio, fecha, inventario_sf,
+             producto_repuesto, cantidad_repuesta, foto_general_url,
+             lider_nombre, firma_url, firma_no_disponible, firma_motivo,
+             observaciones,
+             respuestas:servicio_respuestas(
+               id, estado, descripcion, foto_url,
+               item:checklist_items(seccion, orden, nombre)
+             )`,
+          )
+          .in("check_in_id", checkInIds)
+      : { data: [] };
+
+  const servicioPorCheckIn = new Map<
+    string,
+    NonNullable<typeof servicios>[number]
+  >();
+  for (const s of servicios ?? []) servicioPorCheckIn.set(s.check_in_id, s);
+
   // Tolvas para mapear numero (incluye tolvas de pesajes)
   const tolvaIds: string[] = [];
   for (const ci of checkIns ?? []) {
@@ -338,6 +362,33 @@ export default async function JornadaDetallePage({
             const fotoLlenado = await signedUrlFromKey(
               supabase,
               lle?.evidencia_url ?? null,
+            );
+
+            // Evidencias de la visita de servicio (si aplica)
+            const servicio = servicioPorCheckIn.get(ci.id);
+            const servicioRespuestas = (servicio?.respuestas ?? [])
+              .map((r) => ({
+                ...r,
+                itemInfo: Array.isArray(r.item) ? r.item[0] : r.item,
+              }))
+              .sort(
+                (a, b) => (a.itemInfo?.orden ?? 0) - (b.itemInfo?.orden ?? 0),
+              );
+            const servicioFallas = servicioRespuestas.filter(
+              (r) => r.estado === "mal",
+            );
+            const [fotoServicioGeneral, fotoFirma, ...fotosFallas] = servicio
+              ? await Promise.all([
+                  signedUrlFromKey(supabase, servicio.foto_general_url),
+                  signedUrlFromKey(supabase, servicio.firma_url),
+                  ...servicioFallas.map((r) =>
+                    signedUrlFromKey(supabase, r.foto_url),
+                  ),
+                ])
+              : [null, null];
+            const fotoFallaPorId = new Map<string, string | null>();
+            servicioFallas.forEach((r, i) =>
+              fotoFallaPorId.set(r.id, fotosFallas[i] ?? null),
             );
 
             const mapsUrl =
@@ -550,6 +601,129 @@ export default async function JornadaDetallePage({
                           })}
                         </tbody>
                       </table>
+                    ) : servicio ? (
+                      <div className="space-y-3">
+                        <div className="flex items-baseline justify-between">
+                          <div className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+                            Servicio ·{" "}
+                            {fmtCDMX(servicio.fecha, {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </div>
+                          <Link
+                            href={`/admin/servicios/${servicio.id}`}
+                            className="font-mono text-[11px] text-blue-700 hover:underline"
+                          >
+                            {servicio.folio} →
+                          </Link>
+                        </div>
+
+                        <div className="text-xs text-zinc-700">
+                          {servicioRespuestas.length} puntos revisados ·{" "}
+                          {servicioFallas.length === 0 ? (
+                            <span className="font-medium text-green-700">
+                              todo bien
+                            </span>
+                          ) : (
+                            <span className="font-medium text-red-700">
+                              {servicioFallas.length} con falla
+                            </span>
+                          )}
+                          {servicio.producto_repuesto && (
+                            <span className="ml-2">
+                              · repuso{" "}
+                              <span className="font-medium">
+                                {servicio.cantidad_repuesta ?? "—"} pzas
+                              </span>
+                            </span>
+                          )}
+                          {servicio.inventario_sf && (
+                            <span className="ml-2 text-zinc-500">
+                              · Inv. S/F: {servicio.inventario_sf}
+                            </span>
+                          )}
+                        </div>
+
+                        {servicioFallas.map((r) => {
+                          const foto = fotoFallaPorId.get(r.id);
+                          return (
+                            <div
+                              key={r.id}
+                              className="rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-xs"
+                            >
+                              <span className="font-medium text-red-900">
+                                {r.itemInfo?.seccion} · {r.itemInfo?.nombre}
+                              </span>
+                              {r.descripcion && (
+                                <p className="mt-0.5 text-red-800">
+                                  {r.descripcion}
+                                </p>
+                              )}
+                              {foto && (
+                                <a href={foto} target="_blank" rel="noreferrer">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={foto}
+                                    alt={`Evidencia: ${r.itemInfo?.nombre}`}
+                                    className="mt-1 max-h-32 rounded-md border border-red-200"
+                                  />
+                                </a>
+                              )}
+                            </div>
+                          );
+                        })}
+
+                        {servicio.observaciones && (
+                          <p className="text-xs italic text-zinc-600">
+                            “{servicio.observaciones}”
+                          </p>
+                        )}
+
+                        <div className="flex flex-wrap items-start gap-3">
+                          {fotoServicioGeneral && (
+                            <a
+                              href={fotoServicioGeneral}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={fotoServicioGeneral}
+                                alt="Foto general de la máquina"
+                                className="max-h-28 rounded-md border border-zinc-200"
+                              />
+                              <span className="mt-0.5 block text-[10px] text-zinc-500">
+                                Foto general
+                              </span>
+                            </a>
+                          )}
+                          <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1.5">
+                            <div className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+                              Recibe el líder
+                            </div>
+                            {servicio.firma_no_disponible ? (
+                              <p className="mt-0.5 text-xs text-amber-800">
+                                Sin firma: {servicio.firma_motivo}
+                              </p>
+                            ) : (
+                              <>
+                                <div className="mt-0.5 text-xs text-zinc-900">
+                                  {servicio.lider_nombre}
+                                </div>
+                                {fotoFirma && (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={fotoFirma}
+                                    alt={`Firma de ${servicio.lider_nombre}`}
+                                    className="mt-1 max-h-20 rounded border border-zinc-200 bg-white"
+                                  />
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     ) : (
                       <p className="text-xs text-zinc-500">
                         Sin llenado registrado.
