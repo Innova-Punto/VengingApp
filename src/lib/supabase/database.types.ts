@@ -451,6 +451,74 @@ export type Database = {
           },
         ]
       }
+      checklist_items: {
+        Row: {
+          created_at: string
+          id: string
+          nombre: string
+          obligatorio: boolean
+          orden: number
+          plantilla_id: string
+          seccion: string
+          tipo: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nombre: string
+          obligatorio?: boolean
+          orden: number
+          plantilla_id: string
+          seccion: string
+          tipo?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nombre?: string
+          obligatorio?: boolean
+          orden?: number
+          plantilla_id?: string
+          seccion?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_items_plantilla_id_fkey"
+            columns: ["plantilla_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_plantillas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklist_plantillas: {
+        Row: {
+          activo: boolean
+          created_at: string
+          id: string
+          nombre: string
+          notas: string | null
+          version: number
+        }
+        Insert: {
+          activo?: boolean
+          created_at?: string
+          id?: string
+          nombre: string
+          notas?: string | null
+          version?: number
+        }
+        Update: {
+          activo?: boolean
+          created_at?: string
+          id?: string
+          nombre?: string
+          notas?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
       cierre_snapshot_producto: {
         Row: {
           alm_cartuchos_gramos: number
@@ -3316,6 +3384,143 @@ export type Database = {
           },
         ]
       }
+      servicio_respuestas: {
+        Row: {
+          created_at: string
+          descripcion: string | null
+          estado: string | null
+          foto_url: string | null
+          id: string
+          item_id: string
+          valor: string | null
+          visita_id: string
+        }
+        Insert: {
+          created_at?: string
+          descripcion?: string | null
+          estado?: string | null
+          foto_url?: string | null
+          id?: string
+          item_id: string
+          valor?: string | null
+          visita_id: string
+        }
+        Update: {
+          created_at?: string
+          descripcion?: string | null
+          estado?: string | null
+          foto_url?: string | null
+          id?: string
+          item_id?: string
+          valor?: string | null
+          visita_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "servicio_respuestas_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "servicio_respuestas_visita_id_fkey"
+            columns: ["visita_id"]
+            isOneToOne: false
+            referencedRelation: "servicio_visitas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      servicio_visitas: {
+        Row: {
+          cantidad_repuesta: number | null
+          check_in_id: string
+          created_at: string
+          fecha: string
+          firma_motivo: string | null
+          firma_no_disponible: boolean
+          firma_url: string | null
+          folio: string | null
+          foto_general_url: string | null
+          id: string
+          inventario_sf: string | null
+          lider_nombre: string | null
+          maquina_id: string
+          observaciones: string | null
+          operador_id: string
+          plantilla_id: string
+          producto_repuesto: boolean
+        }
+        Insert: {
+          cantidad_repuesta?: number | null
+          check_in_id: string
+          created_at?: string
+          fecha?: string
+          firma_motivo?: string | null
+          firma_no_disponible?: boolean
+          firma_url?: string | null
+          folio?: string | null
+          foto_general_url?: string | null
+          id?: string
+          inventario_sf?: string | null
+          lider_nombre?: string | null
+          maquina_id: string
+          observaciones?: string | null
+          operador_id: string
+          plantilla_id: string
+          producto_repuesto?: boolean
+        }
+        Update: {
+          cantidad_repuesta?: number | null
+          check_in_id?: string
+          created_at?: string
+          fecha?: string
+          firma_motivo?: string | null
+          firma_no_disponible?: boolean
+          firma_url?: string | null
+          folio?: string | null
+          foto_general_url?: string | null
+          id?: string
+          inventario_sf?: string | null
+          lider_nombre?: string | null
+          maquina_id?: string
+          observaciones?: string | null
+          operador_id?: string
+          plantilla_id?: string
+          producto_repuesto?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "servicio_visitas_check_in_id_fkey"
+            columns: ["check_in_id"]
+            isOneToOne: true
+            referencedRelation: "check_ins"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "servicio_visitas_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "maquinas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "servicio_visitas_operador_id_fkey"
+            columns: ["operador_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "servicio_visitas_plantilla_id_fkey"
+            columns: ["plantilla_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_plantillas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       surtido_items: {
         Row: {
           cartuchos_entregados: number
@@ -4037,12 +4242,10 @@ export type Database = {
           valor_vasos_maquinas: number
         }[]
       }
-      abrir_cierre_mensual:
-        | { Args: { p_anio: number; p_mes: number }; Returns: string }
-        | {
-            Args: { p_anio: number; p_force?: boolean; p_mes: number }
-            Returns: string
-          }
+      abrir_cierre_mensual: {
+        Args: { p_anio: number; p_mes: number }
+        Returns: string
+      }
       actualizar_pesaje_tolva_item: {
         Args: { p_gramos_medidos: number; p_item_id: string; p_notas?: string }
         Returns: undefined
@@ -4130,6 +4333,14 @@ export type Database = {
         Args: { p_fecha: string; p_notas?: string; p_operador_id: string }
         Returns: string
       }
+      detectar_maquinas_sin_venta: {
+        Args: { p_umbral?: number }
+        Returns: Json
+      }
+      detectar_surtidos_duplicados: {
+        Args: { p_dias?: number }
+        Returns: number
+      }
       distancia_metros: {
         Args: { lat1: number; lat2: number; lng1: number; lng2: number }
         Returns: number
@@ -4145,6 +4356,10 @@ export type Database = {
       gen_folio: {
         Args: { prefijo: string; seq_name: string }
         Returns: string
+      }
+      horas_operativas_entre: {
+        Args: { ap: string; ci: string; t1: string; t2: string }
+        Returns: number
       }
       iniciar_conteo_almacen: { Args: { p_cierre_id: string }; Returns: string }
       iniciar_sync_log_nayax: {
@@ -4303,6 +4518,30 @@ export type Database = {
         }
         Returns: string
       }
+      reporte_ventas_maquinas: {
+        Args: never
+        Returns: {
+          abierta_ahora: boolean
+          activa: boolean
+          alias: string
+          cliente: string
+          horas_op_sin_venta: number
+          maquina_id: string
+          monto_ayer: number
+          operador_id: string
+          operador_nombre: string
+          prom_dia_actual: number
+          prom_dia_pasado: number
+          ruta_id: string
+          ruta_nombre: string
+          serie: string
+          serv_mes_actual: number
+          serv_mes_pasado: number
+          servicios_ayer: number
+          ubicacion: string
+          ultima_venta: string
+        }[]
+      }
       snapshot_inventario_desglosado: { Args: never; Returns: Json }
       snapshot_inventario_por_producto: {
         Args: never
@@ -4329,7 +4568,13 @@ export type Database = {
     Enums: {
       alerta_estado: "activa" | "atendida" | "descartada"
       alerta_severidad: "info" | "warning" | "critical"
-      alerta_tipo: "maquina_sin_venta_24h" | "discrepancia_pesaje_alta"
+      alerta_tipo:
+        | "maquina_sin_venta_24h"
+        | "discrepancia_pesaje_alta"
+        | "checkin_sin_llenado"
+        | "maquina_no_visitada"
+        | "maquina_sin_venta_12h"
+        | "surtido_salida_duplicada"
       app_role:
         | "direccion"
         | "compras"
@@ -4545,7 +4790,14 @@ export const Constants = {
     Enums: {
       alerta_estado: ["activa", "atendida", "descartada"],
       alerta_severidad: ["info", "warning", "critical"],
-      alerta_tipo: ["maquina_sin_venta_24h", "discrepancia_pesaje_alta"],
+      alerta_tipo: [
+        "maquina_sin_venta_24h",
+        "discrepancia_pesaje_alta",
+        "checkin_sin_llenado",
+        "maquina_no_visitada",
+        "maquina_sin_venta_12h",
+        "surtido_salida_duplicada",
+      ],
       app_role: [
         "direccion",
         "compras",
