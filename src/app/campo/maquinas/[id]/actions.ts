@@ -227,6 +227,66 @@ export async function cerrarVisitaSinLlenado(input: {
 }
 
 // ============================================================================
+// Registrar visita de servicio (máquinas tipo 'servicio' — cierra la visita)
+// ============================================================================
+
+export async function registrarServicio(input: {
+  checkInId: string;
+  asignacionId: string;
+  maquinaId: string;
+  plantillaId: string;
+  respuestas: {
+    item_id: string;
+    estado: "bien" | "mal" | "na";
+    descripcion: string | null;
+    foto_url: string | null;
+  }[];
+  inventarioSf: string | null;
+  productoRepuesto: boolean;
+  cantidadRepuesta: number | null;
+  /** Rutas ya subidas desde el cliente (`bucket/path.ext`). */
+  fotoGeneralPath: string | null;
+  liderNombre: string | null;
+  firmaPath: string | null;
+  firmaNoDisponible: boolean;
+  firmaMotivo: string | null;
+  observaciones: string | null;
+}): Promise<ActionResult> {
+  await requireRole("operador", "admin", "direccion");
+
+  if (!input.checkInId) return { ok: false, message: "Falta check-in." };
+  if (!input.plantillaId) return { ok: false, message: "Falta la plantilla del checklist." };
+  if (!Array.isArray(input.respuestas) || input.respuestas.length === 0) {
+    return { ok: false, message: "El checklist está vacío." };
+  }
+
+  const supabase = createClient() as AnyClient;
+
+  const { error } = await supabase.rpc("op_registrar_servicio", {
+    p_check_in_id: input.checkInId,
+    p_plantilla_id: input.plantillaId,
+    p_respuestas: input.respuestas,
+    p_inventario_sf: input.inventarioSf,
+    p_producto_repuesto: input.productoRepuesto,
+    p_cantidad_repuesta: input.cantidadRepuesta,
+    p_foto_general_url: input.fotoGeneralPath,
+    p_lider_nombre: input.liderNombre,
+    p_firma_url: input.firmaPath,
+    p_firma_no_disponible: input.firmaNoDisponible,
+    p_firma_motivo: input.firmaMotivo,
+    p_observaciones: input.observaciones,
+  });
+
+  if (error) return { ok: false, message: error.message };
+
+  revalidatePath(`/campo/maquinas/${input.maquinaId}`);
+  revalidatePath(`/campo/jornada/${input.asignacionId}`);
+  revalidatePath("/admin/dashboard");
+  revalidatePath("/admin/jornadas", "layout");
+  return { ok: true, message: "Servicio registrado." };
+}
+
+// ============================================================================
 // Pesaje de tolvas en máquina (requiere cierre mensual abierto)
 // ============================================================================
 
