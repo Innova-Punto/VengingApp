@@ -43,7 +43,7 @@ export async function crearRecepcion(
   const { data: oc, error: ocErr } = await supabase
     .from("ordenes_compra")
     .select(
-      `id, folio, estado, proveedor_id,
+      `id, folio, estado, proveedor_id, moneda, tc_confirmado,
        items:oc_items(
          id, cantidad, recibido, costo_unitario, presentacion_id,
          presentacion:presentaciones_proveedor(
@@ -61,6 +61,14 @@ export async function crearRecepcion(
     return {
       ok: false,
       message: `La OC está en estado ${oc.estado} y no admite más recepciones.`,
+    };
+  }
+  // Candado: OC en divisa no se recibe con TC provisional (los lotes
+  // nacerían con costo MXN incorrecto). También lo valida un trigger en BD.
+  if ((oc.moneda ?? "MXN") !== "MXN" && !oc.tc_confirmado) {
+    return {
+      ok: false,
+      message: `La OC ${oc.folio} está en ${oc.moneda} con tipo de cambio provisional. Compras debe confirmar el TC real pagado (detalle de la OC) antes de recibir.`,
     };
   }
 

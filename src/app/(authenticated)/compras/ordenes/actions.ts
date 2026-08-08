@@ -31,8 +31,25 @@ export async function crearOc(
   const fecha_esperada =
     String(formData.get("fecha_esperada") ?? "").trim() || null;
   const notas = String(formData.get("notas") ?? "").trim() || null;
+  const moneda = String(formData.get("moneda") ?? "MXN");
+  const tcRaw = String(formData.get("tipo_cambio") ?? "").trim();
 
   if (!proveedor_id) return { ok: false, message: "Selecciona un proveedor." };
+  if (!["MXN", "USD"].includes(moneda)) {
+    return { ok: false, message: "Moneda inválida." };
+  }
+
+  let tipo_cambio: number | null = null;
+  if (moneda === "USD") {
+    tipo_cambio = Number(tcRaw);
+    if (!Number.isFinite(tipo_cambio) || tipo_cambio <= 0) {
+      return {
+        ok: false,
+        message:
+          "Para una OC en USD captura un tipo de cambio provisional (> 0). Lo confirmas con el TC real antes de recibir.",
+      };
+    }
+  }
 
   const supabase = createClient();
   // folio lo asigna el trigger trg_oc_folio; el tipo lo marca como required
@@ -47,6 +64,9 @@ export async function crearOc(
       notas,
       creado_por: current.id,
       estado: "borrador",
+      moneda,
+      tipo_cambio,
+      tc_confirmado: false,
     })
     .select("id")
     .single();
@@ -157,6 +177,95 @@ export async function cerrarOcIncompleta(formData: FormData) {
 }
 
 // ============================================================================
+// Tipo de cambio (OCs en divisa)
+// ============================================================================
+
+/**
+ * Actualiza el tipo de cambio de una OC en divisa y lo marca como confirmado,
+ * recalculando el costo MXN de todos los items (divisa × TC). El trigger
+ * trg_oc_items_recalcular_total recalcula subtotal/iva/total.
+ *
+ * Reglas:
+ *  - Solo OCs con moneda distinta de MXN.
+ *  - El TC se congela con la primera recepción: si ya hay recepciones, no se
+ *    puede editar (los lotes ya nacieron con ese costo).
+ */
+export async function confirmarTcOc(
+  _prev: OcResult | null,
+  formData: FormData,
+): Promise<OcResult> {
+  await requireRole(...ROLES);
+
+  const id = String(formData.get("id") ?? "");
+  const tcRaw = String(formData.get("tipo_cambio") ?? "").trim();
+  if (!id) return { ok: false, message: "Falta el id." };
+
+  const tipo_cambio = Number(tcRaw);
+  if (!Number.isFinite(tipo_cambio) || tipo_cambio <= 0) {
+    return { ok: false, message: "Tipo de cambio inválido (debe ser > 0)." };
+  }
+
+  const supabase = createClient();
+
+  const { data: oc } = await supabase
+    .from("ordenes_compra")
+    .select("id, estado, moneda")
+    .eq("id", id)
+    .maybeSingle();
+  if (!oc) return { ok: false, message: "OC no encontrada." };
+  if ((oc.moneda ?? "MXN") === "MXN") {
+    return { ok: false, message: "Esta OC está en MXN; no lleva tipo de cambio." };
+  }
+  if (oc.estado === "cancelada") {
+    return { ok: false, message: "La OC está cancelada." };
+  }
+
+  const { count: recepciones } = await supabase
+    .from("recepciones")
+    .select("id", { count: "exact", head: true })
+    .eq("oc_id", id);
+  if ((recepciones ?? 0) > 0) {
+    return {
+      ok: false,
+      message:
+        "Esta OC ya tiene recepciones: el TC está congelado porque los lotes nacieron con ese costo. Un ajuste posterior es una corrección excepcional.",
+    };
+  }
+
+  // Recalcular items en divisa con el nuevo TC
+  const { data: items } = await supabase
+    .from("oc_items")
+    .select("id, cantidad, costo_unitario_divisa")
+    .eq("oc_id", id);
+
+  for (const it of items ?? []) {
+    if (it.costo_unitario_divisa == null) continue;
+    const costoMxn =
+      Math.round(Number(it.costo_unitario_divisa) * tipo_cambio * 1e6) / 1e6;
+    const subtotal = Math.round(it.cantidad * costoMxn * 100) / 100;
+    const { error: itemErr } = await supabase
+      .from("oc_items")
+      .update({ costo_unitario: costoMxn, subtotal_item: subtotal })
+      .eq("id", it.id);
+    if (itemErr) return { ok: false, message: itemErr.message };
+  }
+
+  const { error } = await supabase
+    .from("ordenes_compra")
+    .update({ tipo_cambio, tc_confirmado: true })
+    .eq("id", id);
+  if (error) return { ok: false, message: error.message };
+
+  revalidatePath(`/compras/ordenes/${id}`);
+  revalidatePath("/compras/ordenes");
+  return {
+    ok: true,
+    message: `TC ${tipo_cambio.toFixed(4)} confirmado; costos MXN recalculados. La OC ya puede recibirse.`,
+    id,
+  };
+}
+
+// ============================================================================
 // Items
 // ============================================================================
 
@@ -195,18 +304,17 @@ export async function agregarItem(
   }
 
   // Desglose: si el precio incluye IVA, dividir por (1+tasa) antes de guardar.
-  // costo_unitario a 6 decimales (necesario para costos por gramo); el
-  // subtotal_item es un total en pesos, se mantiene a 2 decimales.
-  const costo_unitario = incluyeIva
+  // costo a 6 decimales (necesario para costos por gramo); el subtotal_item
+  // es un total en pesos, se mantiene a 2 decimales.
+  const costoSinIva = incluyeIva
     ? Math.round((costoCapturado / (1 + iva_tasa)) * 1e6) / 1e6
     : Math.round(costoCapturado * 1e6) / 1e6;
-  const subtotal_item = Math.round(cantidad * costo_unitario * 100) / 100;
 
   const supabase = createClient();
 
   const { data: oc } = await supabase
     .from("ordenes_compra")
-    .select("estado")
+    .select("estado, moneda, tipo_cambio")
     .eq("id", oc_id)
     .maybeSingle();
   if (!oc) return { ok: false, message: "OC no encontrada." };
@@ -218,11 +326,30 @@ export async function agregarItem(
     };
   }
 
+  // En OC en divisa, el costo capturado está EN LA DIVISA (ej. USD) y el
+  // MXN se calcula con el TC vigente de la OC (provisional hasta confirmar).
+  const esDivisa = (oc.moneda ?? "MXN") !== "MXN";
+  let costo_unitario = costoSinIva;
+  let costo_unitario_divisa: number | null = null;
+  if (esDivisa) {
+    const tc = Number(oc.tipo_cambio);
+    if (!Number.isFinite(tc) || tc <= 0) {
+      return {
+        ok: false,
+        message: "La OC está en divisa pero no tiene tipo de cambio. Captúralo primero.",
+      };
+    }
+    costo_unitario_divisa = costoSinIva;
+    costo_unitario = Math.round(costoSinIva * tc * 1e6) / 1e6;
+  }
+  const subtotal_item = Math.round(cantidad * costo_unitario * 100) / 100;
+
   const { error } = await supabase.from("oc_items").insert({
     oc_id,
     presentacion_id,
     cantidad,
     costo_unitario,
+    costo_unitario_divisa,
     iva_tasa,
     subtotal_item,
     notas,
