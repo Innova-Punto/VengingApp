@@ -2335,6 +2335,7 @@ export type Database = {
         Row: {
           cantidad: number
           costo_unitario: number
+          costo_unitario_divisa: number | null
           created_at: string
           id: string
           iva_tasa: number
@@ -2347,6 +2348,7 @@ export type Database = {
         Insert: {
           cantidad: number
           costo_unitario: number
+          costo_unitario_divisa?: number | null
           created_at?: string
           id?: string
           iva_tasa?: number
@@ -2359,6 +2361,7 @@ export type Database = {
         Update: {
           cantidad?: number
           costo_unitario?: number
+          costo_unitario_divisa?: number | null
           created_at?: string
           id?: string
           iva_tasa?: number
@@ -2402,6 +2405,8 @@ export type Database = {
           notas: string | null
           proveedor_id: string
           subtotal: number
+          tc_confirmado: boolean
+          tipo_cambio: number | null
           total: number
           updated_at: string
         }
@@ -2421,6 +2426,8 @@ export type Database = {
           notas?: string | null
           proveedor_id: string
           subtotal?: number
+          tc_confirmado?: boolean
+          tipo_cambio?: number | null
           total?: number
           updated_at?: string
         }
@@ -2440,6 +2447,8 @@ export type Database = {
           notas?: string | null
           proveedor_id?: string
           subtotal?: number
+          tc_confirmado?: boolean
+          tipo_cambio?: number | null
           total?: number
           updated_at?: string
         }
@@ -4438,6 +4447,23 @@ export type Database = {
           p_items: Json
           p_notas?: string
           p_vasos_medidos?: number
+        }
+        Returns: string
+      }
+      op_registrar_servicio: {
+        Args: {
+          p_cantidad_repuesta?: number
+          p_check_in_id: string
+          p_firma_motivo?: string
+          p_firma_no_disponible?: boolean
+          p_firma_url?: string
+          p_foto_general_url?: string
+          p_inventario_sf?: string
+          p_lider_nombre?: string
+          p_observaciones?: string
+          p_plantilla_id: string
+          p_producto_repuesto?: boolean
+          p_respuestas: Json
         }
         Returns: string
       }

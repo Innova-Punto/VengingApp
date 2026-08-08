@@ -36,10 +36,14 @@ function SubmitButton() {
 export default function AgregarItemForm({
   ocId,
   presentaciones,
+  moneda = "MXN",
 }: {
   ocId: string;
   presentaciones: Presentacion[];
+  /** Moneda de la OC. Si no es MXN, el costo se captura en la divisa. */
+  moneda?: string;
 }) {
+  const esDivisa = moneda !== "MXN";
   const [state, action] = useFormState(agregarItem, initial);
   const [presentacionId, setPresentacionId] = useState("");
   const [cantidad, setCantidad] = useState("1");
@@ -103,7 +107,7 @@ export default function AgregarItemForm({
 
         <div>
           <label className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-            Costo unit. *
+            Costo unit. ({moneda}) *
           </label>
           <input
             name="costo_unitario"
@@ -112,8 +116,8 @@ export default function AgregarItemForm({
             step="0.000001"
             required
             key={seleccionada?.id ?? "empty"}
-            defaultValue={seleccionada?.costo_unitario ?? ""}
-            placeholder="0.00"
+            defaultValue={esDivisa ? "" : (seleccionada?.costo_unitario ?? "")}
+            placeholder={esDivisa ? `precio en ${moneda}` : "0.00"}
             className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm shadow-sm focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900"
           />
         </div>

@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import { aprobarOc, cancelarOc, cerrarOcIncompleta, eliminarItem } from "../actions";
 import AgregarItemForm from "./AgregarItemForm";
+import TcForm from "./TcForm";
 
 export const metadata = { title: "Detalle OC · Innovaypunto" };
 
@@ -30,6 +31,7 @@ export default async function DetalleOcPage({
     .from("ordenes_compra")
     .select(
       `id, folio, fecha_emision, fecha_esperada, estado, subtotal, iva, total, notas, motivo_cierre,
+       moneda, tipo_cambio, tc_confirmado,
        proveedor:proveedores(id, nombre, rfc)`,
     )
     .eq("id", params.id)
@@ -50,7 +52,7 @@ export default async function DetalleOcPage({
     supabase
       .from("oc_items")
       .select(
-        `id, cantidad, costo_unitario, iva_tasa, subtotal_item, recibido, notas,
+        `id, cantidad, costo_unitario, costo_unitario_divisa, iva_tasa, subtotal_item, recibido, notas,
          presentacion:presentaciones_proveedor(
            id, nombre_presentacion, peso_neto_gramos,
            producto:productos(sku, nombre)
@@ -91,6 +93,19 @@ export default async function DetalleOcPage({
   const isBorrador = oc.estado === "borrador";
   const tieneItems = (items ?? []).length > 0;
 
+  const esDivisa = (oc.moneda ?? "MXN") !== "MXN";
+  const tcConfirmado = !!oc.tc_confirmado;
+  // El TC se congela con la primera recepción
+  const { count: numRecepciones } = esDivisa
+    ? await supabase
+        .from("recepciones")
+        .select("id", { count: "exact", head: true })
+        .eq("oc_id", params.id)
+    : { count: 0 };
+  const tcEditable =
+    esDivisa && oc.estado !== "cancelada" && (numRecepciones ?? 0) === 0;
+  const recepcionBloqueada = esDivisa && !tcConfirmado;
+
   return (
     <div className="space-y-8">
       <div>
@@ -117,18 +132,41 @@ export default async function DetalleOcPage({
         )}
       </div>
 
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-4">
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-5">
         <Stat label="Emisión" value={oc.fecha_emision} />
         <Stat
           label="Esperada"
           value={oc.fecha_esperada ?? "—"}
         />
         <Stat
-          label="Subtotal"
+          label="Moneda / TC"
+          value={
+            esDivisa
+              ? `${oc.moneda} · ${oc.tipo_cambio ? Number(oc.tipo_cambio).toFixed(4) : "—"}${tcConfirmado ? " ✓" : " (prov.)"}`
+              : "MXN"
+          }
+        />
+        <Stat
+          label="Subtotal MXN"
           value={`$${Number(oc.subtotal).toFixed(2)}`}
         />
         <Stat label="Total c/IVA" value={`$${Number(oc.total).toFixed(2)}`} />
       </section>
+
+      {esDivisa && tcEditable && (
+        <TcForm
+          ocId={params.id}
+          moneda={oc.moneda ?? "USD"}
+          tipoCambio={oc.tipo_cambio != null ? Number(oc.tipo_cambio) : null}
+          confirmado={tcConfirmado}
+        />
+      )}
+      {esDivisa && !tcEditable && oc.estado !== "cancelada" && (
+        <p className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+          TC {Number(oc.tipo_cambio).toFixed(4)} congelado: la OC ya tiene
+          recepciones y los lotes nacieron con ese costo.
+        </p>
+      )}
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">Items</h2>
@@ -140,8 +178,13 @@ export default async function DetalleOcPage({
                 <th className="px-4 py-2 font-medium">Producto</th>
                 <th className="px-4 py-2 font-medium">Presentación</th>
                 <th className="px-4 py-2 text-right font-medium">Cant.</th>
+                {esDivisa && (
+                  <th className="px-4 py-2 text-right font-medium">
+                    Costo {oc.moneda}
+                  </th>
+                )}
                 <th className="px-4 py-2 text-right font-medium">
-                  Costo s/IVA
+                  Costo s/IVA{esDivisa ? " MXN" : ""}
                 </th>
                 <th className="px-4 py-2 text-right font-medium">IVA</th>
                 <th className="px-4 py-2 text-right font-medium">Subtotal</th>
@@ -185,6 +228,13 @@ export default async function DetalleOcPage({
                     <td className="px-4 py-2 text-right tabular-nums">
                       {it.cantidad}
                     </td>
+                    {esDivisa && (
+                      <td className="px-4 py-2 text-right tabular-nums text-zinc-600">
+                        {it.costo_unitario_divisa != null
+                          ? `$${Number(it.costo_unitario_divisa).toFixed(4)}`
+                          : "—"}
+                      </td>
+                    )}
                     <td className="px-4 py-2 text-right tabular-nums">
                       ${Number(it.costo_unitario).toFixed(2)}
                     </td>
@@ -224,7 +274,7 @@ export default async function DetalleOcPage({
               {!tieneItems && (
                 <tr>
                   <td
-                    colSpan={9}
+                    colSpan={esDivisa ? 10 : 9}
                     className="px-4 py-6 text-center text-zinc-500"
                   >
                     Aún no hay items en esta OC.
@@ -249,6 +299,7 @@ export default async function DetalleOcPage({
               <AgregarItemForm
                 ocId={params.id}
                 presentaciones={presentaciones}
+                moneda={oc.moneda ?? "MXN"}
               />
             )}
           </div>
@@ -286,12 +337,24 @@ export default async function DetalleOcPage({
 
       {(oc.estado === "enviada" || oc.estado === "parcial") && (
         <section className="space-y-3">
-          <Link
-            href={`/almacen/recepciones/nuevo?oc_id=${params.id}`}
-            className="inline-flex rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800"
-          >
-            Registrar recepción
-          </Link>
+          {recepcionBloqueada ? (
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="inline-flex cursor-not-allowed rounded-md bg-zinc-300 px-4 py-2 text-sm font-medium text-zinc-500">
+                Registrar recepción
+              </span>
+              <span className="text-xs text-amber-800">
+                🔒 Bloqueada: confirma el TC real de esta OC en {oc.moneda}{" "}
+                antes de recibir.
+              </span>
+            </div>
+          ) : (
+            <Link
+              href={`/almacen/recepciones/nuevo?oc_id=${params.id}`}
+              className="inline-flex rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800"
+            >
+              Registrar recepción
+            </Link>
+          )}
 
           {oc.estado === "parcial" && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
