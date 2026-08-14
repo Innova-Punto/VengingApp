@@ -32,6 +32,7 @@ returns table (
   alias text,
   tipo text,
   cliente text,
+  ubicacion_id uuid,
   ubicacion text,
   lat double precision,
   lng double precision,
@@ -100,7 +101,7 @@ begin
   ),
   base as (
     select m.id, m.serie, m.alias, m.tipo,
-      cl.nombre as cliente, u.nombre as ubicacion,
+      cl.nombre as cliente, u.id as ubicacion_id, u.nombre as ubicacion,
       u.lat::double precision as lat, u.lng::double precision as lng,
       rt.ruta_id, rt.ruta_nombre, rt.color_hex as ruta_color,
       rt.operador_titular_id as operador_id, op.full_name as operador_nombre,
@@ -152,7 +153,7 @@ begin
       (b.dias_visita is null or b.dias_visita > b.frecuencia) as vencida
     from base b
   )
-  select s.id, s.serie, s.alias, s.tipo, s.cliente, s.ubicacion, s.lat, s.lng,
+  select s.id, s.serie, s.alias, s.tipo, s.cliente, s.ubicacion_id, s.ubicacion, s.lat, s.lng,
     s.ruta_id, s.ruta_nombre, s.ruta_color, s.operador_id, s.operador_nombre,
     s.crit,
     coalesce(s.cortas, 0)::int,

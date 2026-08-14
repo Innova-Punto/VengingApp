@@ -12,6 +12,7 @@ export type MaquinaScore = {
   alias: string | null;
   tipo: string;
   cliente: string | null;
+  ubicacion_id: string | null;
   ubicacion: string | null;
   ruta_id: string | null;
   ruta_nombre: string | null;
@@ -26,6 +27,20 @@ export type MaquinaScore = {
   dias_sin_visita: number | string | null;
   prioridad: number;
   motivo: string | null;
+};
+
+/**
+ * La unidad de la propuesta es la PARADA (ubicación): si en la sede hay
+ * máquina nutri + Smart Energy, el operador atiende ambas en el mismo viaje.
+ * La parada hereda la mejor prioridad de sus máquinas y el cap del día
+ * cuenta paradas, no máquinas.
+ */
+type Parada = {
+  key: string;
+  ubicacion: string;
+  cliente: string | null;
+  maquinas: MaquinaScore[];
+  prioridad: number; // la mejor (mínima) de sus máquinas
 };
 
 const PRIORIDAD_BADGE: Record<number, { label: string; cls: string }> = {
@@ -56,26 +71,50 @@ export default function PropuestaDinamica({
     null,
   );
 
-  // Agrupa por operador titular de la zona (ruta_maquinas actual)
+  // Agrupa por operador titular y, dentro, por parada (ubicación)
   const grupos = useMemo(() => {
-    const map = new Map<
+    const porOperador = new Map<
       string,
       { operadorId: string; operadorNombre: string; maquinas: MaquinaScore[] }
     >();
     for (const m of maquinas) {
       if (!m.operador_id) continue;
-      const g = map.get(m.operador_id) ?? {
+      const g = porOperador.get(m.operador_id) ?? {
         operadorId: m.operador_id,
         operadorNombre: m.operador_nombre ?? "(sin nombre)",
         maquinas: [],
       };
       g.maquinas.push(m);
-      map.set(m.operador_id, g);
+      porOperador.set(m.operador_id, g);
     }
-    // Las máquinas ya vienen ordenadas por prioridad desde el RPC
-    return Array.from(map.values()).sort((a, b) =>
-      a.operadorNombre.localeCompare(b.operadorNombre),
-    );
+
+    return Array.from(porOperador.values())
+      .map((g) => {
+        const paradasMap = new Map<string, Parada>();
+        for (const m of g.maquinas) {
+          const key = m.ubicacion_id ?? m.maquina_id;
+          const p = paradasMap.get(key) ?? {
+            key,
+            ubicacion: m.ubicacion ?? m.alias ?? m.serie ?? "—",
+            cliente: m.cliente,
+            maquinas: [],
+            prioridad: 7,
+          };
+          p.maquinas.push(m);
+          p.prioridad = Math.min(p.prioridad, m.prioridad);
+          paradasMap.set(key, p);
+        }
+        const paradas = Array.from(paradasMap.values());
+        // Nutri primero dentro de la parada; paradas por mejor prioridad
+        for (const p of paradas) {
+          p.maquinas.sort((a, b) =>
+            a.tipo === b.tipo ? a.prioridad - b.prioridad : a.tipo === "servicio" ? 1 : -1,
+          );
+        }
+        paradas.sort((a, b) => a.prioridad - b.prioridad);
+        return { ...g, paradas };
+      })
+      .sort((a, b) => a.operadorNombre.localeCompare(b.operadorNombre));
   }, [maquinas]);
 
   const sinZona = useMemo(
@@ -83,24 +122,24 @@ export default function PropuestaDinamica({
     [maquinas],
   );
 
-  // Selección inicial: top `cap` por operador
+  // Selección inicial: top `cap` PARADAS por operador
   const [seleccion, setSeleccion] = useState<Record<string, Set<string>>>(
     () => {
       const init: Record<string, Set<string>> = {};
       for (const g of grupos) {
         init[g.operadorId] = new Set(
-          g.maquinas.slice(0, cap).map((m) => m.maquina_id),
+          g.paradas.slice(0, cap).map((p) => p.key),
         );
       }
       return init;
     },
   );
 
-  function toggle(operadorId: string, maquinaId: string) {
+  function toggle(operadorId: string, paradaKey: string) {
     setSeleccion((prev) => {
       const set = new Set(prev[operadorId] ?? []);
-      if (set.has(maquinaId)) set.delete(maquinaId);
-      else set.add(maquinaId);
+      if (set.has(paradaKey)) set.delete(paradaKey);
+      else set.add(paradaKey);
       return { ...prev, [operadorId]: set };
     });
   }
@@ -110,9 +149,9 @@ export default function PropuestaDinamica({
     const gruposPayload = grupos
       .map((g) => ({
         operador_id: g.operadorId,
-        maquina_ids: g.maquinas
-          .filter((m) => seleccion[g.operadorId]?.has(m.maquina_id))
-          .map((m) => m.maquina_id),
+        maquina_ids: g.paradas
+          .filter((p) => seleccion[g.operadorId]?.has(p.key))
+          .flatMap((p) => p.maquinas.map((m) => m.maquina_id)),
       }))
       .filter((g) => g.maquina_ids.length > 0);
 
@@ -125,16 +164,26 @@ export default function PropuestaDinamica({
     });
   }
 
-  const totalSeleccionadas = Object.values(seleccion).reduce(
+  const totalParadas = Object.values(seleccion).reduce(
     (s, set) => s + set.size,
     0,
   );
+  const totalMaquinas = grupos.reduce(
+    (s, g) =>
+      s +
+      g.paradas
+        .filter((p) => seleccion[g.operadorId]?.has(p.key))
+        .reduce((x, p) => x + p.maquinas.length, 0),
+    0,
+  );
 
-  // Urgentes (prioridad 1-4) que quedaron FUERA de la selección (overflow)
+  // Paradas urgentes (prioridad 1-4) que quedaron FUERA de la selección
   const overflow = grupos.flatMap((g) =>
-    g.maquinas.filter(
-      (m) => m.prioridad <= 4 && !seleccion[g.operadorId]?.has(m.maquina_id),
-    ),
+    g.paradas
+      .filter(
+        (p) => p.prioridad <= 4 && !seleccion[g.operadorId]?.has(p.key),
+      )
+      .map((p) => ({ ...p, operadorNombre: g.operadorNombre })),
   );
 
   return (
@@ -170,7 +219,7 @@ export default function PropuestaDinamica({
                   sel.size > cap ? "text-red-700" : "text-zinc-700"
                 }`}
               >
-                {sel.size}/{cap} máquinas
+                {sel.size}/{cap} paradas
               </span>
             </header>
 
@@ -182,13 +231,14 @@ export default function PropuestaDinamica({
             )}
 
             <ul className="divide-y divide-zinc-100">
-              {g.maquinas.map((m, idx) => {
-                const checked = sel.has(m.maquina_id);
-                const badge = PRIORIDAD_BADGE[m.prioridad] ?? PRIORIDAD_BADGE[7];
+              {g.paradas.map((p, idx) => {
+                const checked = sel.has(p.key);
+                const badge =
+                  PRIORIDAD_BADGE[p.prioridad] ?? PRIORIDAD_BADGE[7];
                 const esPropuesta = idx < cap;
                 return (
                   <li
-                    key={m.maquina_id}
+                    key={p.key}
                     className={`flex items-start gap-3 px-4 py-2 ${
                       checked ? "" : "opacity-60"
                     } ${esPropuesta ? "" : "bg-zinc-50/60"}`}
@@ -196,30 +246,41 @@ export default function PropuestaDinamica({
                     <input
                       type="checkbox"
                       checked={checked}
-                      onChange={() => toggle(g.operadorId, m.maquina_id)}
+                      onChange={() => toggle(g.operadorId, p.key)}
                       className="mt-1 h-4 w-4 rounded border-zinc-300"
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-mono text-sm font-medium">
-                          {m.alias ?? m.serie}
+                        <span className="text-sm font-medium text-zinc-900">
+                          {p.ubicacion}
                         </span>
                         <span
                           className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${badge.cls}`}
                         >
                           {badge.label}
                         </span>
-                        {m.tipo === "servicio" && (
+                        {p.maquinas.length > 1 && (
                           <span className="inline-flex rounded-full bg-cyan-100 px-2 py-0.5 text-[11px] font-medium text-cyan-800">
-                            Servicio
+                            {p.maquinas.length} máquinas en la parada
                           </span>
                         )}
-                        <span className="text-xs text-zinc-500">
-                          {m.ruta_nombre}
-                        </span>
                       </div>
-                      <div className="text-xs text-zinc-600">
-                        {m.motivo || "sin señal — relleno"}
+                      <div className="mt-0.5 space-y-0.5">
+                        {p.maquinas.map((m) => (
+                          <div key={m.maquina_id} className="text-xs text-zinc-600">
+                            <span className="font-mono font-medium text-zinc-800">
+                              {m.alias ?? m.serie}
+                            </span>
+                            {m.tipo === "servicio" && (
+                              <span className="ml-1 rounded bg-cyan-50 px-1 text-[10px] font-medium text-cyan-700">
+                                servicio
+                              </span>
+                            )}
+                            <span className="ml-1">
+                              — {m.motivo || "sin señal — relleno"}
+                            </span>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </li>
@@ -233,21 +294,22 @@ export default function PropuestaDinamica({
       {overflow.length > 0 && (
         <section className="rounded-lg border border-red-200 bg-red-50 p-4">
           <h3 className="text-sm font-semibold text-red-900">
-            Urgentes fuera de la propuesta ({overflow.length})
+            Paradas urgentes fuera de la propuesta ({overflow.length})
           </h3>
           <p className="mt-1 text-xs text-red-800">
             No cupieron en la carga del día de su operador. Opciones: palomear
-            aquí arriba quitando otra máquina, o mandarlas por{" "}
+            aquí arriba quitando otra parada, o mandarlas por{" "}
             <Link href="/planeacion/emergencias" className="font-medium underline">
               ruta de emergencia
             </Link>
             .
           </p>
           <ul className="mt-2 space-y-1 text-xs text-red-900">
-            {overflow.map((m) => (
-              <li key={m.maquina_id}>
-                <span className="font-mono font-medium">{m.alias ?? m.serie}</span>{" "}
-                ({m.operador_nombre}) — {m.motivo}
+            {overflow.map((p) => (
+              <li key={p.key}>
+                <span className="font-medium">{p.ubicacion}</span> (
+                {p.operadorNombre}) —{" "}
+                {p.maquinas.map((m) => m.motivo).filter(Boolean).join(" · ")}
               </li>
             ))}
           </ul>
@@ -265,18 +327,19 @@ export default function PropuestaDinamica({
         <button
           type="button"
           onClick={confirmar}
-          disabled={pending || totalSeleccionadas === 0}
+          disabled={pending || totalParadas === 0}
           className="rounded-md bg-zinc-900 px-5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {pending
             ? "Creando asignaciones…"
-            : `Confirmar ${totalSeleccionadas} máquinas en ${
+            : `Confirmar ${totalParadas} paradas (${totalMaquinas} máquinas) en ${
                 Object.values(seleccion).filter((s) => s.size > 0).length
               } asignación(es)`}
         </button>
         <span className="text-xs text-zinc-500">
-          Después de confirmar puedes seguir agregando/quitando máquinas en el
-          detalle de cada asignación, como siempre.
+          Una parada con máquina Smart Energy incluye ambas máquinas en el
+          mismo viaje. Después de confirmar puedes seguir editando en el
+          detalle de cada asignación.
         </span>
       </div>
 

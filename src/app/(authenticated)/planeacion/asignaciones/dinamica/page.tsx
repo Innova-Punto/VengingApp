@@ -62,9 +62,11 @@ export default async function AsignacionDinamicaPage({
           ⚡ Asignación dinámica
         </h1>
         <p className="text-sm text-zinc-600">
-          El sistema propone las {cap} máquinas más prioritarias de la zona de
-          cada operador (revisión &gt; crítica &gt; alta &gt; visita vencida
-          &gt; media &gt; baja &gt; relleno). Tú editas y confirmas — el modo
+          El sistema propone las {cap} <strong>paradas</strong> más
+          prioritarias de la zona de cada operador (revisión &gt; crítica &gt;
+          alta &gt; visita vencida &gt; media &gt; baja &gt; relleno). Una
+          parada con máquina Smart Energy incluye ambas máquinas (nutri +
+          servicio) en el mismo viaje. Tú editas y confirmas — el modo
           estático sigue disponible en «Nueva asignación».
         </p>
       </div>
@@ -83,7 +85,7 @@ export default async function AsignacionDinamicaPage({
         </div>
         <div>
           <label className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-            Máquinas por operador
+            Paradas por operador
           </label>
           <input
             type="number"
