@@ -4,6 +4,9 @@ import { fmtCDMXFechaHora } from "@/lib/datetime";
 import { UMBRAL_HORAS, filtrarRevisar } from "@/lib/salud-maquinas";
 import { createClient } from "@/lib/supabase/server";
 
+import MapaMaquinasLazy from "./MapaMaquinasLazy";
+import type { PinMaquina } from "./MapaMaquinas";
+
 export const metadata = { title: "Salud de máquinas · Innovaypunto" };
 export const dynamic = "force-dynamic";
 
@@ -85,6 +88,52 @@ export default async function SaludMaquinasPage({
   // Máquinas que planeación DEBE revisar: sin vender ≥12 h en horario de operación.
   const revisar = filtrarRevisar(filas);
 
+  // Mapa vivo: pins desde el score de ruteo dinámico (si la migración ya
+  // está aplicada; si no, el mapa simplemente no se muestra).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: scoreData } = await (supabase as any).rpc(
+    "sugerencia_ruteo_diaria",
+  );
+  type ScoreRow = {
+    maquina_id: string;
+    serie: string | null;
+    alias: string | null;
+    cliente: string | null;
+    ubicacion: string | null;
+    lat: number | null;
+    lng: number | null;
+    criticidad: PinMaquina["criticidad"];
+    revision: boolean;
+    visita_vencida: boolean;
+    motivo: string | null;
+    ruta_id: string | null;
+    ruta_nombre: string | null;
+    operador_id: string | null;
+    operador_nombre: string | null;
+  };
+  const pins: PinMaquina[] = ((scoreData as ScoreRow[]) ?? [])
+    .filter(
+      (r) =>
+        r.lat != null &&
+        r.lng != null &&
+        (!rutaSel || r.ruta_id === rutaSel) &&
+        (!operadorSel || r.operador_id === operadorSel),
+    )
+    .map((r) => ({
+      maquina_id: r.maquina_id,
+      nombre: r.alias ?? r.serie ?? "—",
+      cliente: r.cliente,
+      ubicacion: r.ubicacion,
+      lat: Number(r.lat),
+      lng: Number(r.lng),
+      criticidad: r.criticidad,
+      revision: r.revision,
+      visita_vencida: r.visita_vencida,
+      motivo: r.motivo,
+      ruta_nombre: r.ruta_nombre,
+      operador_nombre: r.operador_nombre,
+    }));
+
   return (
     <div className="space-y-6">
       <div>
@@ -163,6 +212,24 @@ export default async function SaludMaquinasPage({
       </form>
 
       <BannerMaquinasRevisar items={revisar} />
+
+      {pins.length > 0 && (
+        <section className="space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-medium uppercase tracking-wide text-zinc-500">
+              Mapa vivo · {pins.length} máquinas
+            </h2>
+            <div className="flex flex-wrap gap-3 text-xs text-zinc-600">
+              <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-[#7c3aed]" />Revisión</span>
+              <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-[#dc2626]" />Crítica</span>
+              <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-[#ea580c]" />Alta</span>
+              <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-[#eab308]" />Media</span>
+              <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-[#71717a]" />OK</span>
+            </div>
+          </div>
+          <MapaMaquinasLazy pins={pins} />
+        </section>
+      )}
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <Stat
