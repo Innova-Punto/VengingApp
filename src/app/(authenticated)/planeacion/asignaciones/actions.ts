@@ -90,6 +90,123 @@ export async function crearAsignacion(
   redirect(`/planeacion/asignaciones/${asig.id}`);
 }
 
+// ============================================================================
+// Asignación dinámica (ruteo por prioridad — el sistema propone, Mariana dispone)
+// ============================================================================
+
+export type GrupoDinamico = {
+  operador_id: string;
+  /** IDs de máquinas en el orden de visita elegido. */
+  maquina_ids: string[];
+};
+
+/**
+ * Crea una asignación por operador con las máquinas confirmadas de la
+ * propuesta dinámica. Usa EXACTAMENTE las mismas tablas que crearAsignacion
+ * (asignaciones_diarias + asignacion_maquinas) para que surtido, PWA y
+ * jornadas no cambien en nada; la única diferencia es
+ * origen = 'sugerencia_dinamica' (KPI para comparar vs modo estático).
+ *
+ * La ruta de la asignación es la más representada entre las máquinas
+ * seleccionadas del operador (el modelo exige ruta_id y única por fecha);
+ * las máquinas de su otra ruta viajan en la misma asignación como parte de
+ * su zona.
+ */
+export async function crearAsignacionDinamica(input: {
+  fecha: string;
+  grupos: GrupoDinamico[];
+}): Promise<AsigResult> {
+  const current = await requireRole(...ROLES);
+
+  const fecha = (input.fecha ?? "").slice(0, 10);
+  if (!fecha) return { ok: false, message: "Falta la fecha." };
+  const grupos = (input.grupos ?? []).filter(
+    (g) => g.operador_id && (g.maquina_ids?.length ?? 0) > 0,
+  );
+  if (grupos.length === 0) {
+    return { ok: false, message: "No hay máquinas seleccionadas." };
+  }
+
+  const supabase = createClient();
+  const creadas: string[] = [];
+
+  for (const grupo of grupos) {
+    // Ruta de la asignación: la más frecuente entre las máquinas elegidas
+    // (consultada en servidor — no se confía en el payload del cliente).
+    const { data: rutasDe } = await supabase
+      .from("ruta_maquinas")
+      .select("ruta_id, maquina_id, ruta:rutas(id, nombre, activa)")
+      .in("maquina_id", grupo.maquina_ids);
+
+    const conteo = new Map<string, { n: number; nombre: string }>();
+    for (const rm of rutasDe ?? []) {
+      const ruta = Array.isArray(rm.ruta) ? rm.ruta[0] : rm.ruta;
+      if (!ruta?.activa) continue;
+      const prev = conteo.get(rm.ruta_id) ?? { n: 0, nombre: ruta.nombre };
+      conteo.set(rm.ruta_id, { n: prev.n + 1, nombre: ruta.nombre });
+    }
+    const rutaGanadora = Array.from(conteo.entries()).sort(
+      (a, b) => b[1].n - a[1].n,
+    )[0];
+    if (!rutaGanadora) {
+      return {
+        ok: false,
+        message:
+          "Las máquinas seleccionadas de un operador no pertenecen a ninguna ruta activa.",
+      };
+    }
+    const [ruta_id, rutaInfo] = rutaGanadora;
+
+    const { data: asig, error } = await supabase
+      .from("asignaciones_diarias")
+      .insert({
+        fecha,
+        ruta_id,
+        operador_id: grupo.operador_id,
+        notas: "Asignación dinámica (propuesta por prioridad)",
+        creado_por: current.id,
+        estado: "planeada",
+      })
+      .select("id")
+      .single();
+
+    if (error || !asig) {
+      if (error?.code === "23505") {
+        return {
+          ok: false,
+          message: `La ruta ${rutaInfo.nombre} ya tiene asignación el ${fecha}. Cancélala primero o quita a ese operador de la propuesta. (Se crearon ${creadas.length} asignaciones antes de este error.)`,
+        };
+      }
+      return { ok: false, message: error?.message ?? "Error al crear asignación." };
+    }
+
+    const rows = grupo.maquina_ids.map((maquina_id, idx) => ({
+      asignacion_id: asig.id,
+      maquina_id,
+      orden: idx + 1,
+      origen: "sugerencia_dinamica" as const,
+    }));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: insErr } = await (supabase as any)
+      .from("asignacion_maquinas")
+      .insert(rows);
+    if (insErr) {
+      return {
+        ok: false,
+        message: `Asignación creada pero al copiar máquinas: ${insErr.message}`,
+      };
+    }
+    creadas.push(asig.id);
+  }
+
+  revalidatePath("/planeacion/asignaciones");
+  revalidatePath("/planeacion/emergencias");
+  return {
+    ok: true,
+    message: `${creadas.length} asignación(es) dinámica(s) creada(s) para el ${fecha}.`,
+  };
+}
+
 export async function actualizarNotasAsig(formData: FormData) {
   await requireRole(...ROLES);
   const id = String(formData.get("id") ?? "");

@@ -82,12 +82,20 @@ export default async function AsignacionesPage({
             Qué ruta visita cada operador, cada día.
           </p>
         </div>
-        <Link
-          href={`/planeacion/asignaciones/nuevo?fecha=${fecha}`}
-          className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800"
-        >
-          Nueva asignación
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            href={`/planeacion/asignaciones/dinamica?fecha=${fecha}`}
+            className="rounded-md border border-zinc-900 bg-white px-4 py-2 text-sm font-medium text-zinc-900 shadow-sm transition hover:bg-zinc-100"
+          >
+            ⚡ Asignación dinámica
+          </Link>
+          <Link
+            href={`/planeacion/asignaciones/nuevo?fecha=${fecha}`}
+            className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800"
+          >
+            Nueva asignación
+          </Link>
+        </div>
       </div>
 
       <BannerMaquinasRevisar items={revisar} conLink />
