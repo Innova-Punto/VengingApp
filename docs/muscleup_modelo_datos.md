@@ -9,7 +9,7 @@ función y bucket aquí listado fue verificado en la base de datos productiva.
 |---|---|
 | Tablas en `public` | **63** (todas con RLS habilitado y al menos 1 policy) |
 | Enums | 24 |
-| Funciones | ~74 (25 de trigger, ~49 RPC/utilitarias) |
+| Funciones | 70 (25 de trigger, 45 RPC/utilitarias) |
 | Vistas | 4 |
 | Migraciones versionadas | 129 |
 | Buckets de Storage | 7 (6 privados + `manuales-operador` público) |
@@ -32,7 +32,7 @@ Volumen operativo (14-ago-2026): 83 máquinas · 75 ubicaciones · 6 clientes ·
 | Precios | **Se registran SIN IVA para costo; la venta guarda bruto, IVA y neto por separado.** |
 | Movimientos | `movimientos_inventario` es append-only. Correcciones = asientos compensatorios. |
 | Folios | Secuencias: `OC-`, `REC-`, `ENC-`, `SUR-`, `INC-`, `SRV-`, `VIC-`. |
-| RLS | Habilitado en las 64 tablas. Policies por rol vía `public.user_has_role()`. |
+| RLS | Habilitado en las 63 tablas. Policies por rol vía `public.user_has_role()`. |
 | Zona horaria | Nayax entrega **UTC**; la operación es **CDMX (UTC−6)**. Los cortes de día/mes se calculan `at time zone 'America/Mexico_City'`. |
 | Nombres | `snake_case`, español. Plural para tablas, singular para campos. |
 
