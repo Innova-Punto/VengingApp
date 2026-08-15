@@ -13,6 +13,8 @@ export type CurrentUser = {
   phone: string | null;
   activo: boolean;
   roles: AppRole[];
+  /** Solo en usuarios con rol `cliente`: acota lo que pueden ver a ese cliente. */
+  clienteId: string | null;
 };
 
 export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
@@ -27,7 +29,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const [{ data: profile }, { data: roleRows }] = await Promise.all([
     supabase
       .from("profiles")
-      .select("id, email, full_name, phone, activo")
+      .select("id, email, full_name, phone, activo, cliente_id")
       .eq("id", user.id)
       .maybeSingle(),
     supabase
@@ -45,6 +47,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     phone: profile.phone,
     activo: profile.activo,
     roles: (roleRows ?? []).map((r) => r.role),
+    clienteId: profile.cliente_id,
   };
 });
 
@@ -73,5 +76,6 @@ export function homeForRoles(roles: AppRole[]): string {
   if (roles.includes("almacen")) return "/almacen";
   if (roles.includes("planeador")) return "/planeacion/asignaciones";
   if (roles.includes("operador")) return "/campo";
+  if (roles.includes("cliente")) return "/admin/servicios";
   return "/sin-rol";
 }

@@ -61,11 +61,34 @@ export async function generarSurtido(formData: FormData): Promise<void> {
          vaso_producto_id, vaso_capacidad_max, vaso_inventario_actual,
          tolvas:tolvas(
            id, numero, producto_id, gramaje_servicio,
-           capacidad_max_g, inventario_actual_g
+           capacidad_max_g, capacidad_max_g_override, inventario_actual_g
          )
        )`,
     )
     .eq("asignacion_id", asignacion_id);
+
+  // Sustituciones que planeación ya marcó para estas máquinas. La tolva todavía
+  // trae el producto saliente (solo cambia cuando el operador lo ejecuta en
+  // campo), así que aquí hay que anticiparse: el surtido debe llevar cartuchos
+  // del producto ENTRANTE, y para la tolva completa, porque el operador la va a
+  // vaciar antes de cargarla.
+  const maquinaIds = (asigMaquinas ?? [])
+    .map((am) => am.maquina_id)
+    .filter(Boolean);
+
+  const { data: sustPendientes } =
+    maquinaIds.length > 0
+      ? await supabase
+          .from("sustituciones_tolva")
+          .select("tolva_id, producto_entrante_id")
+          .in("maquina_id", maquinaIds)
+          .eq("estado", "pendiente")
+      : { data: [] };
+
+  const entrantePorTolva = new Map<string, string>();
+  for (const s of sustPendientes ?? []) {
+    entrantePorTolva.set(s.tolva_id, s.producto_entrante_id);
+  }
 
   // Recolecta los producto_id involucrados para traer su gramaje_cartucho_default
   const productoIds = new Set<string>();
@@ -74,7 +97,8 @@ export async function generarSurtido(formData: FormData): Promise<void> {
     if (!maquina) continue;
     const tolvas = Array.isArray(maquina.tolvas) ? maquina.tolvas : [];
     for (const t of tolvas) {
-      if (t.producto_id) productoIds.add(t.producto_id);
+      const productoId = entrantePorTolva.get(t.id) ?? t.producto_id;
+      if (productoId) productoIds.add(productoId);
     }
     if (maquina.vaso_producto_id) productoIds.add(maquina.vaso_producto_id);
   }
@@ -83,13 +107,15 @@ export async function generarSurtido(formData: FormData): Promise<void> {
     productoIds.size > 0
       ? await supabase
           .from("productos")
-          .select("id, gramaje_cartucho_default")
+          .select("id, gramaje_cartucho_default, capacidad_g_por_tolva")
           .in("id", Array.from(productoIds))
       : { data: [] };
 
   const gramajePorProducto = new Map<string, number>();
+  const capacidadPorProducto = new Map<string, number | null>();
   for (const p of productos ?? []) {
     gramajePorProducto.set(p.id, p.gramaje_cartucho_default ?? 400);
+    capacidadPorProducto.set(p.id, p.capacidad_g_por_tolva);
   }
 
   // Calcula sugerido por (maquina, producto).
@@ -107,13 +133,27 @@ export async function generarSurtido(formData: FormData): Promise<void> {
 
     const tolvas = Array.isArray(maquina.tolvas) ? maquina.tolvas : [];
     for (const t of tolvas) {
-      if (!t.producto_id) continue;
-      const gramajeCartucho =
-        gramajePorProducto.get(t.producto_id) ?? 400;
-      const espacioG = Math.max(
-        0,
-        (t.capacidad_max_g ?? 2000) - (t.inventario_actual_g ?? 0),
-      );
+      // Con sustitución pendiente el sugerido cambia de producto y de cálculo:
+      // el operador vacía la tolva, así que el espacio es la capacidad entera.
+      const entranteId = entrantePorTolva.get(t.id);
+      const productoId = entranteId ?? t.producto_id;
+      if (!productoId) continue;
+
+      const gramajeCartucho = gramajePorProducto.get(productoId) ?? 400;
+
+      // Con sustitución, la capacidad también cambia: el trigger
+      // tolva_recalc_capacidad la deriva del producto, así que al ejecutarse la
+      // tolva tomará la del entrante. Se replica aquí (override → producto →
+      // 1200) para no surtir de menos cuando los dos sabores caben distinto.
+      const capacidadG = entranteId
+        ? (t.capacidad_max_g_override ??
+           capacidadPorProducto.get(productoId) ??
+           1200)
+        : (t.capacidad_max_g ?? 1200);
+
+      const espacioG = entranteId
+        ? capacidadG
+        : Math.max(0, capacidadG - (t.inventario_actual_g ?? 0));
       if (espacioG <= 0) continue;
       // floor: solo sugerimos los cartuchos que caben COMPLETOS en la tolva.
       // Si el último cartucho no cabe entero, no lo llevamos para evitar
@@ -121,10 +161,10 @@ export async function generarSurtido(formData: FormData): Promise<void> {
       const cartuchos = Math.floor(espacioG / gramajeCartucho);
       if (cartuchos <= 0) continue;
 
-      const k = key(maquina.id, t.producto_id);
+      const k = key(maquina.id, productoId);
       const prev = sugeridoMap.get(k) ?? {
         maquina_id: maquina.id,
-        producto_id: t.producto_id,
+        producto_id: productoId,
         cartuchos: 0,
         vasos: 0,
       };

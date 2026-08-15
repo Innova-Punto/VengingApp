@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { requireRole } from "@/lib/auth";
 import { fmtCDMX } from "@/lib/datetime";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Servicios · Innovaypunto" };
@@ -16,14 +17,19 @@ export default async function ServiciosPage({
 }: {
   searchParams: SearchParams;
 }) {
-  await requireRole("admin", "direccion", "planeador");
+  const user = await requireRole("admin", "direccion", "planeador", "cliente");
   const supabase = createClient();
+
+  // El usuario de cliente solo ve sus propios sitios. Las policies de RLS ya lo
+  // acotan; esto es el mismo filtro del lado de la app para que los conteos y
+  // el selector de máquinas cuadren con lo que sí puede leer.
+  const esCliente = user.roles.includes("cliente") && !user.roles.includes("admin");
 
   let query = supabase
     .from("servicio_visitas")
     .select(
       `id, folio, fecha, producto_repuesto, cantidad_repuesta,
-       lider_nombre, firma_no_disponible,
+       lider_nombre, firma_no_disponible, operador_id,
        maquina:maquinas(id, serie, alias, ubicacion:ubicaciones(nombre, cliente:clientes(nombre))),
        operador:profiles!servicio_visitas_operador_id_fkey(id, full_name),
        respuestas:servicio_respuestas(estado)`,
@@ -49,6 +55,30 @@ export default async function ServiciosPage({
         .order("alias"),
     ]);
 
+  // El usuario de cliente no puede leer `profiles` más que su propia fila —si
+  // pudiera leer la del operador, se llevaría también su correo, y RLS filtra
+  // renglones, no columnas. Así que para él el embed viene nulo y resolvemos
+  // solo el nombre, en el servidor, con el admin client.
+  const nombresOperador = new Map<string, string>();
+  if (esCliente) {
+    const ids = Array.from(
+      new Set(
+        (visitas ?? [])
+          .map((v) => v.operador_id)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    );
+    if (ids.length > 0) {
+      const { data: operadores } = await createAdminClient()
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", ids);
+      for (const o of operadores ?? []) {
+        nombresOperador.set(o.id, o.full_name);
+      }
+    }
+  }
+
   // Stats del mes en curso (CDMX)
   const hoyCdmx = new Date(
     new Date().toLocaleString("en-US", { timeZone: "America/Mexico_City" }),
@@ -72,8 +102,9 @@ export default async function ServiciosPage({
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Servicios</h1>
         <p className="text-sm text-zinc-600">
-          Visitas de servicio a máquinas tipo servicio (Smart Energy):
-          checklist, fallas detectadas y firma del líder del sitio.
+          {esCliente
+            ? "Visitas de servicio a las máquinas Smart Energy de tus sitios: checklist, fallas detectadas, hora de llegada y firma del líder."
+            : "Visitas de servicio a máquinas tipo servicio (Smart Energy): checklist, fallas detectadas y firma del líder del sitio."}
         </p>
       </div>
 
@@ -147,6 +178,10 @@ export default async function ServiciosPage({
               const op = Array.isArray(v.operador)
                 ? v.operador[0]
                 : v.operador;
+              const opNombre =
+                op?.full_name ??
+                (v.operador_id ? nombresOperador.get(v.operador_id) : null) ??
+                "—";
               const resp = v.respuestas ?? [];
               const fallas = resp.filter((r) => r.estado === "mal").length;
               return (
@@ -175,7 +210,7 @@ export default async function ServiciosPage({
                     </div>
                   </td>
                   <td className="px-3 py-2 text-xs text-zinc-700">
-                    {op?.full_name ?? "—"}
+                    {opNombre}
                   </td>
                   <td className="px-3 py-2 text-xs">
                     {fallas === 0 ? (

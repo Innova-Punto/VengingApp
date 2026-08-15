@@ -2959,6 +2959,7 @@ export type Database = {
       profiles: {
         Row: {
           activo: boolean
+          cliente_id: string | null
           created_at: string
           email: string | null
           full_name: string
@@ -2968,6 +2969,7 @@ export type Database = {
         }
         Insert: {
           activo?: boolean
+          cliente_id?: string | null
           created_at?: string
           email?: string | null
           full_name: string
@@ -2977,6 +2979,7 @@ export type Database = {
         }
         Update: {
           activo?: boolean
+          cliente_id?: string | null
           created_at?: string
           email?: string | null
           full_name?: string
@@ -2984,7 +2987,15 @@ export type Database = {
           phone?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       proveedores: {
         Row: {
@@ -4826,6 +4837,8 @@ export type Database = {
           visita_vencida: boolean
         }[]
       }
+      user_cliente_id: { Args: never; Returns: string }
+      user_es_interno: { Args: never; Returns: boolean }
       user_has_role: {
         Args: { check_role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean
@@ -4848,6 +4861,7 @@ export type Database = {
         | "planeador"
         | "operador"
         | "admin"
+        | "cliente"
       asignacion_estado:
         | "planeada"
         | "surtida"
@@ -5072,6 +5086,7 @@ export const Constants = {
         "planeador",
         "operador",
         "admin",
+        "cliente",
       ],
       asignacion_estado: [
         "planeada",

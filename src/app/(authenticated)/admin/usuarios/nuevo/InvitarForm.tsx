@@ -14,6 +14,8 @@ const ROLES = [
   { value: "admin", label: "Admin" },
 ];
 
+export type ClienteOpcion = { id: string; nombre: string };
+
 const initial: InviteResult | null = null;
 
 function SubmitButton({ soloLink }: { soloLink: boolean }) {
@@ -39,9 +41,14 @@ function SubmitButton({ soloLink }: { soloLink: boolean }) {
   );
 }
 
-export default function InvitarForm() {
+export default function InvitarForm({
+  clientes,
+}: {
+  clientes: ClienteOpcion[];
+}) {
   const [state, action] = useFormState(invitarUsuario, initial);
   const [soloLink, setSoloLink] = useState(false);
+  const [esCliente, setEsCliente] = useState(false);
   const linkRef = useRef<HTMLInputElement>(null);
 
   function copyLink() {
@@ -101,14 +108,74 @@ export default function InvitarForm() {
           {ROLES.map((r) => (
             <label
               key={r.value}
-              className="flex items-center gap-2 rounded-md border border-zinc-200 px-3 py-2 text-sm hover:bg-zinc-50"
+              className={`flex items-center gap-2 rounded-md border border-zinc-200 px-3 py-2 text-sm ${
+                esCliente
+                  ? "cursor-not-allowed opacity-40"
+                  : "hover:bg-zinc-50"
+              }`}
             >
-              <input type="checkbox" name="roles" value={r.value} />
+              <input
+                type="checkbox"
+                name="roles"
+                value={r.value}
+                disabled={esCliente}
+              />
               <span>{r.label}</span>
             </label>
           ))}
         </div>
+
+        <label
+          className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm ${
+            esCliente
+              ? "border-sky-300 bg-sky-50"
+              : "border-zinc-200 hover:bg-zinc-50"
+          }`}
+        >
+          <input
+            type="checkbox"
+            name="roles"
+            value="cliente"
+            checked={esCliente}
+            onChange={(e) => setEsCliente(e.target.checked)}
+          />
+          <span>
+            Cliente <span className="text-zinc-500">(solo lectura)</span>
+          </span>
+        </label>
+        <p className="text-xs text-zinc-500">
+          El rol Cliente es excluyente: da acceso únicamente a las visitas de
+          servicio de las máquinas de ese cliente, y no se combina con roles
+          internos.
+        </p>
       </fieldset>
+
+      {esCliente && (
+        <div className="space-y-1">
+          <label
+            htmlFor="cliente_id"
+            className="text-sm font-medium text-zinc-700"
+          >
+            Cliente al que pertenece
+          </label>
+          <select
+            id="cliente_id"
+            name="cliente_id"
+            required
+            defaultValue=""
+            className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900"
+          >
+            <option value="" disabled>
+              Selecciona…
+            </option>
+            {clientes.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nombre}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {state && !state.ok && (
         <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">

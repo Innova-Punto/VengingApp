@@ -17,6 +17,7 @@ const VALID_ROLES: AppRole[] = [
   "planeador",
   "operador",
   "admin",
+  "cliente",
 ];
 
 export type InviteResult =
@@ -38,10 +39,11 @@ async function asignarPerfilYRoles(
   phone: string | null,
   roles: AppRole[],
   createdBy: string,
+  clienteId: string | null,
 ): Promise<string | null> {
   await admin
     .from("profiles")
-    .update({ full_name: fullName, phone })
+    .update({ full_name: fullName, phone, cliente_id: clienteId })
     .eq("id", userId);
   const rolesRows = roles.map((role) => ({
     user_id: userId,
@@ -63,6 +65,7 @@ export async function invitarUsuario(
   const phone = String(formData.get("phone") ?? "").trim() || null;
   const roles = formData.getAll("roles").map(String) as AppRole[];
   const soloLink = formData.get("solo_link") === "true";
+  const clienteIdRaw = String(formData.get("cliente_id") ?? "").trim() || null;
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { ok: false, message: "Email inválido." };
@@ -78,7 +81,43 @@ export async function invitarUsuario(
     return { ok: false, message: `Rol inválido: ${invalid.join(", ")}` };
   }
 
+  // El rol `cliente` es de solo lectura y vive fuera de la operación: se acota a
+  // SU cliente vía profiles.cliente_id. Mezclarlo con un rol interno rompería el
+  // acotamiento, porque user_es_interno() le abriría todas las lecturas.
+  const esCliente = roles.includes("cliente");
+  if (esCliente && roles.length > 1) {
+    return {
+      ok: false,
+      message:
+        "El rol Cliente no se puede combinar con roles internos: dale una cuenta aparte.",
+    };
+  }
+  if (esCliente && !clienteIdRaw) {
+    return { ok: false, message: "Selecciona a qué cliente pertenece." };
+  }
+  if (!esCliente && clienteIdRaw) {
+    return {
+      ok: false,
+      message: "Solo un usuario con rol Cliente puede tener cliente asignado.",
+    };
+  }
+
   const admin = createAdminClient();
+
+  if (esCliente && clienteIdRaw) {
+    const { data: cliente, error: clienteErr } = await admin
+      .from("clientes")
+      .select("id, activo")
+      .eq("id", clienteIdRaw)
+      .maybeSingle();
+    if (clienteErr || !cliente) {
+      return { ok: false, message: "El cliente seleccionado no existe." };
+    }
+    if (!cliente.activo) {
+      return { ok: false, message: "El cliente seleccionado está inactivo." };
+    }
+  }
+
   const redirectTo = `${appUrl()}/auth/callback?next=/set-password`;
 
   if (soloLink) {
@@ -105,6 +144,7 @@ export async function invitarUsuario(
       phone,
       roles,
       current.id,
+      clienteIdRaw,
     );
     if (rolesErr) return { ok: false, message: `Roles: ${rolesErr}` };
 
@@ -137,6 +177,7 @@ export async function invitarUsuario(
     phone,
     roles,
     current.id,
+    clienteIdRaw,
   );
   if (rolesErr) return { ok: false, message: `Roles: ${rolesErr}` };
 
@@ -157,6 +198,29 @@ export async function actualizarRoles(formData: FormData) {
   }
 
   const admin = createAdminClient();
+
+  // Mismo invariante que en la invitación: `cliente` es excluyente y exige
+  // tener cliente asignado, o el usuario quedaría con lectura sin acotar.
+  const esCliente = roles.includes("cliente");
+  if (esCliente && roles.length > 1) {
+    redirect("/admin/usuarios?error=cliente_no_combinable");
+  }
+  if (esCliente) {
+    const { data: perfil } = await admin
+      .from("profiles")
+      .select("cliente_id")
+      .eq("id", userId)
+      .maybeSingle();
+    if (!perfil?.cliente_id) {
+      redirect("/admin/usuarios?error=cliente_sin_asignar");
+    }
+  } else {
+    // Deja de ser cliente: se limpia el vínculo para no dejarlo colgando.
+    await admin
+      .from("profiles")
+      .update({ cliente_id: null })
+      .eq("id", userId);
+  }
 
   // Reemplazo total: borrar y volver a insertar.
   await admin.from("user_roles").delete().eq("user_id", userId);

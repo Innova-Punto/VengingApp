@@ -15,15 +15,26 @@ export default async function SinRolPage({
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  // Si ya tiene roles, mandarlo a su home.
-  if (user.roles.length > 0 && searchParams.reason !== "forbidden") {
-    redirect(homeForRoles(user.roles));
+  // Si ya tiene roles, mandarlo a su home — pero nunca a esta misma página.
+  // Sin esa comparación, un rol que no tenga caso en homeForRoles se redirige
+  // a sí mismo para siempre: es el ERR_TOO_MANY_REDIRECTS con el que se topó
+  // el primer usuario del rol `cliente`.
+  const home =
+    user.roles.length > 0 ? homeForRoles(user.roles) : "/sin-rol";
+  if (
+    user.roles.length > 0 &&
+    searchParams.reason !== "forbidden" &&
+    home !== "/sin-rol"
+  ) {
+    redirect(home);
   }
 
   const title =
     searchParams.reason === "forbidden"
       ? "No tienes permiso para acceder a esa sección"
-      : "Tu cuenta aún no tiene rol asignado";
+      : user.roles.length > 0
+        ? "Tu rol todavía no tiene una sección asignada"
+        : "Tu cuenta aún no tiene rol asignado";
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-zinc-50 p-6">

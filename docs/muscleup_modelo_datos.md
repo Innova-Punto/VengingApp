@@ -32,7 +32,7 @@ Volumen operativo (14-ago-2026): 83 máquinas · 75 ubicaciones · 6 clientes ·
 | Precios | **Se registran SIN IVA para costo; la venta guarda bruto, IVA y neto por separado.** |
 | Movimientos | `movimientos_inventario` es append-only. Correcciones = asientos compensatorios. |
 | Folios | Secuencias: `OC-`, `REC-`, `ENC-`, `SUR-`, `INC-`, `SRV-`, `VIC-`. |
-| RLS | Habilitado en las 63 tablas. Policies por rol vía `public.user_has_role()`. |
+| RLS | Habilitado en las 63 tablas. Escritura por rol vía `public.user_has_role()`; lectura del personal interno vía `public.user_es_interno()`, y del rol `cliente` acotada por `public.user_cliente_id()`. |
 | Zona horaria | Nayax entrega **UTC**; la operación es **CDMX (UTC−6)**. Los cortes de día/mes se calculan `at time zone 'America/Mexico_City'`. |
 | Nombres | `snake_case`, español. Plural para tablas, singular para campos. |
 
@@ -316,6 +316,22 @@ Acceso a privados siempre por **signed URL** (1 h) generada en servidor.
    Verificado: las 129 migraciones corren en una base limpia y el esquema resultante iguala a
    producción (63 tablas, 4 vistas, 24 enums, 70 funciones, 0 tablas sin RLS).
 6. **`config_global` y `contratos_cliente` están vacías**: los parámetros viven hoy en código.
+7. ~~**Lectura abierta a cualquier autenticado**~~ — **RESUELTO** (ago-2026). Las 50 policies de
+   lectura estaban en `using (true)`, así que cualquier usuario autenticado leía costos, OCs,
+   ventas, márgenes y proveedores. Se cerraron a `public.user_es_interno()` en
+   `20260815180001_acceso_cliente_servicios.sql`. Verificado: los 6 roles internos leen igual
+   que antes; un autenticado sin rol pasó de verlo todo a 0 filas.
+8. ~~**`anon` alcanzaba datos financieros y RPC de negocio**~~ — **RESUELTO** (ago-2026).
+   Al cerrar lo anterior se descubrió que la publishable key (pública por diseño) todavía
+   llegaba por dos vías que RLS no cubre: cuatro vistas `SECURITY DEFINER` con SELECT a `anon`
+   —comprobado: sin sesión se leían 31 productos con costo en `v_inventario_producto`— y
+   EXECUTE sobre 39 funciones `SECURITY DEFINER`, mutantes incluidas. Cerrado en
+   `20260815190000_cerrar_acceso_anon.sql`: las 4 vistas pasaron a `security_invoker = true`
+   y se revocó EXECUTE de `anon` **y de `public`** (el grant venía por las dos vías; revocar
+   solo de `anon` cerraba apenas la mitad).
+   **Regla vigente**: una vista nueva nace con `security_invoker = true` salvo justificación
+   explícita, y una función que deba ser pública necesita su `grant execute ... to anon`
+   expreso — los `alter default privileges` ya no lo dan solos.
 
 ---
 
