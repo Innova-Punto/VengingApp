@@ -7,11 +7,11 @@ función y bucket aquí listado fue verificado en la base de datos productiva.
 
 | Concepto | Estado actual |
 |---|---|
-| Tablas en `public` | **64** (todas con RLS habilitado y al menos 1 policy) |
+| Tablas en `public` | **63** (todas con RLS habilitado y al menos 1 policy) |
 | Enums | 24 |
 | Funciones | ~74 (25 de trigger, ~49 RPC/utilitarias) |
 | Vistas | 4 |
-| Migraciones versionadas | 127 |
+| Migraciones versionadas | 129 |
 | Buckets de Storage | 7 (6 privados + `manuales-operador` público) |
 | Cron jobs (pg_cron) | 4 |
 
@@ -297,17 +297,24 @@ Acceso a privados siempre por **signed URL** (1 h) generada en servidor.
 
 ## 10. Deuda técnica conocida
 
-1. **Overloads de `op_registrar_llenado`**: conviven 3 firmas (4, 5 y 9 parámetros). La app
-   llama la de 9. Riesgo: una llamada con parámetros nombrados incompletos puede resolver a
-   una firma vieja. **Pendiente: dropear las dos antiguas.**
-2. **Signo en el kardex**: `venta_salida_tolva` y `venta_intercompany` guardan gramos
-   positivos. Regla: para consumo real usar `ventas_maquina.gramos_dispensados` o `ABS()`.
+1. ~~**Overloads de `op_registrar_llenado`**~~ — **RESUELTO** (ago-2026). Se dejó la firma
+   única de 9 parámetros. **Regla vigente**: nunca crear un overload de una función existente;
+   si hace falta un parámetro nuevo, agrégalo con DEFAULT y dropea la firma anterior en la
+   misma migración (PostgREST resuelve por parámetros nombrados y una llamada incompleta
+   caería en la firma equivocada).
+2. ~~**Signo en el kardex**~~ — **RESUELTO** (ago-2026). `venta_salida_tolva` guarda gramos
+   **negativos** (salida) y el histórico fue backfilleado: 0 movimientos positivos vs 27,509
+   negativos. Usar `ABS()` sigue siendo seguro en consultas de consumo, pero ya no es
+   obligatorio. Ver `20260725160000_venta_signo_salida_negativo.sql`.
 3. **`ventas_maquina.cliente_id` es NULL**: identificar cliente vía
    `maquinas → ubicaciones → clientes`.
 4. **`costo_polvo` / `costo_vaso` en ventas están en cero**: valuar con
    `tolvas.costo_promedio_g_actual`.
-5. **Migraciones stub**: varias migraciones de cierre/IVA dicen "cuerpo aplicado en el remoto"
-   y no contienen DDL. Un `db:reset` desde cero **no reproduce** el esquema productivo.
+5. ~~**Migraciones stub**~~ — **RESUELTO** (ago-2026). Los cuerpos que solo vivían en el
+   remoto se volcaron en `20260814160000_sync_esquema_remoto.sql`, y tres migraciones
+   históricas que no corrían desde cero se corrigieron con el `drop` previo que Postgres exige.
+   Verificado: las 129 migraciones corren en una base limpia y el esquema resultante iguala a
+   producción (63 tablas, 4 vistas, 24 enums, 70 funciones, 0 tablas sin RLS).
 6. **`config_global` y `contratos_cliente` están vacías**: los parámetros viven hoy en código.
 
 ---

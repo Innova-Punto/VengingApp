@@ -65,7 +65,7 @@ cualquier cambio afecta la operación diaria.
 │       ├── image-compress.ts        # compresión antes de subir
 │       ├── nayax/                   # ingesta y mapeo
 │       └── cierre-reporte/
-├── supabase/migrations/             # 127 migraciones versionadas
+├── supabase/migrations/             # 129 migraciones versionadas
 ├── docs/
 │   ├── muscleup_modelo_datos.md     # ← modelo de datos real (v3.0)
 │   └── modulos_app.md               # ← mapa funcional por módulo
@@ -88,7 +88,7 @@ Detalle completo en `docs/muscleup_modelo_datos.md`. Resumen operativo:
 | Costos | **Siempre sin IVA.** Ojo con el doble descuento de IVA al capturar (ya nos pasó). |
 | Movimientos | `movimientos_inventario` append-only; correcciones con asientos compensatorios. |
 | Folios | Secuencias: `OC-`, `REC-`, `ENC-`, `SUR-`, `INC-`, `SRV-`, `VIC-`. |
-| RLS | Habilitado en las **64** tablas, con policies por rol vía `public.user_has_role()`. |
+| RLS | Habilitado en las **63** tablas, con policies por rol vía `public.user_has_role()`. |
 | Zona horaria | Nayax = UTC; negocio = CDMX. Cortes con `at time zone 'America/Mexico_City'`. |
 | Nombres | `snake_case` en español. Plural en tablas, singular en campos. |
 | FK | `on delete restrict` por default; `cascade` solo en hijas claras (`oc_items`). |
@@ -98,10 +98,13 @@ Detalle completo en `docs/muscleup_modelo_datos.md`. Resumen operativo:
 1. **Nunca crear un overload de una función existente** sin dropear la anterior: PostgREST
    resuelve por parámetros nombrados y puede pegarle a la firma vieja (nos pasó con
    `abrir_cierre_mensual` y hoy sigue vivo con `op_registrar_llenado`).
-2. **El signo del kardex no es confiable para ventas**: usar `ventas_maquina.gramos_dispensados`
-   o `ABS()`.
-3. **Toda migración debe llevar su DDL en el archivo.** Hay migraciones stub que dicen
-   "cuerpo aplicado en el remoto" — no las imites; el repo debe poder reconstruir la BD.
+2. **El signo del kardex**: `venta_salida_tolva` es negativo (salida) desde ago-2026, histórico
+   incluido. Usar `ABS()` en consultas de consumo sigue siendo la opción segura.
+3. **Toda migración debe llevar su DDL en el archivo.** Hubo migraciones que decían "cuerpo
+   aplicado en el remoto" y rompían la reconstrucción; ya se corrigieron. Antes de dar por
+   terminada una migración, comprueba que corre en una base limpia.
+   Ojo: `create or replace view` falla si cambian las columnas, y `create or replace function`
+   falla si cambia el tipo de retorno — en esos casos hay que dropear primero.
 4. **Consumo real solo es auditable entre dos pesajes físicos.** No inferir consumo del kardex
    sin baseline.
 5. **Las máquinas `tipo = 'servicio'` no venden.** Excluirlas de cualquier reporte o alerta
@@ -224,6 +227,6 @@ npm run db:types
 | Calibraciones (`calibraciones_maquina`) | ⚠️ tabla creada, sin flujo en UI |
 | Contratos de cliente y `config_global` | ⚠️ tablas vacías; parámetros hoy en código |
 
-**Deuda técnica priorizada** (detalle en `docs/muscleup_modelo_datos.md` §10):
-overloads de `op_registrar_llenado`, migraciones stub sin DDL, `costo_polvo`/`costo_vaso`
-en cero, `ventas_maquina.cliente_id` nulo.
+**Deuda técnica** (detalle en `docs/muscleup_modelo_datos.md` §10). Resueltos en ago-2026:
+overloads de `op_registrar_llenado`, migraciones sin DDL y el signo del kardex.
+Pendientes: `costo_polvo`/`costo_vaso` en cero y `ventas_maquina.cliente_id` nulo.
