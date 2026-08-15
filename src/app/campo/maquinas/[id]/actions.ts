@@ -227,6 +227,56 @@ export async function cerrarVisitaSinLlenado(input: {
 }
 
 // ============================================================================
+// Ejecutar sustitución de producto en tolva (instrucción de planeación)
+// ============================================================================
+
+/**
+ * El operador NO decide la sustitución: planeación la programó. Aquí solo
+ * registra cuánto polvo retiró. La RPC descuenta la tolva, cambia el producto,
+ * versiona el planograma y manda el polvo a almacén en tránsito.
+ */
+export async function ejecutarSustitucion(input: {
+  sustitucionId: string;
+  checkInId: string;
+  asignacionId: string;
+  maquinaId: string;
+  gramosRetirados: number;
+  /** Ruta de la foto ya subida desde el cliente (`bucket/path.ext`). */
+  fotoPath: string | null;
+  notas: string | null;
+}): Promise<ActionResult> {
+  await requireRole("operador", "admin", "direccion");
+
+  if (!input.sustitucionId) return { ok: false, message: "Falta la sustitución." };
+  if (!input.checkInId) return { ok: false, message: "Falta check-in." };
+  if (
+    !Number.isInteger(input.gramosRetirados) ||
+    input.gramosRetirados < 0
+  ) {
+    return { ok: false, message: "Los gramos retirados deben ser un entero ≥ 0." };
+  }
+
+  const supabase = createClient() as AnyClient;
+
+  const { error } = await supabase.rpc("op_ejecutar_sustitucion", {
+    p_sustitucion_id: input.sustitucionId,
+    p_check_in_id: input.checkInId,
+    p_gramos_retirados: input.gramosRetirados,
+    p_foto_url: input.fotoPath,
+    p_notas: input.notas,
+  });
+
+  if (error) return { ok: false, message: error.message };
+
+  revalidatePath(`/campo/maquinas/${input.maquinaId}`);
+  revalidatePath(`/campo/jornada/${input.asignacionId}`);
+  revalidatePath("/planeacion/sustituciones");
+  revalidatePath("/almacen/retornos");
+  revalidatePath("/admin/dashboard");
+  return { ok: true, message: "Producto sustituido. Ya puedes cargar el nuevo." };
+}
+
+// ============================================================================
 // Registrar visita de servicio (máquinas tipo 'servicio' — cierra la visita)
 // ============================================================================
 

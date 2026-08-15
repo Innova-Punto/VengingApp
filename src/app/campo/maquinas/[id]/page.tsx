@@ -11,6 +11,7 @@ import IncidenciaForm from "./IncidenciaForm";
 import LlenadoForm from "./LlenadoForm";
 import PesajeForm from "./PesajeForm";
 import ServicioForm, { type ChecklistItemUI } from "./ServicioForm";
+import SustitucionForm, { type SustitucionPendiente } from "./SustitucionForm";
 
 export default async function MaquinaCampoPage({
   params,
@@ -146,6 +147,45 @@ export default async function MaquinaCampoPage({
     : { data: [] };
 
   const esServicio = maquina.tipo === "servicio";
+
+  // Sustituciones de producto que planeación programó para esta máquina.
+  // Son obligatorias: bloquean el llenado y el cierre de la visita.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: sustPendientes } = await (supabase as any)
+    .from("sustituciones_tolva")
+    .select(
+      `id, motivo, tolva_id,
+       tolva:tolvas(numero, inventario_actual_g),
+       saliente:productos!sustituciones_tolva_producto_saliente_id_fkey(nombre),
+       entrante:productos!sustituciones_tolva_producto_entrante_id_fkey(nombre)`,
+    )
+    .eq("maquina_id", params.id)
+    .eq("estado", "pendiente");
+
+  type EmbS<T> = T | T[] | null;
+  type FilaSust = {
+    id: string;
+    motivo: string | null;
+    tolva: EmbS<{ numero: number; inventario_actual_g: number | null }>;
+    saliente: EmbS<{ nombre: string }>;
+    entrante: EmbS<{ nombre: string }>;
+  };
+  const sustituciones: SustitucionPendiente[] = ((sustPendientes ?? []) as FilaSust[]).map(
+    (s) => {
+      const t = Array.isArray(s.tolva) ? s.tolva[0] : s.tolva;
+      const sal = Array.isArray(s.saliente) ? s.saliente[0] : s.saliente;
+      const ent = Array.isArray(s.entrante) ? s.entrante[0] : s.entrante;
+      return {
+        id: s.id,
+        tolva_numero: t?.numero ?? 0,
+        producto_saliente: sal?.nombre ?? "—",
+        producto_entrante: ent?.nombre ?? "—",
+        gramos_en_tolva: t?.inventario_actual_g ?? 0,
+        motivo: s.motivo,
+      };
+    },
+  );
+  const haySustitucionPendiente = sustituciones.length > 0;
 
   // Visita de servicio existente (máquinas tipo 'servicio')
   const { data: servicioVisita } = checkIn
@@ -339,7 +379,24 @@ export default async function MaquinaCampoPage({
             </div>
           </div>
 
-          {esServicio ? (
+          {/* Instrucción de planeación: bloquea todo lo demás hasta ejecutarse */}
+          {haySustitucionPendiente &&
+            sustituciones.map((s) => (
+              <SustitucionForm
+                key={s.id}
+                sustitucion={s}
+                checkInId={checkIn.id}
+                asignacionId={asignacionId}
+                maquinaId={maquina.id}
+              />
+            ))}
+
+          {haySustitucionPendiente ? (
+            <p className="rounded-md border border-zinc-300 bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+              🔒 El llenado y el cierre de la visita se habilitan cuando
+              registres el cambio de producto de arriba.
+            </p>
+          ) : esServicio ? (
             plantilla ? (
               <ServicioForm
                 checkInId={checkIn.id}
