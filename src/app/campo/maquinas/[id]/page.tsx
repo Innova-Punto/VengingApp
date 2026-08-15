@@ -150,8 +150,7 @@ export default async function MaquinaCampoPage({
 
   // Sustituciones de producto que planeación programó para esta máquina.
   // Son obligatorias: bloquean el llenado y el cierre de la visita.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: sustPendientes } = await (supabase as any)
+  const { data: sustPendientes } = await supabase
     .from("sustituciones_tolva")
     .select(
       `id, motivo, tolva_id,

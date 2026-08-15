@@ -43,15 +43,18 @@ export async function recibirRetorno(input: {
   }
 
   const supabase = createClient();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any).rpc("recibir_retorno_polvo", {
+  const { error } = await supabase.rpc("recibir_retorno_polvo", {
     p_sustitucion_id: input.sustitucionId,
     p_aceptado: input.aceptado,
     p_gramos_recibidos: input.aceptado
       ? Math.round(input.gramosRecibidos as number)
-      : null,
-    p_motivo_rechazo: input.aceptado ? null : input.motivoRechazo,
-    p_fecha_caducidad: input.aceptado ? input.fechaCaducidad : null,
+      : undefined,
+    p_motivo_rechazo: input.aceptado
+      ? undefined
+      : (input.motivoRechazo ?? undefined),
+    p_fecha_caducidad: input.aceptado
+      ? (input.fechaCaducidad ?? undefined)
+      : undefined,
   });
 
   if (error) return { ok: false, message: error.message };

@@ -46,8 +46,7 @@ export default async function SustitucionesPage({
 }) {
   await requireRole("admin", "direccion", "planeador");
   const supabase = createClient();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = supabase as any;
+  const db = supabase;
 
   const [{ data: productos }, { data: pendientes }, { data: recientes }] =
     await Promise.all([
@@ -96,15 +95,6 @@ export default async function SustitucionesPage({
       .eq("producto_id", productoSel);
 
     // Consumo de los últimos 14 días por tolva (para estimar días restantes)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: score } = await (supabase as any).rpc(
-      "sugerencia_ruteo_diaria",
-    );
-    const diasPorMaquina = new Map<string, number | null>();
-    for (const r of (score ?? []) as { maquina_id: string; dias_min_vaciado: number | null }[]) {
-      diasPorMaquina.set(r.maquina_id, r.dias_min_vaciado);
-    }
-
     const pendientesTolva = new Set(
       ((pendientes ?? []) as FilaPendiente[]).map((p) => {
         const t = uno(p.tolva);

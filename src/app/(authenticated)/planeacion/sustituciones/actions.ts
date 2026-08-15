@@ -35,11 +35,10 @@ export async function programarSustituciones(input: {
   let ok = 0;
 
   for (const tolvaId of tolvas) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase as any).rpc("crear_sustitucion_tolva", {
+    const { error } = await supabase.rpc("crear_sustitucion_tolva", {
       p_tolva_id: tolvaId,
       p_producto_entrante_id: input.productoEntranteId,
-      p_motivo: input.motivo,
+      p_motivo: input.motivo ?? undefined,
     });
     if (error) errores.push(error.message);
     else ok += 1;
@@ -71,10 +70,9 @@ export async function cancelarSustitucion(input: {
   if (!input.id) return { ok: false, message: "Falta el id." };
 
   const supabase = createClient();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any).rpc("cancelar_sustitucion_tolva", {
+  const { error } = await supabase.rpc("cancelar_sustitucion_tolva", {
     p_id: input.id,
-    p_motivo: input.motivo,
+    p_motivo: input.motivo ?? undefined,
   });
   if (error) return { ok: false, message: error.message };
 

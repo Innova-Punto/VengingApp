@@ -1825,16 +1825,18 @@ export type Database = {
           codigo_lote: string
           costo_por_gramo: number
           created_at: string
+          es_recuperado: boolean
           fecha_caducidad: string | null
           fecha_recepcion: string
           gramos_disponibles_granel: number
           gramos_iniciales: number
           id: string
+          maquina_origen_id: string | null
           notas: string | null
           presentacion_id: string | null
           producto_id: string
           proveedor_id: string
-          recepcion_id: string
+          recepcion_id: string | null
           unidades_disponibles: number | null
           unidades_iniciales: number | null
         }
@@ -1843,16 +1845,18 @@ export type Database = {
           codigo_lote: string
           costo_por_gramo: number
           created_at?: string
+          es_recuperado?: boolean
           fecha_caducidad?: string | null
           fecha_recepcion?: string
           gramos_disponibles_granel?: number
           gramos_iniciales: number
           id?: string
+          maquina_origen_id?: string | null
           notas?: string | null
           presentacion_id?: string | null
           producto_id: string
           proveedor_id: string
-          recepcion_id: string
+          recepcion_id?: string | null
           unidades_disponibles?: number | null
           unidades_iniciales?: number | null
         }
@@ -1861,20 +1865,29 @@ export type Database = {
           codigo_lote?: string
           costo_por_gramo?: number
           created_at?: string
+          es_recuperado?: boolean
           fecha_caducidad?: string | null
           fecha_recepcion?: string
           gramos_disponibles_granel?: number
           gramos_iniciales?: number
           id?: string
+          maquina_origen_id?: string | null
           notas?: string | null
           presentacion_id?: string | null
           producto_id?: string
           proveedor_id?: string
-          recepcion_id?: string
+          recepcion_id?: string | null
           unidades_disponibles?: number | null
           unidades_iniciales?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "lotes_maquina_origen_id_fkey"
+            columns: ["maquina_origen_id"]
+            isOneToOne: false
+            referencedRelation: "maquinas"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "lotes_presentacion_id_fkey"
             columns: ["presentacion_id"]
@@ -3682,6 +3695,187 @@ export type Database = {
           },
         ]
       }
+      sustituciones_tolva: {
+        Row: {
+          cancelada_at: string | null
+          cancelada_por: string | null
+          check_in_id: string | null
+          costo_por_gramo_retiro: number | null
+          creado_por: string | null
+          created_at: string
+          ejecutada_at: string | null
+          ejecutada_por: string | null
+          estado: string
+          estado_retorno: string
+          foto_retiro_url: string | null
+          gramaje_servicio_entrante: number | null
+          gramos_recibidos: number | null
+          gramos_retirados: number | null
+          id: string
+          lote_retorno_id: string | null
+          maquina_id: string
+          motivo: string | null
+          motivo_cancelacion: string | null
+          motivo_rechazo: string | null
+          nayax_item_code_entrante: string | null
+          notas_operador: string | null
+          precio_venta_entrante: number | null
+          producto_entrante_id: string
+          producto_saliente_id: string
+          recibido_at: string | null
+          recibido_por: string | null
+          tolva_id: string
+          updated_at: string
+        }
+        Insert: {
+          cancelada_at?: string | null
+          cancelada_por?: string | null
+          check_in_id?: string | null
+          costo_por_gramo_retiro?: number | null
+          creado_por?: string | null
+          created_at?: string
+          ejecutada_at?: string | null
+          ejecutada_por?: string | null
+          estado?: string
+          estado_retorno?: string
+          foto_retiro_url?: string | null
+          gramaje_servicio_entrante?: number | null
+          gramos_recibidos?: number | null
+          gramos_retirados?: number | null
+          id?: string
+          lote_retorno_id?: string | null
+          maquina_id: string
+          motivo?: string | null
+          motivo_cancelacion?: string | null
+          motivo_rechazo?: string | null
+          nayax_item_code_entrante?: string | null
+          notas_operador?: string | null
+          precio_venta_entrante?: number | null
+          producto_entrante_id: string
+          producto_saliente_id: string
+          recibido_at?: string | null
+          recibido_por?: string | null
+          tolva_id: string
+          updated_at?: string
+        }
+        Update: {
+          cancelada_at?: string | null
+          cancelada_por?: string | null
+          check_in_id?: string | null
+          costo_por_gramo_retiro?: number | null
+          creado_por?: string | null
+          created_at?: string
+          ejecutada_at?: string | null
+          ejecutada_por?: string | null
+          estado?: string
+          estado_retorno?: string
+          foto_retiro_url?: string | null
+          gramaje_servicio_entrante?: number | null
+          gramos_recibidos?: number | null
+          gramos_retirados?: number | null
+          id?: string
+          lote_retorno_id?: string | null
+          maquina_id?: string
+          motivo?: string | null
+          motivo_cancelacion?: string | null
+          motivo_rechazo?: string | null
+          nayax_item_code_entrante?: string | null
+          notas_operador?: string | null
+          precio_venta_entrante?: number | null
+          producto_entrante_id?: string
+          producto_saliente_id?: string
+          recibido_at?: string | null
+          recibido_por?: string | null
+          tolva_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sustituciones_tolva_cancelada_por_fkey"
+            columns: ["cancelada_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sustituciones_tolva_check_in_id_fkey"
+            columns: ["check_in_id"]
+            isOneToOne: false
+            referencedRelation: "check_ins"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sustituciones_tolva_creado_por_fkey"
+            columns: ["creado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sustituciones_tolva_ejecutada_por_fkey"
+            columns: ["ejecutada_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sustituciones_tolva_lote_retorno_id_fkey"
+            columns: ["lote_retorno_id"]
+            isOneToOne: false
+            referencedRelation: "lotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sustituciones_tolva_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "maquinas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sustituciones_tolva_producto_entrante_id_fkey"
+            columns: ["producto_entrante_id"]
+            isOneToOne: false
+            referencedRelation: "productos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sustituciones_tolva_producto_entrante_id_fkey"
+            columns: ["producto_entrante_id"]
+            isOneToOne: false
+            referencedRelation: "v_inventario_producto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sustituciones_tolva_producto_saliente_id_fkey"
+            columns: ["producto_saliente_id"]
+            isOneToOne: false
+            referencedRelation: "productos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sustituciones_tolva_producto_saliente_id_fkey"
+            columns: ["producto_saliente_id"]
+            isOneToOne: false
+            referencedRelation: "v_inventario_producto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sustituciones_tolva_recibido_por_fkey"
+            columns: ["recibido_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sustituciones_tolva_tolva_id_fkey"
+            columns: ["tolva_id"]
+            isOneToOne: false
+            referencedRelation: "tolvas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tolvas: {
         Row: {
           capacidad_max_g: number
@@ -4302,6 +4496,10 @@ export type Database = {
         Args: { p_asignacion_id: string; p_motivo: string; p_uid?: string }
         Returns: Json
       }
+      cancelar_sustitucion_tolva: {
+        Args: { p_id: string; p_motivo?: string }
+        Returns: undefined
+      }
       capital_trabajo: {
         Args: { p_cliente_id?: string }
         Returns: {
@@ -4340,6 +4538,17 @@ export type Database = {
       cleanup_evidencias_viejas: { Args: never; Returns: number }
       crear_asignacion_emergencia: {
         Args: { p_fecha: string; p_notas?: string; p_operador_id: string }
+        Returns: string
+      }
+      crear_sustitucion_tolva: {
+        Args: {
+          p_gramaje_servicio?: number
+          p_motivo?: string
+          p_nayax_item_code?: string
+          p_precio_venta?: number
+          p_producto_entrante_id: string
+          p_tolva_id: string
+        }
         Returns: string
       }
       detectar_maquinas_sin_venta: {
@@ -4403,44 +4612,34 @@ export type Database = {
         }
         Returns: string
       }
+      op_ejecutar_sustitucion: {
+        Args: {
+          p_check_in_id: string
+          p_foto_url?: string
+          p_gramos_retirados: number
+          p_notas?: string
+          p_sustitucion_id: string
+        }
+        Returns: string
+      }
       op_iniciar_jornada: {
         Args: { p_asignacion_id: string; p_lat?: number; p_lng?: number }
         Returns: string
       }
-      op_registrar_llenado:
-        | {
-            Args: {
-              p_check_in_id: string
-              p_evidencia_url?: string
-              p_items: Json
-              p_notas?: string
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_check_in_id: string
-              p_evidencia_url?: string
-              p_items: Json
-              p_notas?: string
-              p_vasos_cargados?: number
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_check_in_id: string
-              p_checkout_maquina_limpia?: boolean
-              p_checkout_nayax_ok?: boolean
-              p_checkout_productos_ok?: boolean
-              p_evidencia_url?: string
-              p_foto_salida_url?: string
-              p_items: Json
-              p_notas?: string
-              p_vasos_cargados?: number
-            }
-            Returns: string
-          }
+      op_registrar_llenado: {
+        Args: {
+          p_check_in_id: string
+          p_checkout_maquina_limpia?: boolean
+          p_checkout_nayax_ok?: boolean
+          p_checkout_productos_ok?: boolean
+          p_evidencia_url?: string
+          p_foto_salida_url?: string
+          p_items: Json
+          p_notas?: string
+          p_vasos_cargados?: number
+        }
+        Returns: string
+      }
       op_registrar_pesaje_maquina: {
         Args: {
           p_check_in_id: string
@@ -4533,6 +4732,16 @@ export type Database = {
         }
         Returns: string
       }
+      recibir_retorno_polvo: {
+        Args: {
+          p_aceptado: boolean
+          p_fecha_caducidad?: string
+          p_gramos_recibidos?: number
+          p_motivo_rechazo?: string
+          p_sustitucion_id: string
+        }
+        Returns: string
+      }
       registrar_venta_intercompany: {
         Args: {
           p_cantidad: number
@@ -4584,6 +4793,37 @@ export type Database = {
           maq_vasos_unidades: number
           maq_vasos_valor: number
           producto_id: string
+        }[]
+      }
+      sugerencia_ruteo_diaria: {
+        Args: never
+        Returns: {
+          abierta_ahora: boolean
+          alias: string
+          cliente: string
+          criticidad: string
+          dias_min_vaciado: number
+          dias_sin_visita: number
+          frecuencia_dias: number
+          horas_sin_venta: number
+          hueco_max_cartuchos: number
+          lat: number
+          lng: number
+          maquina_id: string
+          motivo: string
+          operador_id: string
+          operador_nombre: string
+          prioridad: number
+          revision: boolean
+          ruta_color: string
+          ruta_id: string
+          ruta_nombre: string
+          serie: string
+          tipo: string
+          tolvas_cortas: number
+          ubicacion: string
+          ubicacion_id: string
+          visita_vencida: boolean
         }[]
       }
       user_has_role: {
@@ -4677,6 +4917,7 @@ export type Database = {
         | "ajuste_manual"
         | "devolucion_entrada_vaso"
         | "venta_intercompany"
+        | "retorno_polvo_tolva"
       oc_estado: "borrador" | "enviada" | "parcial" | "recibida" | "cancelada"
       producto_tipo: "polvo" | "vaso"
       reporte_estado:
@@ -4907,6 +5148,7 @@ export const Constants = {
         "ajuste_manual",
         "devolucion_entrada_vaso",
         "venta_intercompany",
+        "retorno_polvo_tolva",
       ],
       oc_estado: ["borrador", "enviada", "parcial", "recibida", "cancelada"],
       producto_tipo: ["polvo", "vaso"],

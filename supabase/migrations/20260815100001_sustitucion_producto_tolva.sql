@@ -134,6 +134,7 @@ declare
   v_tolva record;
   v_prod_entrante record;
   v_id uuid;
+  v_otras_tolvas int;
 begin
   if v_uid is null then raise exception 'No autenticado'; end if;
   if not (user_has_role('admin'::app_role) or user_has_role('direccion'::app_role)
@@ -172,6 +173,33 @@ begin
     coalesce(p_precio_venta, v_prod_entrante.precio_venta_default, v_tolva.precio_venta),
     p_motivo, v_uid
   ) returning id into v_id;
+
+  -- El surtido suele generarse ANTES de que planeación decida la sustitución,
+  -- así que trae cartuchos del producto que va a salir. Se retira ese sugerido
+  -- para que almacén no cargue algo que el operador va a retirar el mismo día.
+  --
+  -- Solo se quita si a la máquina NO le queda otra tolva con ese producto (una
+  -- máquina puede tener el mismo polvo en dos tolvas y sustituir solo una).
+  -- Y solo en surtidos aún NO completados: los completados ya descontaron
+  -- inventario y tocarlos rompería el kardex.
+  select count(*) into v_otras_tolvas
+    from public.tolvas t
+   where t.maquina_id = v_tolva.m_id
+     and t.producto_id = v_tolva.producto_id
+     and t.id <> p_tolva_id
+     and not exists (
+       select 1 from public.sustituciones_tolva s
+        where s.tolva_id = t.id and s.estado = 'pendiente'
+     );
+
+  if v_otras_tolvas = 0 then
+    delete from public.surtido_items si
+     using public.surtidos s
+     where si.surtido_id = s.id
+       and si.maquina_id = v_tolva.m_id
+       and si.producto_id = v_tolva.producto_id
+       and s.estado in ('pendiente'::surtido_estado, 'en_proceso'::surtido_estado);
+  end if;
 
   return v_id;
 exception when unique_violation then

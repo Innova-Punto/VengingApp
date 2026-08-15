@@ -38,10 +38,7 @@ const uno = <T,>(v: Emb<T>): T | null => (Array.isArray(v) ? (v[0] ?? null) : v)
 export default async function RetornosPage() {
   await requireRole("admin", "direccion", "almacen");
   const supabase = createClient();
-  // La migración de sustituciones aún no está en los tipos generados; se quita
-  // el `any` tras aplicarla y correr `npm run db:types`.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = supabase as any;
+  const db = supabase;
 
   const [{ data: enTransito }, { data: historial }] = await Promise.all([
     db
