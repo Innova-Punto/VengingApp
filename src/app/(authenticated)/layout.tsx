@@ -99,6 +99,13 @@ const NAV_GROUPS: GroupDef[] = [
     ],
   },
   {
+    // Único grupo visible para el rol `cliente`. No se le agregan items aquí
+    // sin revisar antes las policies de RLS del rol.
+    label: "Servicios",
+    roles: ["cliente"],
+    items: [{ label: "Visitas de servicio", href: "/admin/servicios" }],
+  },
+  {
     label: "Admin",
     roles: ["admin", "direccion"],
     items: [

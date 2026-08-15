@@ -27,7 +27,9 @@ export default async function ServicioDetallePage({
 }: {
   params: { id: string };
 }) {
-  await requireRole("admin", "direccion", "planeador");
+  // El cliente ve el detalle de sus propias visitas; las policies de RLS lo
+  // acotan a sus sitios, así que una visita ajena devuelve notFound().
+  await requireRole("admin", "direccion", "planeador", "cliente");
   const supabase = createClient();
 
   const { data: v } = await supabase
@@ -40,7 +42,8 @@ export default async function ServicioDetallePage({
          ubicacion:ubicaciones(nombre, cliente:clientes(nombre))),
        operador:profiles!servicio_visitas_operador_id_fkey(full_name),
        plantilla:checklist_plantillas(nombre, version),
-       check_in:check_ins(fecha_entrada, fecha_salida, tiempo_en_sitio_seg),
+       check_in:check_ins(fecha_entrada, fecha_salida, tiempo_en_sitio_seg,
+                         lat, lng, precision_m, metodo),
        respuestas:servicio_respuestas(
          id, estado, descripcion, foto_url,
          item:checklist_items(seccion, orden, nombre)
@@ -110,6 +113,13 @@ export default async function ServicioDetallePage({
     ? Math.round(checkIn.tiempo_en_sitio_seg / 60)
     : null;
 
+  // Geolocalización de la llegada: es el mismo check-in que usa la máquina
+  // nutricional del sitio, así que el punto es idéntico al de Jornadas.
+  const mapsUrl =
+    checkIn?.lat && checkIn?.lng
+      ? `https://www.google.com/maps?q=${checkIn.lat},${checkIn.lng}`
+      : null;
+
   return (
     <div className="space-y-6">
       <div>
@@ -145,7 +155,7 @@ export default async function ServicioDetallePage({
         </p>
       </div>
 
-      <section className="grid gap-3 md:grid-cols-3">
+      <section className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-lg border border-zinc-200 bg-white p-3">
           <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">
             Máquina
@@ -181,6 +191,48 @@ export default async function ServicioDetallePage({
           {v.inventario_sf && (
             <div className="text-xs text-zinc-500">
               Inventario S/F: {v.inventario_sf}
+            </div>
+          )}
+        </div>
+        <div className="rounded-lg border border-zinc-200 bg-white p-3">
+          <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+            Llegada a sitio
+          </div>
+          <div className="mt-1 text-sm text-zinc-900">
+            {checkIn?.fecha_entrada
+              ? fmtCDMX(checkIn.fecha_entrada, {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : "—"}
+            {checkIn?.fecha_salida && (
+              <span className="text-zinc-500">
+                {" → "}
+                {fmtCDMX(checkIn.fecha_salida, {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>
+            )}
+          </div>
+          {mapsUrl ? (
+            <a
+              href={mapsUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-1 inline-block text-xs text-blue-700 underline"
+            >
+              Ver ubicación en Maps
+              {checkIn?.precision_m != null && (
+                <span className="ml-1 text-zinc-500">
+                  (±{Math.round(Number(checkIn.precision_m))}m)
+                </span>
+              )}
+            </a>
+          ) : (
+            <div className="mt-1 text-xs text-zinc-400">
+              Sin geolocalización
+              {checkIn?.metodo === "manual" ? " (entrada manual)" : ""}
             </div>
           )}
         </div>

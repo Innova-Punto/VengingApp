@@ -16,8 +16,13 @@ export default async function ServiciosPage({
 }: {
   searchParams: SearchParams;
 }) {
-  await requireRole("admin", "direccion", "planeador");
+  const user = await requireRole("admin", "direccion", "planeador", "cliente");
   const supabase = createClient();
+
+  // El usuario de cliente solo ve sus propios sitios. Las policies de RLS ya lo
+  // acotan; esto es el mismo filtro del lado de la app para que los conteos y
+  // el selector de máquinas cuadren con lo que sí puede leer.
+  const esCliente = user.roles.includes("cliente") && !user.roles.includes("admin");
 
   let query = supabase
     .from("servicio_visitas")
@@ -72,8 +77,9 @@ export default async function ServiciosPage({
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Servicios</h1>
         <p className="text-sm text-zinc-600">
-          Visitas de servicio a máquinas tipo servicio (Smart Energy):
-          checklist, fallas detectadas y firma del líder del sitio.
+          {esCliente
+            ? "Visitas de servicio a las máquinas Smart Energy de tus sitios: checklist, fallas detectadas, hora de llegada y firma del líder."
+            : "Visitas de servicio a máquinas tipo servicio (Smart Energy): checklist, fallas detectadas y firma del líder del sitio."}
         </p>
       </div>
 
