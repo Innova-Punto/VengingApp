@@ -30,6 +30,8 @@ alter table public.cierres_mensuales
 --    (mismo cálculo que capital_trabajo). El polvo queda igual que antes.
 -- ----------------------------------------------------------------------------
 
+-- El tipo de retorno cambia (agrega vasos): hay que dropear antes de recrear.
+drop function if exists public._snapshot_inventario_mxn();
 create or replace function public._snapshot_inventario_mxn()
 returns table (
   gramos_almacen        bigint,
@@ -210,7 +212,9 @@ grant execute on function public.cerrar_cierre_mensual(uuid, boolean) to authent
 -- 5. Vista: los totales de inventario incluyen vasos; el consumo sigue en polvo
 -- ----------------------------------------------------------------------------
 
-create or replace view public.vista_reporte_cierre as
+-- Cambia el conjunto/orden de columnas: `create or replace view` no basta.
+drop view if exists public.vista_reporte_cierre;
+create view public.vista_reporte_cierre as
 with movs as (
   select
     c.id as cierre_id,
