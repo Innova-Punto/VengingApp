@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { requireRole } from "@/lib/auth";
 import { fmtCDMX } from "@/lib/datetime";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Detalle de servicio · Innovaypunto" };
@@ -37,7 +38,7 @@ export default async function ServicioDetallePage({
     .select(
       `id, folio, fecha, inventario_sf, producto_repuesto, cantidad_repuesta,
        foto_general_url, lider_nombre, firma_url, firma_no_disponible,
-       firma_motivo, observaciones,
+       firma_motivo, observaciones, operador_id,
        maquina:maquinas(id, serie, alias,
          ubicacion:ubicaciones(nombre, cliente:clientes(nombre))),
        operador:profiles!servicio_visitas_operador_id_fkey(full_name),
@@ -66,6 +67,17 @@ export default async function ServicioDetallePage({
       : ubic.cliente
     : null;
   const op = Array.isArray(v.operador) ? v.operador[0] : v.operador;
+  // Igual que en el listado: el cliente no lee `profiles` más que su propia
+  // fila, así que el embed viene nulo y resolvemos el nombre por el servidor.
+  let opNombre = op?.full_name ?? null;
+  if (!opNombre && v.operador_id) {
+    const { data: operador } = await createAdminClient()
+      .from("profiles")
+      .select("full_name")
+      .eq("id", v.operador_id)
+      .maybeSingle();
+    opNombre = operador?.full_name ?? null;
+  }
   const plantilla = Array.isArray(v.plantilla) ? v.plantilla[0] : v.plantilla;
   const checkIn = Array.isArray(v.check_in) ? v.check_in[0] : v.check_in;
 
@@ -173,7 +185,7 @@ export default async function ServicioDetallePage({
             Operador
           </div>
           <div className="mt-1 text-sm text-zinc-900">
-            {op?.full_name ?? "—"}
+            {opNombre ?? "—"}
           </div>
           <div className="text-xs text-zinc-500">
             {plantilla ? `${plantilla.nombre} v${plantilla.version}` : ""}
