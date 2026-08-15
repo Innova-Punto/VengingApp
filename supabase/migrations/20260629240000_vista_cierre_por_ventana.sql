@@ -8,7 +8,9 @@
 -- primer pesaje. El ajuste por pesaje sigue atribuido por cierre_id del pesaje.
 -- ============================================================================
 
-create or replace view public.vista_reporte_cierre as
+-- Cambia el conjunto/orden de columnas: `create or replace view` no basta.
+drop view if exists public.vista_reporte_cierre;
+create view public.vista_reporte_cierre as
 with movs as (
   select
     c.id as cierre_id,
