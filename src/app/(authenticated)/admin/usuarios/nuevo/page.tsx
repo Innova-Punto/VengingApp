@@ -1,12 +1,20 @@
 import Link from "next/link";
 
 import { requireRole } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 import InvitarForm from "./InvitarForm";
 
 export const metadata = { title: "Invitar usuario · Innovaypunto" };
 
 export default async function NuevoUsuarioPage() {
   await requireRole("admin", "direccion");
+
+  const supabase = createClient();
+  const { data: clientes } = await supabase
+    .from("clientes")
+    .select("id, nombre")
+    .eq("activo", true)
+    .order("nombre");
 
   return (
     <div className="space-y-6">
@@ -26,7 +34,7 @@ export default async function NuevoUsuarioPage() {
       </div>
 
       <div className="max-w-xl rounded-lg border border-zinc-200 bg-white p-6">
-        <InvitarForm />
+        <InvitarForm clientes={clientes ?? []} />
       </div>
     </div>
   );
