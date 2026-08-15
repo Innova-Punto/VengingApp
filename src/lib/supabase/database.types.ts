@@ -4837,6 +4837,8 @@ export type Database = {
           visita_vencida: boolean
         }[]
       }
+      user_cliente_id: { Args: never; Returns: string }
+      user_es_interno: { Args: never; Returns: boolean }
       user_has_role: {
         Args: { check_role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean
