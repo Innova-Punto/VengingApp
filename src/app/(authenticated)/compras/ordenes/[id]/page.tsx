@@ -30,7 +30,8 @@ export default async function DetalleOcPage({
   const { data: oc, error } = await supabase
     .from("ordenes_compra")
     .select(
-      `id, folio, fecha_emision, fecha_esperada, estado, subtotal, iva, total, notas, motivo_cierre,
+      `id, folio, fecha_emision, fecha_esperada, estado, subtotal, iva, total,
+       subtotal_recibido, iva_recibido, total_recibido, notas, motivo_cierre,
        moneda, tipo_cambio, tc_confirmado,
        proveedor:proveedores(id, nombre, rfc)`,
     )
@@ -106,6 +107,13 @@ export default async function DetalleOcPage({
     esDivisa && oc.estado !== "cancelada" && (numRecepciones ?? 0) === 0;
   const recepcionBloqueada = esDivisa && !tcConfirmado;
 
+  // Diferencia entre lo pedido y lo recibido. Solo se muestra cuando ya hubo
+  // alguna recepción y quedó faltante: en una OC completa ambos coinciden, y en
+  // una recién enviada el recibido es cero y el aviso sería ruido.
+  const faltante = Number(oc.total) - Number(oc.total_recibido);
+  const hayFaltante =
+    Number(oc.total_recibido) > 0 && Math.abs(faltante) > 0.02;
+
   return (
     <div className="space-y-8">
       <div>
@@ -150,8 +158,41 @@ export default async function DetalleOcPage({
           label="Subtotal MXN"
           value={`$${Number(oc.subtotal).toFixed(2)}`}
         />
-        <Stat label="Total c/IVA" value={`$${Number(oc.total).toFixed(2)}`} />
+        <Stat label="Total pedido" value={`$${Number(oc.total).toFixed(2)}`} />
       </section>
+
+      {/* Lo que de verdad se le debe al proveedor. Se separa del total pedido
+          porque la OC conserva lo que se ordenó —es el documento comercial— y
+          contabilidad necesita lo recibido para cuadrar el pago. */}
+      {hayFaltante && (
+        <section className="rounded-lg border border-amber-300 bg-amber-50 p-4">
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-amber-800">
+                Por pagar — solo lo recibido
+              </p>
+              <p className="mt-1 text-2xl font-semibold tabular-nums text-zinc-900">
+                ${Number(oc.total_recibido).toFixed(2)}
+              </p>
+              <p className="text-xs text-zinc-600">
+                Subtotal ${Number(oc.subtotal_recibido).toFixed(2)} · IVA $
+                {Number(oc.iva_recibido).toFixed(2)}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs font-medium uppercase tracking-wide text-amber-800">
+                No surtido
+              </p>
+              <p className="mt-1 text-lg font-semibold tabular-nums text-amber-900">
+                ${faltante.toFixed(2)}
+              </p>
+              <p className="text-xs text-zinc-600">
+                No pagar este monto sin confirmar con el proveedor
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
 
       {esDivisa && tcEditable && (
         <TcForm

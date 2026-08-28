@@ -2413,14 +2413,17 @@ export type Database = {
           folio: string
           id: string
           iva: number
+          iva_recibido: number
           moneda: string
           motivo_cierre: string | null
           notas: string | null
           proveedor_id: string
           subtotal: number
+          subtotal_recibido: number
           tc_confirmado: boolean
           tipo_cambio: number | null
           total: number
+          total_recibido: number
           updated_at: string
         }
         Insert: {
@@ -2434,14 +2437,17 @@ export type Database = {
           folio: string
           id?: string
           iva?: number
+          iva_recibido?: number
           moneda?: string
           motivo_cierre?: string | null
           notas?: string | null
           proveedor_id: string
           subtotal?: number
+          subtotal_recibido?: number
           tc_confirmado?: boolean
           tipo_cambio?: number | null
           total?: number
+          total_recibido?: number
           updated_at?: string
         }
         Update: {
@@ -2455,14 +2461,17 @@ export type Database = {
           folio?: string
           id?: string
           iva?: number
+          iva_recibido?: number
           moneda?: string
           motivo_cierre?: string | null
           notas?: string | null
           proveedor_id?: string
           subtotal?: number
+          subtotal_recibido?: number
           tc_confirmado?: boolean
           tipo_cambio?: number | null
           total?: number
+          total_recibido?: number
           updated_at?: string
         }
         Relationships: [
@@ -4733,6 +4742,10 @@ export type Database = {
       }
       reabrir_ruta: {
         Args: { p_asignacion_id: string; p_motivo: string }
+        Returns: undefined
+      }
+      recalcular_valor_recibido_oc: {
+        Args: { p_oc_id: string }
         Returns: undefined
       }
       recibir_devolucion: {
