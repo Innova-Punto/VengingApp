@@ -215,12 +215,16 @@ export default async function CierreDetallePage({
 
   // Avance de pesaje: máquinas activas vs máquinas ya pesadas en este cierre
   // (mismo criterio que usa cerrar_cierre_mensual para validar el 100%).
+  // Se excluyen las de servicio: las Smart Energy no llevan inventario de polvo
+  // y nunca se pesan, así que contarlas dejaba el aviso de "faltan 10 por pesar"
+  // encendido para siempre y bloqueaba el cierre.
   const [{ data: maquinasActivas }, { data: pesadasRows }] = await Promise.all([
     supabase
       .from("maquinas")
       .select("id, serie, alias")
       .eq("activo", true)
       .neq("estado", "baja")
+      .neq("tipo", "servicio")
       .order("serie"),
     supabase
       .from("pesajes_maquina")
