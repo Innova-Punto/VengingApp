@@ -160,6 +160,11 @@ create index if not exists queja_contactos_queja_idx on public.queja_contactos(q
 -- ── 4. Folio ─────────────────────────────────────────────────────────────────
 create sequence if not exists public.quejas_folio_seq;
 
+-- El folio lo genera el DEFAULT de la columna y no solo el trigger: así el tipo
+-- generado lo marca opcional y la app no tiene que pasarlo.
+alter table public.quejas
+  alter column folio set default ('QJA-' || lpad(nextval('public.quejas_folio_seq')::text, 6, '0'));
+
 create or replace function public.set_folio_queja()
 returns trigger
 language plpgsql
