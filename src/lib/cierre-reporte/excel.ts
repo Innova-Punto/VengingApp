@@ -82,6 +82,11 @@ export async function generarWorkbook(
       .reduce((s, m) => s + m.valor, 0);
 
     ws.addRow({ concepto: `Periodo: ${periodoLabel}`, monto: null });
+    ws.addRow({
+      concepto:
+        "  Venta: mes calendario · Inventario y desviaciones: de cierre a cierre",
+      monto: null,
+    });
     ws.addRow({});
     ws.addRow({ concepto: "INGRESOS NAYAX", monto: null }).font = {
       bold: true,
