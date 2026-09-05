@@ -93,6 +93,8 @@ export default async function VentasPage({
         .from("productos")
         .select("id, sku, nombre")
         .eq("activo", true)
+        // El agua no se vende: no filtra ventas.
+        .neq("tipo", "agua")
         .order("nombre"),
       supabase.from("clientes").select("id, nombre").eq("activo", true).order("nombre"),
     ]);

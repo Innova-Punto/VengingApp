@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { fmtCDMX } from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
+import type { Database } from "@/lib/supabase/database.types";
 
 import { completarSurtido } from "../actions";
 import AgregarItemForm from "./AgregarItemForm";
@@ -111,7 +112,12 @@ export default async function DetalleSurtidoPage({
           .select("id, sku, nombre, tipo")
           .in("id", Array.from(productoIds))
       : { data: [] };
-  type Producto = { id: string; sku: string; nombre: string; tipo: "polvo" | "vaso" };
+  type Producto = {
+    id: string;
+    sku: string;
+    nombre: string;
+    tipo: Database["public"]["Enums"]["producto_tipo"];
+  };
   const productoById = new Map<string, Producto>(
     ((productos ?? []) as Producto[]).map((p) => [p.id, p]),
   );

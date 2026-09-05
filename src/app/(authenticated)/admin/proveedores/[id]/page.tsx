@@ -37,6 +37,8 @@ export default async function EditarProveedorPage({
       .from("productos")
       .select("id, sku, nombre")
       .eq("activo", true)
+      // El agua no se compra por presentación de proveedor (todavía).
+      .neq("tipo", "agua")
       .order("nombre"),
   ]);
 

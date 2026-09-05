@@ -14,6 +14,187 @@ export type Database = {
   }
   public: {
     Tables: {
+      agua_almacen_movimientos: {
+        Row: {
+          asignacion_id: string | null
+          costo_referencia: number | null
+          created_at: string
+          created_by: string | null
+          fecha: string
+          garrafones: number
+          id: string
+          nota: string | null
+          operador_id: string | null
+          proveedor_id: string | null
+          proveedor_texto: string | null
+          tipo: Database["public"]["Enums"]["agua_almacen_mov"]
+        }
+        Insert: {
+          asignacion_id?: string | null
+          costo_referencia?: number | null
+          created_at?: string
+          created_by?: string | null
+          fecha?: string
+          garrafones: number
+          id?: string
+          nota?: string | null
+          operador_id?: string | null
+          proveedor_id?: string | null
+          proveedor_texto?: string | null
+          tipo: Database["public"]["Enums"]["agua_almacen_mov"]
+        }
+        Update: {
+          asignacion_id?: string | null
+          costo_referencia?: number | null
+          created_at?: string
+          created_by?: string | null
+          fecha?: string
+          garrafones?: number
+          id?: string
+          nota?: string | null
+          operador_id?: string | null
+          proveedor_id?: string | null
+          proveedor_texto?: string | null
+          tipo?: Database["public"]["Enums"]["agua_almacen_mov"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agua_almacen_movimientos_asignacion_id_fkey"
+            columns: ["asignacion_id"]
+            isOneToOne: false
+            referencedRelation: "asignaciones_diarias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agua_almacen_movimientos_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agua_almacen_movimientos_operador_id_fkey"
+            columns: ["operador_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agua_almacen_movimientos_proveedor_id_fkey"
+            columns: ["proveedor_id"]
+            isOneToOne: false
+            referencedRelation: "proveedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agua_maquina_eventos: {
+        Row: {
+          check_in_id: string | null
+          costo_referencia: number | null
+          created_at: string
+          created_by: string | null
+          fecha: string
+          garrafones: number | null
+          id: string
+          llenado_id: string | null
+          maquina_id: string
+          ml_cargados: number | null
+          ml_medidos: number | null
+          ml_teoricos: number | null
+          nota: string | null
+          operador_id: string | null
+          origen: Database["public"]["Enums"]["agua_origen"] | null
+          tipo: Database["public"]["Enums"]["agua_evento_tipo"]
+        }
+        Insert: {
+          check_in_id?: string | null
+          costo_referencia?: number | null
+          created_at?: string
+          created_by?: string | null
+          fecha?: string
+          garrafones?: number | null
+          id?: string
+          llenado_id?: string | null
+          maquina_id: string
+          ml_cargados?: number | null
+          ml_medidos?: number | null
+          ml_teoricos?: number | null
+          nota?: string | null
+          operador_id?: string | null
+          origen?: Database["public"]["Enums"]["agua_origen"] | null
+          tipo: Database["public"]["Enums"]["agua_evento_tipo"]
+        }
+        Update: {
+          check_in_id?: string | null
+          costo_referencia?: number | null
+          created_at?: string
+          created_by?: string | null
+          fecha?: string
+          garrafones?: number | null
+          id?: string
+          llenado_id?: string | null
+          maquina_id?: string
+          ml_cargados?: number | null
+          ml_medidos?: number | null
+          ml_teoricos?: number | null
+          nota?: string | null
+          operador_id?: string | null
+          origen?: Database["public"]["Enums"]["agua_origen"] | null
+          tipo?: Database["public"]["Enums"]["agua_evento_tipo"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agua_maquina_eventos_check_in_id_fkey"
+            columns: ["check_in_id"]
+            isOneToOne: false
+            referencedRelation: "check_ins"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agua_maquina_eventos_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agua_maquina_eventos_llenado_id_fkey"
+            columns: ["llenado_id"]
+            isOneToOne: false
+            referencedRelation: "llenados"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agua_maquina_eventos_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "maquinas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agua_maquina_eventos_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "v_agua_maquina"
+            referencedColumns: ["maquina_id"]
+          },
+          {
+            foreignKeyName: "agua_maquina_eventos_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "v_quejas_por_maquina"
+            referencedColumns: ["maquina_id"]
+          },
+          {
+            foreignKeyName: "agua_maquina_eventos_operador_id_fkey"
+            columns: ["operador_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       alertas: {
         Row: {
           atendida_por: string | null
@@ -80,6 +261,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "maquinas"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alertas_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "v_agua_maquina"
+            referencedColumns: ["maquina_id"]
           },
           {
             foreignKeyName: "alertas_maquina_id_fkey"
@@ -154,6 +342,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "maquinas"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asignacion_maquinas_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "v_agua_maquina"
+            referencedColumns: ["maquina_id"]
           },
           {
             foreignKeyName: "asignacion_maquinas_maquina_id_fkey"
@@ -365,6 +560,13 @@ export type Database = {
             foreignKeyName: "calibraciones_maquina_maquina_id_fkey"
             columns: ["maquina_id"]
             isOneToOne: false
+            referencedRelation: "v_agua_maquina"
+            referencedColumns: ["maquina_id"]
+          },
+          {
+            foreignKeyName: "calibraciones_maquina_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
             referencedRelation: "v_quejas_por_maquina"
             referencedColumns: ["maquina_id"]
           },
@@ -504,6 +706,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "maquinas"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "check_ins_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "v_agua_maquina"
+            referencedColumns: ["maquina_id"]
           },
           {
             foreignKeyName: "check_ins_maquina_id_fkey"
@@ -1278,6 +1487,13 @@ export type Database = {
             foreignKeyName: "devoluciones_almacen_maquina_id_fkey"
             columns: ["maquina_id"]
             isOneToOne: false
+            referencedRelation: "v_agua_maquina"
+            referencedColumns: ["maquina_id"]
+          },
+          {
+            foreignKeyName: "devoluciones_almacen_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
             referencedRelation: "v_quejas_por_maquina"
             referencedColumns: ["maquina_id"]
           },
@@ -1511,6 +1727,13 @@ export type Database = {
             foreignKeyName: "errores_operativos_maquina_id_fkey"
             columns: ["maquina_id"]
             isOneToOne: false
+            referencedRelation: "v_agua_maquina"
+            referencedColumns: ["maquina_id"]
+          },
+          {
+            foreignKeyName: "errores_operativos_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
             referencedRelation: "v_quejas_por_maquina"
             referencedColumns: ["maquina_id"]
           },
@@ -1668,6 +1891,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "maquinas"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "incidencias_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "v_agua_maquina"
+            referencedColumns: ["maquina_id"]
           },
           {
             foreignKeyName: "incidencias_maquina_id_fkey"
@@ -1905,6 +2135,13 @@ export type Database = {
             foreignKeyName: "llenados_maquina_id_fkey"
             columns: ["maquina_id"]
             isOneToOne: false
+            referencedRelation: "v_agua_maquina"
+            referencedColumns: ["maquina_id"]
+          },
+          {
+            foreignKeyName: "llenados_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
             referencedRelation: "v_quejas_por_maquina"
             referencedColumns: ["maquina_id"]
           },
@@ -1985,6 +2222,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "maquinas"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lotes_maquina_origen_id_fkey"
+            columns: ["maquina_origen_id"]
+            isOneToOne: false
+            referencedRelation: "v_agua_maquina"
+            referencedColumns: ["maquina_id"]
           },
           {
             foreignKeyName: "lotes_maquina_origen_id_fkey"
@@ -2103,6 +2347,13 @@ export type Database = {
             foreignKeyName: "maquina_items_maquina_id_fkey"
             columns: ["maquina_id"]
             isOneToOne: false
+            referencedRelation: "v_agua_maquina"
+            referencedColumns: ["maquina_id"]
+          },
+          {
+            foreignKeyName: "maquina_items_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
             referencedRelation: "v_quejas_por_maquina"
             referencedColumns: ["maquina_id"]
           },
@@ -2111,6 +2362,7 @@ export type Database = {
       maquinas: {
         Row: {
           activo: boolean
+          agua_capacidad_ml: number
           alias: string | null
           capacidad_max_tolva_g: number
           created_at: string
@@ -2125,6 +2377,7 @@ export type Database = {
           num_tolvas: number
           proxima_calibracion_fecha: string | null
           qr_codigo: string | null
+          requiere_agua: boolean
           requiere_pesaje: boolean
           serie: string
           tipo: string
@@ -2137,6 +2390,7 @@ export type Database = {
         }
         Insert: {
           activo?: boolean
+          agua_capacidad_ml?: number
           alias?: string | null
           capacidad_max_tolva_g?: number
           created_at?: string
@@ -2151,6 +2405,7 @@ export type Database = {
           num_tolvas?: number
           proxima_calibracion_fecha?: string | null
           qr_codigo?: string | null
+          requiere_agua?: boolean
           requiere_pesaje?: boolean
           serie: string
           tipo?: string
@@ -2163,6 +2418,7 @@ export type Database = {
         }
         Update: {
           activo?: boolean
+          agua_capacidad_ml?: number
           alias?: string | null
           capacidad_max_tolva_g?: number
           created_at?: string
@@ -2177,6 +2433,7 @@ export type Database = {
           num_tolvas?: number
           proxima_calibracion_fecha?: string | null
           qr_codigo?: string | null
+          requiere_agua?: boolean
           requiere_pesaje?: boolean
           serie?: string
           tipo?: string
@@ -2323,6 +2580,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "maquinas"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movimientos_inventario_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "v_agua_maquina"
+            referencedColumns: ["maquina_id"]
           },
           {
             foreignKeyName: "movimientos_inventario_maquina_id_fkey"
@@ -2819,6 +3083,13 @@ export type Database = {
             foreignKeyName: "pesajes_maquina_maquina_id_fkey"
             columns: ["maquina_id"]
             isOneToOne: false
+            referencedRelation: "v_agua_maquina"
+            referencedColumns: ["maquina_id"]
+          },
+          {
+            foreignKeyName: "pesajes_maquina_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
             referencedRelation: "v_quejas_por_maquina"
             referencedColumns: ["maquina_id"]
           },
@@ -2888,6 +3159,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "maquinas"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "planograma_historico_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "v_agua_maquina"
+            referencedColumns: ["maquina_id"]
           },
           {
             foreignKeyName: "planograma_historico_maquina_id_fkey"
@@ -3089,6 +3367,7 @@ export type Database = {
           gramaje_servicio_default: number | null
           id: string
           marca: string | null
+          ml_por_unidad: number | null
           nayax_product_ids: number[]
           nombre: string
           notas: string | null
@@ -3113,6 +3392,7 @@ export type Database = {
           gramaje_servicio_default?: number | null
           id?: string
           marca?: string | null
+          ml_por_unidad?: number | null
           nayax_product_ids?: number[]
           nombre: string
           notas?: string | null
@@ -3137,6 +3417,7 @@ export type Database = {
           gramaje_servicio_default?: number | null
           id?: string
           marca?: string | null
+          ml_por_unidad?: number | null
           nayax_product_ids?: number[]
           nombre?: string
           notas?: string | null
@@ -3411,6 +3692,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "maquinas"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quejas_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "v_agua_maquina"
+            referencedColumns: ["maquina_id"]
           },
           {
             foreignKeyName: "quejas_maquina_id_fkey"
@@ -3771,6 +4059,13 @@ export type Database = {
             foreignKeyName: "ruta_maquinas_maquina_id_fkey"
             columns: ["maquina_id"]
             isOneToOne: true
+            referencedRelation: "v_agua_maquina"
+            referencedColumns: ["maquina_id"]
+          },
+          {
+            foreignKeyName: "ruta_maquinas_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: true
             referencedRelation: "v_quejas_por_maquina"
             referencedColumns: ["maquina_id"]
           },
@@ -3949,6 +4244,13 @@ export type Database = {
             foreignKeyName: "servicio_visitas_maquina_id_fkey"
             columns: ["maquina_id"]
             isOneToOne: false
+            referencedRelation: "v_agua_maquina"
+            referencedColumns: ["maquina_id"]
+          },
+          {
+            foreignKeyName: "servicio_visitas_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
             referencedRelation: "v_quejas_por_maquina"
             referencedColumns: ["maquina_id"]
           },
@@ -4032,6 +4334,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "maquinas"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "surtido_items_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "v_agua_maquina"
+            referencedColumns: ["maquina_id"]
           },
           {
             foreignKeyName: "surtido_items_maquina_id_fkey"
@@ -4268,6 +4577,13 @@ export type Database = {
             foreignKeyName: "sustituciones_tolva_maquina_id_fkey"
             columns: ["maquina_id"]
             isOneToOne: false
+            referencedRelation: "v_agua_maquina"
+            referencedColumns: ["maquina_id"]
+          },
+          {
+            foreignKeyName: "sustituciones_tolva_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
             referencedRelation: "v_quejas_por_maquina"
             referencedColumns: ["maquina_id"]
           },
@@ -4374,6 +4690,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "maquinas"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tolvas_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "v_agua_maquina"
+            referencedColumns: ["maquina_id"]
           },
           {
             foreignKeyName: "tolvas_maquina_id_fkey"
@@ -4506,6 +4829,7 @@ export type Database = {
         Row: {
           activo: boolean
           capacidad_cartuchos: number | null
+          capacidad_garrafones: number | null
           centro_id: string | null
           created_at: string
           id: string
@@ -4518,6 +4842,7 @@ export type Database = {
         Insert: {
           activo?: boolean
           capacidad_cartuchos?: number | null
+          capacidad_garrafones?: number | null
           centro_id?: string | null
           created_at?: string
           id?: string
@@ -4530,6 +4855,7 @@ export type Database = {
         Update: {
           activo?: boolean
           capacidad_cartuchos?: number | null
+          capacidad_garrafones?: number | null
           centro_id?: string | null
           created_at?: string
           id?: string
@@ -4800,6 +5126,13 @@ export type Database = {
             foreignKeyName: "ventas_maquina_maquina_id_fkey"
             columns: ["maquina_id"]
             isOneToOne: false
+            referencedRelation: "v_agua_maquina"
+            referencedColumns: ["maquina_id"]
+          },
+          {
+            foreignKeyName: "ventas_maquina_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
             referencedRelation: "v_quejas_por_maquina"
             referencedColumns: ["maquina_id"]
           },
@@ -4835,6 +5168,43 @@ export type Database = {
       }
     }
     Views: {
+      v_agua_almacen: {
+        Row: {
+          comprados_30d: number | null
+          existencia_garrafones: number | null
+          merma_30d: number | null
+          salidos_ruta_30d: number | null
+          ultima_compra: string | null
+        }
+        Relationships: []
+      }
+      v_agua_maquina: {
+        Row: {
+          agua_capacidad_ml: number | null
+          alias: string | null
+          dias_para_vaciarse: number | null
+          maquina_id: string | null
+          ml_cargados_desde: number | null
+          ml_estimado: number | null
+          ml_por_dia: number | null
+          ml_ultima_medicion: number | null
+          serie: string | null
+          sin_medicion: boolean | null
+          ultima_medicion: string | null
+          ventas_desde: number | null
+        }
+        Relationships: []
+      }
+      v_agua_origen_30d: {
+        Row: {
+          garrafones_almacen: number | null
+          gasto_operadores_reportado: number | null
+          litros_almacen: number | null
+          litros_compra_operador: number | null
+          maquinas_surtidas_en_tienda: number | null
+        }
+        Relationships: []
+      }
       v_capital_trabajo: {
         Row: {
           alm_cartuchos_gramos: number | null
@@ -5381,6 +5751,14 @@ export type Database = {
       }
     }
     Enums: {
+      agua_almacen_mov:
+        | "entrada_compra"
+        | "salida_ruta"
+        | "retorno_ruta"
+        | "ajuste_conteo"
+        | "merma"
+      agua_evento_tipo: "carga" | "medicion" | "ajuste"
+      agua_origen: "almacen" | "compra_operador"
       alerta_estado: "activa" | "atendida" | "descartada"
       alerta_severidad: "info" | "warning" | "critical"
       alerta_tipo:
@@ -5469,7 +5847,7 @@ export type Database = {
         | "venta_intercompany"
         | "retorno_polvo_tolva"
       oc_estado: "borrador" | "enviada" | "parcial" | "recibida" | "cancelada"
-      producto_tipo: "polvo" | "vaso"
+      producto_tipo: "polvo" | "vaso" | "agua"
       puesto_operativo: "operador" | "supervisor"
       queja_canal: "whatsapp" | "llamada" | "correo" | "presencial"
       queja_contacto_resultado: "contesto" | "no_contesto" | "pendiente_info"
@@ -5632,6 +6010,15 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      agua_almacen_mov: [
+        "entrada_compra",
+        "salida_ruta",
+        "retorno_ruta",
+        "ajuste_conteo",
+        "merma",
+      ],
+      agua_evento_tipo: ["carga", "medicion", "ajuste"],
+      agua_origen: ["almacen", "compra_operador"],
       alerta_estado: ["activa", "atendida", "descartada"],
       alerta_severidad: ["info", "warning", "critical"],
       alerta_tipo: [
@@ -5729,7 +6116,7 @@ export const Constants = {
         "retorno_polvo_tolva",
       ],
       oc_estado: ["borrador", "enviada", "parcial", "recibida", "cancelada"],
-      producto_tipo: ["polvo", "vaso"],
+      producto_tipo: ["polvo", "vaso", "agua"],
       puesto_operativo: ["operador", "supervisor"],
       queja_canal: ["whatsapp", "llamada", "correo", "presencial"],
       queja_contacto_resultado: ["contesto", "no_contesto", "pendiente_info"],

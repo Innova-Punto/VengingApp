@@ -9,7 +9,7 @@ type Producto = {
   id: string;
   sku: string;
   nombre: string;
-  tipo: "polvo" | "vaso";
+  tipo: string;
 };
 
 const initial: ItemResult | null = null;

@@ -34,6 +34,8 @@ export default async function EditarPlanogramaPage({
       .from("productos")
       .select("id, sku, nombre, gramaje_servicio_default, precio_venta_default")
       .eq("activo", true)
+      // El agua no va a tolva: no es producto de planograma.
+      .neq("tipo", "agua")
       .order("nombre"),
   ]);
 
