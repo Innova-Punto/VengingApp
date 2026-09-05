@@ -49,6 +49,23 @@ export function hashTelefono(telefonoNormalizado: string): string {
   return createHash("sha256").update(`${salt}:${telefonoNormalizado}`).digest("hex");
 }
 
+/**
+ * Validación estricta para la captura. El formulario fija la lada +52 y pide
+ * exactamente 10 dígitos, así que aquí no se tolera nada más: es mejor rechazar
+ * en la entrada que aceptar basura y depender de la normalización para
+ * limpiarla. `normalizarTelefono` sigue existiendo como red de seguridad para
+ * un pegado con espacios o guiones, no como el camino normal.
+ */
+export function validarTelefono10(entrada: string): string | null {
+  const d = (entrada ?? "").replace(/\D/g, "");
+  if (d.length === 0) return "Escribe el teléfono de quien se quejó.";
+  if (d.length !== 10)
+    return `El teléfono va a 10 dígitos sin lada (llevas ${d.length}). La +52 ya está puesta.`;
+  if (d.startsWith("0") || d.startsWith("1"))
+    return "Un celular mexicano a 10 dígitos no empieza con 0 ni con 1.";
+  return null;
+}
+
 export type TelefonoSeudonimizado = {
   hash: string;
   ultimos4: string;
