@@ -1025,7 +1025,15 @@ function BloqueClienteFinanciero({
 }) {
   const vn = snap.ventas_nayax;
   const costoVentas = vn.costo_polvo + vn.costo_vaso;
-  const merma = inventario ? inventario.consumo - costoVentas : 0;
+  // La merma compara consumo FÍSICO contra costo de ventas, y ambos lados
+  // tienen que cubrir el mismo periodo. El consumo se mide entre pesajes —la
+  // ventana del cierre—, así que aquí va el costo de esa misma ventana, no el
+  // del mes calendario que usa el estado de resultados. Mezclarlos inventa una
+  // merma del tamaño de los días de diferencia: en agosto 2026 daba $14,662
+  // cuando en realidad había un sobrante de $2,942.
+  const merma = inventario
+    ? inventario.consumo - vn.costo_ventas_ventana
+    : 0;
   return (
     <section className="space-y-3 border-t border-zinc-200 pt-5">
       <h2 className="text-lg font-semibold tracking-tight">
@@ -1114,7 +1122,7 @@ function BloqueClienteFinanciero({
               <div
                 className={`mt-1 text-[11px] ${merma > 0 ? "text-red-800" : "text-zinc-500"}`}
               >
-                consumo físico − costo de ventas
+                consumo físico − costo de ventas, ambos entre pesajes
               </div>
             </div>
           </div>

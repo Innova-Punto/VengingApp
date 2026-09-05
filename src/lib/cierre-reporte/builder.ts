@@ -60,6 +60,15 @@ export type SnapshotCierre = {
     margen_pct: number;
     gramos_dispensados: number;
     ticket_promedio: number;
+    /**
+     * Costo de ventas medido en la VENTANA DEL CIERRE, no en el mes calendario.
+     * Existe solo para conciliar contra el consumo físico, que se mide entre
+     * dos pesajes. Comparar el consumo de la ventana contra el costo del mes
+     * calendario inventa una merma del tamaño de los días de diferencia: en
+     * agosto 2026 salían $14,662 de "merma" que en realidad era un sobrante de
+     * $2,942. No usar esta cifra para el estado de resultados.
+     */
+    costo_ventas_ventana: number;
     por_cliente: Array<{
       cliente: string;
       ventas: number;
@@ -229,6 +238,34 @@ export async function construirSnapshotCierre(
 
   const sum = (arr: VRow[], k: keyof VRow): number =>
     arr.reduce((s, v) => s + Number(v[k] ?? 0), 0);
+
+  // Costo de ventas en la VENTANA DEL CIERRE, aparte del mes calendario.
+  // Solo sirve para conciliar contra el consumo físico, que se mide entre dos
+  // pesajes: si se compara el consumo de la ventana contra el costo del mes
+  // calendario, la diferencia de días aparece como merma inventada.
+  let ventasVentanaQuery = supabase
+    .from("ventas_maquina")
+    .select("costo_polvo, costo_vaso, producto_id")
+    .gte("fecha_transaccion", desde)
+    .lt("fecha_transaccion", hasta);
+  if (clienteId) ventasVentanaQuery = ventasVentanaQuery.eq("cliente_id", clienteId);
+  const { data: ventasVentana } = await ventasVentanaQuery.range(0, 200000);
+  const costoVentasVentana = (
+    (ventasVentana ?? []) as Array<{
+      costo_polvo: number | string | null;
+      costo_vaso: number | string | null;
+      producto_id: string | null;
+    }>
+  )
+    .filter(
+      (v) =>
+        !productosClienteSet ||
+        (v.producto_id != null && productosClienteSet.has(v.producto_id)),
+    )
+    .reduce(
+      (s, v) => s + Number(v.costo_polvo ?? 0) + Number(v.costo_vaso ?? 0),
+      0,
+    );
 
   const totalVentas = vArr.length;
   const totalBruto = sum(vArr, "precio_bruto");
@@ -651,6 +688,7 @@ export async function construirSnapshotCierre(
           : 0,
       gramos_dispensados: totalGramos,
       ticket_promedio: totalVentas > 0 ? totalNeto / totalVentas : 0,
+      costo_ventas_ventana: costoVentasVentana,
       por_cliente: Array.from(porCliente.entries())
         .map(([id, v]) => ({
           cliente: cliInfo.get(id) ?? "—",
