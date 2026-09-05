@@ -12,12 +12,23 @@ function startOfMonthCDMX(mes: number, anio: number): string {
   return `${anio}-${String(mes).padStart(2, "0")}-01T06:00:00.000Z`;
 }
 
+/** Inicio del mes siguiente, para cerrar el rango del mes calendario. */
+function startOfNextMonthCDMX(mes: number, anio: number): string {
+  return mes === 12
+    ? startOfMonthCDMX(1, anio + 1)
+    : startOfMonthCDMX(mes + 1, anio);
+}
+
 export type SnapshotCierre = {
   periodo: {
     mes: number;
     anio: number;
+    /** Ventana de cierre a cierre. Rige inventario, flujos y desviaciones. */
     desde: string;
     hasta: string;
+    /** Mes calendario CDMX. Rige la venta. */
+    ventas_desde: string;
+    ventas_hasta: string;
     generado_at: string;
   };
   ventas_nayax: {
@@ -140,6 +151,25 @@ export async function construirSnapshotCierre(
     cierre.fecha_cierre ??
     new Date().toISOString();
 
+  // La VENTA se cuenta por mes calendario CDMX, no por la ventana del cierre.
+  // Son dos preguntas distintas y estaban mezcladas bajo la misma ventana:
+  //
+  //   · Inventario y desviaciones → ventana de cierre a cierre. Correcta, porque
+  //     el consumo solo es auditable entre dos pesajes físicos.
+  //   · Venta → mes calendario. Es lo que se le factura al cliente y lo que
+  //     concilia contabilidad.
+  //
+  // Mezclarlas infla el mes que se cierra tarde y deja corto al siguiente. En
+  // agosto 2026 la ventana duró 34.8 días y arrastró 4.7 días de septiembre:
+  // Smart Fit salió en $505,660 cuando el mes real fueron $445,150. Y no fue
+  // aislado — junio midió 17.3 días y julio 29.9, así que ningún periodo era
+  // comparable contra otro.
+  const ventasDesde = startOfMonthCDMX(cierre.periodo_mes, cierre.periodo_anio);
+  const ventasHasta = startOfNextMonthCDMX(
+    cierre.periodo_mes,
+    cierre.periodo_anio,
+  );
+
   // Si se filtra por cliente: lista de productos atribuibles a ese cliente
   // (exclusivos + usados en sus máquinas), vía la misma lógica del panel de
   // inventario (función productos_de_cliente).
@@ -174,8 +204,8 @@ export async function construirSnapshotCierre(
     .select(
       "id, maquina_id, producto_id, cliente_id, precio_bruto, comision_nayax_estimada, precio_neto, costo_polvo, costo_vaso, utilidad_bruta, gramos_dispensados, fecha_transaccion",
     )
-    .gte("fecha_transaccion", desde)
-    .lt("fecha_transaccion", hasta);
+    .gte("fecha_transaccion", ventasDesde)
+    .lt("fecha_transaccion", ventasHasta);
   if (clienteId) ventasQuery = ventasQuery.eq("cliente_id", clienteId);
   const { data: ventas } = await ventasQuery.range(0, 200000);
   const vArr: VRow[] = (ventas ?? []) as unknown as VRow[];
@@ -586,6 +616,8 @@ export async function construirSnapshotCierre(
       anio: cierre.periodo_anio,
       desde,
       hasta,
+      ventas_desde: ventasDesde,
+      ventas_hasta: ventasHasta,
       generado_at: new Date().toISOString(),
     },
     ventas_nayax: {
