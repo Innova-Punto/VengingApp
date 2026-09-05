@@ -4,7 +4,7 @@
 > **Antes de tocar la base de datos**, lee `docs/muscleup_modelo_datos.md` (v3.0, auditado
 > contra producción). Para entender qué hace cada pantalla, `docs/modulos_app.md`.
 >
-> Última actualización: 14-ago-2026.
+> Última actualización: 5-sep-2026.
 
 ---
 
@@ -15,7 +15,8 @@ Plataforma de operación de vending de suplementos. Cubre el ciclo:
 > Compra → Recepción → Encartuchado → Planeación → Surtido → Operación en campo
 > → Pesaje → Cierre mensual → BI.
 
-Roles (`app_role`): `direccion`, `compras`, `almacen`, `planeador`, `operador`, `admin`.
+Roles (`app_role`): `direccion`, `compras`, `almacen`, `planeador`, `operador`, `admin`,
+`cliente` (solo lectura, acotado a su propio cliente).
 
 **La app está en producción** operando ~83 máquinas en 75 ubicaciones (Smart Fit,
 Planet Fitness y Smart Energy), con 4 personas en campo. No es un proyecto en scaffold:
@@ -44,7 +45,7 @@ cualquier cambio afecta la operación diaria.
 │   ├── app/
 │   │   ├── (auth)/                  # login, set-password
 │   │   ├── (authenticated)/         # app interna (layout con navegación por rol)
-│   │   │   ├── admin/               # catálogos + dirección/BI
+│   │   │   ├── admin/               # catálogos + dirección/BI + quejas/
 │   │   │   ├── compras/ordenes/     # OC (MXN y USD)
 │   │   │   ├── almacen/             # inventario, recepciones, lotes, encartuchado,
 │   │   │   │                        #   devoluciones, conteos
@@ -63,9 +64,10 @@ cualquier cambio afecta la operación diaria.
 │       ├── maquinas-visita.ts, incidencias-catalogo.ts, errores-operativos.ts
 │       ├── storage-upload.ts        # subida cliente→Storage con reintentos
 │       ├── image-compress.ts        # compresión antes de subir
+│       ├── quejas/telefono.ts       # normaliza y seudonimiza (hash) el WhatsApp
 │       ├── nayax/                   # ingesta y mapeo
 │       └── cierre-reporte/
-├── supabase/migrations/             # 129 migraciones versionadas
+├── supabase/migrations/             # 142 migraciones versionadas
 ├── docs/
 │   ├── muscleup_modelo_datos.md     # ← modelo de datos real (v3.0)
 │   └── modulos_app.md               # ← mapa funcional por módulo
@@ -87,8 +89,8 @@ Detalle completo en `docs/muscleup_modelo_datos.md`. Resumen operativo:
 | Montos | `numeric(14,2)` MXN; costo por gramo `numeric(12,6)`. |
 | Costos | **Siempre sin IVA.** Ojo con el doble descuento de IVA al capturar (ya nos pasó). |
 | Movimientos | `movimientos_inventario` append-only; correcciones con asientos compensatorios. |
-| Folios | Secuencias: `OC-`, `REC-`, `ENC-`, `SUR-`, `INC-`, `SRV-`, `VIC-`. |
-| RLS | Habilitado en las **63** tablas, con policies por rol vía `public.user_has_role()`. |
+| Folios | Secuencias: `OC-`, `REC-`, `ENC-`, `SUR-`, `INC-`, `SRV-`, `VIC-`, `QJA-`. |
+| RLS | Habilitado en las **69** tablas. Escritura por rol vía `public.user_has_role()`; lectura interna vía `public.user_es_interno()`; el rol `cliente` se acota con `public.user_cliente_id()`. |
 | Zona horaria | Nayax = UTC; negocio = CDMX. Cortes con `at time zone 'America/Mexico_City'`. |
 | Nombres | `snake_case` en español. Plural en tablas, singular en campos. |
 | FK | `on delete restrict` por default; `cascade` solo en hijas claras (`oc_items`). |
@@ -145,6 +147,9 @@ si aplica + asiento en `movimientos_inventario` si toca inventario.
   - Server Components / Actions / Route Handlers → `@/lib/supabase/server`
   - Jobs que necesiten bypass de RLS → `@/lib/supabase/admin` (nunca en el cliente)
 - **Nunca** exponer `SUPABASE_SERVICE_ROLE_KEY` al cliente.
+- `QUEJAS_TELEFONO_SALT` es la sal del hash de teléfono en quejas. Vive solo en el entorno
+  (server), **no se rota** y no se registra en logs: al cambiarla se pierde el histórico de
+  reincidencia.
 - **Tipos generados**: `npm run db:types` reescribe `src/lib/supabase/database.types.ts`.
   No editar a mano; regenerar tras cada migración.
 - **Imports**: alias `@/` → `src/`.
@@ -223,10 +228,14 @@ npm run db:types
 | Pesaje y cierre mensual encadenado con IVA | ✅ producción |
 | Ingesta Nayax + dashboards + supervisión + health checks | ✅ producción |
 | Ventas intercompany | ✅ producción |
+| **Quejas de usuario final** (tablero por antigüedad, toques, pago, reincidencia) | ✅ producción (sep-2026) |
 | Reportes a cliente (`reportes_cliente`) | ⚠️ tabla creada, sin flujo en UI |
 | Calibraciones (`calibraciones_maquina`) | ⚠️ tabla creada, sin flujo en UI |
-| Contratos de cliente y `config_global` | ⚠️ tablas vacías; parámetros hoy en código |
+| Contratos de cliente | ⚠️ tabla vacía; parámetros hoy en código |
+| Agente de ruteo (propone y Mariana acepta) | 🔨 catálogos y prompt listos; el agente no está construido |
 
 **Deuda técnica** (detalle en `docs/muscleup_modelo_datos.md` §10). Resueltos en ago-2026:
-overloads de `op_registrar_llenado`, migraciones sin DDL y el signo del kardex.
-Pendientes: `costo_polvo`/`costo_vaso` en cero y `ventas_maquina.cliente_id` nulo.
+overloads de `op_registrar_llenado`, migraciones sin DDL, el signo del kardex, la lectura
+abierta a cualquier autenticado y el acceso de `anon`. Resuelto en sep-2026:
+`ventas_maquina.cliente_id` (hoy poblado al 100%).
+Pendiente: `costo_polvo`/`costo_vaso` en cero.
