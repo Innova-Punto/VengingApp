@@ -82,6 +82,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "alertas_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "v_quejas_por_maquina"
+            referencedColumns: ["maquina_id"]
+          },
+          {
             foreignKeyName: "alertas_tolva_id_fkey"
             columns: ["tolva_id"]
             isOneToOne: false
@@ -95,36 +102,42 @@ export type Database = {
           asignacion_id: string
           created_at: string
           id: string
+          justificacion: string | null
           maquina_id: string
           motivo_excepcion:
             | Database["public"]["Enums"]["excepcion_motivo"]
             | null
           notas: string | null
           orden: number
+          orden_sugerido: number | null
           origen: string
         }
         Insert: {
           asignacion_id: string
           created_at?: string
           id?: string
+          justificacion?: string | null
           maquina_id: string
           motivo_excepcion?:
             | Database["public"]["Enums"]["excepcion_motivo"]
             | null
           notas?: string | null
           orden?: number
+          orden_sugerido?: number | null
           origen: string
         }
         Update: {
           asignacion_id?: string
           created_at?: string
           id?: string
+          justificacion?: string | null
           maquina_id?: string
           motivo_excepcion?:
             | Database["public"]["Enums"]["excepcion_motivo"]
             | null
           notas?: string | null
           orden?: number
+          orden_sugerido?: number | null
           origen?: string
         }
         Relationships: [
@@ -141,6 +154,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "maquinas"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asignacion_maquinas_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "v_quejas_por_maquina"
+            referencedColumns: ["maquina_id"]
           },
         ]
       }
@@ -342,6 +362,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "calibraciones_maquina_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "v_quejas_por_maquina"
+            referencedColumns: ["maquina_id"]
+          },
+          {
             foreignKeyName: "calibraciones_maquina_tecnico_id_fkey"
             columns: ["tecnico_id"]
             isOneToOne: false
@@ -356,6 +383,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      centros_distribucion: {
+        Row: {
+          activo: boolean
+          created_at: string
+          direccion: string | null
+          id: string
+          lat: number | null
+          lng: number | null
+          minutos_carga: number
+          nombre: string
+          updated_at: string
+        }
+        Insert: {
+          activo?: boolean
+          created_at?: string
+          direccion?: string | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          minutos_carga?: number
+          nombre: string
+          updated_at?: string
+        }
+        Update: {
+          activo?: boolean
+          created_at?: string
+          direccion?: string | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          minutos_carga?: number
+          nombre?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       check_ins: {
         Row: {
@@ -441,6 +504,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "maquinas"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "check_ins_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "v_quejas_por_maquina"
+            referencedColumns: ["maquina_id"]
           },
           {
             foreignKeyName: "check_ins_operador_id_fkey"
@@ -1205,6 +1275,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "devoluciones_almacen_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "v_quejas_por_maquina"
+            referencedColumns: ["maquina_id"]
+          },
+          {
             foreignKeyName: "devoluciones_almacen_operador_id_fkey"
             columns: ["operador_id"]
             isOneToOne: false
@@ -1431,6 +1508,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "errores_operativos_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "v_quejas_por_maquina"
+            referencedColumns: ["maquina_id"]
+          },
+          {
             foreignKeyName: "errores_operativos_operador_id_fkey"
             columns: ["operador_id"]
             isOneToOne: false
@@ -1584,6 +1668,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "maquinas"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "incidencias_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "v_quejas_por_maquina"
+            referencedColumns: ["maquina_id"]
           },
           {
             foreignKeyName: "incidencias_operador_id_fkey"
@@ -1811,6 +1902,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "llenados_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "v_quejas_por_maquina"
+            referencedColumns: ["maquina_id"]
+          },
+          {
             foreignKeyName: "llenados_operador_id_fkey"
             columns: ["operador_id"]
             isOneToOne: false
@@ -1887,6 +1985,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "maquinas"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lotes_maquina_origen_id_fkey"
+            columns: ["maquina_origen_id"]
+            isOneToOne: false
+            referencedRelation: "v_quejas_por_maquina"
+            referencedColumns: ["maquina_id"]
           },
           {
             foreignKeyName: "lotes_presentacion_id_fkey"
@@ -1993,6 +2098,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "maquinas"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maquina_items_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "v_quejas_por_maquina"
+            referencedColumns: ["maquina_id"]
           },
         ]
       }
@@ -2213,6 +2325,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "movimientos_inventario_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "v_quejas_por_maquina"
+            referencedColumns: ["maquina_id"]
+          },
+          {
             foreignKeyName: "movimientos_inventario_producto_id_fkey"
             columns: ["producto_id"]
             isOneToOne: false
@@ -2397,6 +2516,69 @@ export type Database = {
             columns: ["presentacion_id"]
             isOneToOne: false
             referencedRelation: "presentaciones_proveedor"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      operadores_ruteo: {
+        Row: {
+          activo: boolean
+          created_at: string
+          horas_jornada: number
+          max_paradas: number
+          max_paradas_normales: number | null
+          max_paradas_sabado: number | null
+          min_en_sitio_estimado: number | null
+          notas: string | null
+          operador_id: string
+          puesto: Database["public"]["Enums"]["puesto_operativo"]
+          reserva_incidencias: boolean
+          updated_at: string
+          vehiculo_id: string | null
+        }
+        Insert: {
+          activo?: boolean
+          created_at?: string
+          horas_jornada?: number
+          max_paradas?: number
+          max_paradas_normales?: number | null
+          max_paradas_sabado?: number | null
+          min_en_sitio_estimado?: number | null
+          notas?: string | null
+          operador_id: string
+          puesto?: Database["public"]["Enums"]["puesto_operativo"]
+          reserva_incidencias?: boolean
+          updated_at?: string
+          vehiculo_id?: string | null
+        }
+        Update: {
+          activo?: boolean
+          created_at?: string
+          horas_jornada?: number
+          max_paradas?: number
+          max_paradas_normales?: number | null
+          max_paradas_sabado?: number | null
+          min_en_sitio_estimado?: number | null
+          notas?: string | null
+          operador_id?: string
+          puesto?: Database["public"]["Enums"]["puesto_operativo"]
+          reserva_incidencias?: boolean
+          updated_at?: string
+          vehiculo_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operadores_ruteo_operador_id_fkey"
+            columns: ["operador_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operadores_ruteo_vehiculo_id_fkey"
+            columns: ["vehiculo_id"]
+            isOneToOne: false
+            referencedRelation: "vehiculos"
             referencedColumns: ["id"]
           },
         ]
@@ -2634,6 +2816,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "pesajes_maquina_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "v_quejas_por_maquina"
+            referencedColumns: ["maquina_id"]
+          },
+          {
             foreignKeyName: "pesajes_maquina_operador_id_fkey"
             columns: ["operador_id"]
             isOneToOne: false
@@ -2699,6 +2888,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "maquinas"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "planograma_historico_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "v_quejas_por_maquina"
+            referencedColumns: ["maquina_id"]
           },
           {
             foreignKeyName: "planograma_historico_producto_id_fkey"
@@ -3051,6 +3247,201 @@ export type Database = {
         }
         Relationships: []
       }
+      queja_contactos: {
+        Row: {
+          canal: Database["public"]["Enums"]["queja_canal"]
+          created_at: string
+          fecha: string
+          id: string
+          nota: string | null
+          queja_id: string
+          registrado_por: string | null
+          resultado: Database["public"]["Enums"]["queja_contacto_resultado"]
+        }
+        Insert: {
+          canal?: Database["public"]["Enums"]["queja_canal"]
+          created_at?: string
+          fecha?: string
+          id?: string
+          nota?: string | null
+          queja_id: string
+          registrado_por?: string | null
+          resultado: Database["public"]["Enums"]["queja_contacto_resultado"]
+        }
+        Update: {
+          canal?: Database["public"]["Enums"]["queja_canal"]
+          created_at?: string
+          fecha?: string
+          id?: string
+          nota?: string | null
+          queja_id?: string
+          registrado_por?: string | null
+          resultado?: Database["public"]["Enums"]["queja_contacto_resultado"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "queja_contactos_queja_id_fkey"
+            columns: ["queja_id"]
+            isOneToOne: false
+            referencedRelation: "quejas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "queja_contactos_queja_id_fkey"
+            columns: ["queja_id"]
+            isOneToOne: false
+            referencedRelation: "v_quejas_sin_venta"
+            referencedColumns: ["queja_id"]
+          },
+          {
+            foreignKeyName: "queja_contactos_registrado_por_fkey"
+            columns: ["registrado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quejas: {
+        Row: {
+          comprobante_url: string | null
+          created_at: string
+          created_by: string | null
+          descripcion: string | null
+          estado: Database["public"]["Enums"]["queja_estado"]
+          fecha_cierre: string | null
+          fecha_entrega_dinero: string | null
+          fecha_pago: string | null
+          fecha_reporte: string
+          fecha_validacion: string | null
+          folio: string
+          id: string
+          incidencia_id: string | null
+          maquina_id: string
+          monto_autorizado: number | null
+          monto_reclamado: number | null
+          motivo_no_procede: string | null
+          notas_cierre: string | null
+          operador_id: string | null
+          pagada_por: string | null
+          procede: boolean | null
+          recuperado: boolean
+          telefono_hash: string | null
+          telefono_ultimos4: string
+          tipo: Database["public"]["Enums"]["queja_tipo"]
+          updated_at: string
+          validada_por: string | null
+        }
+        Insert: {
+          comprobante_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          descripcion?: string | null
+          estado?: Database["public"]["Enums"]["queja_estado"]
+          fecha_cierre?: string | null
+          fecha_entrega_dinero?: string | null
+          fecha_pago?: string | null
+          fecha_reporte?: string
+          fecha_validacion?: string | null
+          folio?: string
+          id?: string
+          incidencia_id?: string | null
+          maquina_id: string
+          monto_autorizado?: number | null
+          monto_reclamado?: number | null
+          motivo_no_procede?: string | null
+          notas_cierre?: string | null
+          operador_id?: string | null
+          pagada_por?: string | null
+          procede?: boolean | null
+          recuperado?: boolean
+          telefono_hash?: string | null
+          telefono_ultimos4: string
+          tipo: Database["public"]["Enums"]["queja_tipo"]
+          updated_at?: string
+          validada_por?: string | null
+        }
+        Update: {
+          comprobante_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          descripcion?: string | null
+          estado?: Database["public"]["Enums"]["queja_estado"]
+          fecha_cierre?: string | null
+          fecha_entrega_dinero?: string | null
+          fecha_pago?: string | null
+          fecha_reporte?: string
+          fecha_validacion?: string | null
+          folio?: string
+          id?: string
+          incidencia_id?: string | null
+          maquina_id?: string
+          monto_autorizado?: number | null
+          monto_reclamado?: number | null
+          motivo_no_procede?: string | null
+          notas_cierre?: string | null
+          operador_id?: string | null
+          pagada_por?: string | null
+          procede?: boolean | null
+          recuperado?: boolean
+          telefono_hash?: string | null
+          telefono_ultimos4?: string
+          tipo?: Database["public"]["Enums"]["queja_tipo"]
+          updated_at?: string
+          validada_por?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quejas_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quejas_incidencia_id_fkey"
+            columns: ["incidencia_id"]
+            isOneToOne: false
+            referencedRelation: "incidencias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quejas_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "maquinas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quejas_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "v_quejas_por_maquina"
+            referencedColumns: ["maquina_id"]
+          },
+          {
+            foreignKeyName: "quejas_operador_id_fkey"
+            columns: ["operador_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quejas_pagada_por_fkey"
+            columns: ["pagada_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quejas_validada_por_fkey"
+            columns: ["validada_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recepcion_items: {
         Row: {
           created_at: string
@@ -3377,6 +3768,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "ruta_maquinas_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: true
+            referencedRelation: "v_quejas_por_maquina"
+            referencedColumns: ["maquina_id"]
+          },
+          {
             foreignKeyName: "ruta_maquinas_ruta_id_fkey"
             columns: ["ruta_id"]
             isOneToOne: false
@@ -3548,6 +3946,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "servicio_visitas_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "v_quejas_por_maquina"
+            referencedColumns: ["maquina_id"]
+          },
+          {
             foreignKeyName: "servicio_visitas_operador_id_fkey"
             columns: ["operador_id"]
             isOneToOne: false
@@ -3627,6 +4032,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "maquinas"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "surtido_items_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "v_quejas_por_maquina"
+            referencedColumns: ["maquina_id"]
           },
           {
             foreignKeyName: "surtido_items_producto_id_fkey"
@@ -3853,6 +4265,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "sustituciones_tolva_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "v_quejas_por_maquina"
+            referencedColumns: ["maquina_id"]
+          },
+          {
             foreignKeyName: "sustituciones_tolva_producto_entrante_id_fkey"
             columns: ["producto_entrante_id"]
             isOneToOne: false
@@ -3955,6 +4374,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "maquinas"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tolvas_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "v_quejas_por_maquina"
+            referencedColumns: ["maquina_id"]
           },
           {
             foreignKeyName: "tolvas_producto_id_fkey"
@@ -4072,6 +4498,53 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vehiculos: {
+        Row: {
+          activo: boolean
+          capacidad_cartuchos: number | null
+          centro_id: string | null
+          created_at: string
+          id: string
+          identificador: string
+          notas: string | null
+          regresa_a_resguardo: boolean
+          tipo: Database["public"]["Enums"]["vehiculo_tipo"]
+          updated_at: string
+        }
+        Insert: {
+          activo?: boolean
+          capacidad_cartuchos?: number | null
+          centro_id?: string | null
+          created_at?: string
+          id?: string
+          identificador: string
+          notas?: string | null
+          regresa_a_resguardo?: boolean
+          tipo: Database["public"]["Enums"]["vehiculo_tipo"]
+          updated_at?: string
+        }
+        Update: {
+          activo?: boolean
+          capacidad_cartuchos?: number | null
+          centro_id?: string | null
+          created_at?: string
+          id?: string
+          identificador?: string
+          notas?: string | null
+          regresa_a_resguardo?: boolean
+          tipo?: Database["public"]["Enums"]["vehiculo_tipo"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehiculos_centro_id_fkey"
+            columns: ["centro_id"]
+            isOneToOne: false
+            referencedRelation: "centros_distribucion"
             referencedColumns: ["id"]
           },
         ]
@@ -4324,6 +4797,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "ventas_maquina_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "v_quejas_por_maquina"
+            referencedColumns: ["maquina_id"]
+          },
+          {
             foreignKeyName: "ventas_maquina_producto_id_fkey"
             columns: ["producto_id"]
             isOneToOne: false
@@ -4405,6 +4885,49 @@ export type Database = {
           stock_total: number | null
           tipo: Database["public"]["Enums"]["producto_tipo"] | null
           unidades_disponibles: number | null
+        }
+        Relationships: []
+      }
+      v_quejas_por_maquina: {
+        Row: {
+          alias: string | null
+          maquina_id: string | null
+          pagado_30d: number | null
+          quejas_30d: number | null
+          quejas_abiertas: number | null
+          quejas_tecnicas_30d: number | null
+          serie: string | null
+          ultima_queja: string | null
+        }
+        Relationships: []
+      }
+      v_quejas_reincidencia: {
+        Row: {
+          maquinas_distintas: number | null
+          monto_pagado_90d: number | null
+          no_procedieron: number | null
+          pct_no_procede: number | null
+          primera: string | null
+          quejas_90d: number | null
+          telefono_hash: string | null
+          telefono_ultimos4: string | null
+          tipos: string[] | null
+          ultima: string | null
+        }
+        Relationships: []
+      }
+      v_quejas_sin_venta: {
+        Row: {
+          alias: string | null
+          estado: string | null
+          fecha_reporte: string | null
+          folio: string | null
+          monto_reclamado: number | null
+          queja_id: string | null
+          serie: string | null
+          telefono_ultimos4: string | null
+          tipo: string | null
+          ventas_en_ventana: number | null
         }
         Relationships: []
       }
@@ -4947,6 +5470,32 @@ export type Database = {
         | "retorno_polvo_tolva"
       oc_estado: "borrador" | "enviada" | "parcial" | "recibida" | "cancelada"
       producto_tipo: "polvo" | "vaso"
+      puesto_operativo: "operador" | "supervisor"
+      queja_canal: "whatsapp" | "llamada" | "correo" | "presencial"
+      queja_contacto_resultado: "contesto" | "no_contesto" | "pendiente_info"
+      queja_estado:
+        | "abierta"
+        | "en_validacion"
+        | "espera_cliente"
+        | "procede"
+        | "no_procede"
+        | "pagada"
+        | "cerrada_resuelta"
+        | "cerrada_sin_respuesta"
+      queja_tipo:
+        | "cobro_sin_producto"
+        | "cobro_duplicado"
+        | "maquina_da_agua"
+        | "bebida_incompleta"
+        | "vaso_vacio"
+        | "vaso_atorado"
+        | "vaso_atrapado_puerta"
+        | "producto_mal_estado"
+        | "mal_olor"
+        | "terminal_no_pasa"
+        | "touchscreen_no_sirve"
+        | "maquina_en_error"
+        | "otro"
       reporte_estado:
         | "en_generacion"
         | "generado"
@@ -4954,6 +5503,7 @@ export type Database = {
         | "enviado"
         | "error"
       surtido_estado: "pendiente" | "en_proceso" | "completado"
+      vehiculo_tipo: "moto" | "camioneta"
       venta_intercompany_presentacion: "granel" | "vaso"
     }
     CompositeTypes: {
@@ -4970,12 +5520,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -4999,11 +5549,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -5024,11 +5574,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -5049,11 +5599,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -5066,11 +5616,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -5180,6 +5730,34 @@ export const Constants = {
       ],
       oc_estado: ["borrador", "enviada", "parcial", "recibida", "cancelada"],
       producto_tipo: ["polvo", "vaso"],
+      puesto_operativo: ["operador", "supervisor"],
+      queja_canal: ["whatsapp", "llamada", "correo", "presencial"],
+      queja_contacto_resultado: ["contesto", "no_contesto", "pendiente_info"],
+      queja_estado: [
+        "abierta",
+        "en_validacion",
+        "espera_cliente",
+        "procede",
+        "no_procede",
+        "pagada",
+        "cerrada_resuelta",
+        "cerrada_sin_respuesta",
+      ],
+      queja_tipo: [
+        "cobro_sin_producto",
+        "cobro_duplicado",
+        "maquina_da_agua",
+        "bebida_incompleta",
+        "vaso_vacio",
+        "vaso_atorado",
+        "vaso_atrapado_puerta",
+        "producto_mal_estado",
+        "mal_olor",
+        "terminal_no_pasa",
+        "touchscreen_no_sirve",
+        "maquina_en_error",
+        "otro",
+      ],
       reporte_estado: [
         "en_generacion",
         "generado",
@@ -5188,6 +5766,7 @@ export const Constants = {
         "error",
       ],
       surtido_estado: ["pendiente", "en_proceso", "completado"],
+      vehiculo_tipo: ["moto", "camioneta"],
       venta_intercompany_presentacion: ["granel", "vaso"],
     },
   },
