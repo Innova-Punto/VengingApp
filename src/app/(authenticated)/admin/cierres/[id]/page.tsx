@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import {
   construirSnapshotCierre,
+  ventanaVentasMes,
   type SnapshotCierre,
 } from "@/lib/cierre-reporte/builder";
 import { fmtCDMX } from "@/lib/datetime";
@@ -52,6 +53,13 @@ export default async function CierreDetallePage({
     .maybeSingle();
   if (!cierre) notFound();
 
+  // La VENTA se mide por mes calendario CDMX, no por la ventana del cierre.
+  // El inventario y las desviaciones sí van por ventana (de cierre a cierre),
+  // porque el consumo solo es auditable entre dos pesajes físicos. Mezclarlas
+  // infla el mes que se cierra tarde: agosto 2026 se cerró el 5 de septiembre y
+  // Smart Fit aparecía en $505,660 contra $445,150 reales.
+  const ventasMes = ventanaVentasMes(cierre.periodo_mes, cierre.periodo_anio);
+
   // Clientes no-intercompany para reportes de cierre por cliente
   const { data: clientesReporte } = await supabase
     .from("clientes")
@@ -69,8 +77,8 @@ export default async function CierreDetallePage({
         construirSnapshotCierre(supabase, params.id, c.id),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (supabase as any).rpc("agregar_ventas", {
-          p_desde: cierre.fecha_inicio_cierre ?? "1900-01-01",
-          p_hasta: cierre.fecha_cierre ?? new Date().toISOString(),
+          p_desde: ventasMes.desde,
+          p_hasta: ventasMes.hasta,
           p_cliente_id: c.id,
           p_maquina_id: null,
           p_producto_id: null,
@@ -283,8 +291,8 @@ export default async function CierreDetallePage({
   // Estado de resultados del periodo (ventas del cierre, agregadas en SQL)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: erData } = await (supabase as any).rpc("agregar_ventas", {
-    p_desde: cierre.fecha_inicio_cierre ?? "1900-01-01",
-    p_hasta: cierre.fecha_cierre ?? new Date().toISOString(),
+    p_desde: ventasMes.desde,
+    p_hasta: ventasMes.hasta,
     p_cliente_id: null,
     p_maquina_id: null,
     p_producto_id: null,

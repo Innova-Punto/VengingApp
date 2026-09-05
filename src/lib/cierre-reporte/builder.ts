@@ -19,6 +19,24 @@ function startOfNextMonthCDMX(mes: number, anio: number): string {
     : startOfMonthCDMX(mes + 1, anio);
 }
 
+/**
+ * Ventana con la que se mide la VENTA de un periodo: mes calendario CDMX.
+ * Es distinta de la ventana del cierre (`fecha_inicio_cierre` →
+ * `fecha_cierre`), que rige inventario y desviaciones. Vive aquí y se exporta
+ * para que la pantalla del cierre y el Excel usen exactamente el mismo rango:
+ * cuando estaban por separado, el Excel quedó corregido y la pantalla siguió
+ * mostrando la cifra inflada.
+ */
+export function ventanaVentasMes(
+  mes: number,
+  anio: number,
+): { desde: string; hasta: string } {
+  return {
+    desde: startOfMonthCDMX(mes, anio),
+    hasta: startOfNextMonthCDMX(mes, anio),
+  };
+}
+
 export type SnapshotCierre = {
   periodo: {
     mes: number;
@@ -164,8 +182,7 @@ export async function construirSnapshotCierre(
   // Smart Fit salió en $505,660 cuando el mes real fueron $445,150. Y no fue
   // aislado — junio midió 17.3 días y julio 29.9, así que ningún periodo era
   // comparable contra otro.
-  const ventasDesde = startOfMonthCDMX(cierre.periodo_mes, cierre.periodo_anio);
-  const ventasHasta = startOfNextMonthCDMX(
+  const { desde: ventasDesde, hasta: ventasHasta } = ventanaVentasMes(
     cierre.periodo_mes,
     cierre.periodo_anio,
   );
