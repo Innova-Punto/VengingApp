@@ -132,10 +132,18 @@ do $$
 begin
   if not exists (select 1 from pg_type where typname = 'agua_evento_tipo') then
     create type public.agua_evento_tipo as enum (
-      'carga',      -- el operador vació N garrafones en el tanque
-      'medicion',   -- el operador reportó cuánto quedó: es el baseline
+      'carga',      -- se le agregó agua al tanque
+      'medicion',   -- nivel encontrado AL LLEGAR: es el baseline y la señal de fuga
       'ajuste'      -- corrección de dirección, con nota
     );
+  end if;
+
+  -- De dónde salió el agua que se cargó. Diego reparte garrafones del CEDIS;
+  -- cualquier operador puede además comprar en la tienda de junto y echar unos
+  -- litros a discreción. Son dos cosas distintas y hay que poder separarlas:
+  -- una descuenta existencia de almacén, la otra es un gasto de bolsillo.
+  if not exists (select 1 from pg_type where typname = 'agua_origen') then
+    create type public.agua_origen as enum ('almacen', 'compra_operador');
   end if;
 end $$;
 
@@ -144,13 +152,21 @@ create table if not exists public.agua_maquina_eventos (
   maquina_id    uuid not null references public.maquinas(id) on delete restrict,
   fecha         timestamptz not null default now(),
   tipo          public.agua_evento_tipo not null,
+  origen        public.agua_origen,
 
   garrafones    integer check (garrafones is null or garrafones > 0),
   ml_cargados   integer check (ml_cargados is null or ml_cargados > 0),
+  -- Nivel encontrado AL LLEGAR, antes de cargar nada. Es a propósito: el nivel
+  -- de salida es aritmética (llegada + cargado), pero el de llegada es el único
+  -- que se puede contrastar contra el teórico. Ahí está la fuga.
   ml_medidos    integer check (ml_medidos is null or ml_medidos >= 0),
-  -- Lo que el sistema esperaba encontrar al llegar. Se guarda al momento porque
-  -- después ya no se puede reconstruir: las ventas siguen corriendo.
+  -- Lo que el sistema esperaba encontrar. Se guarda al momento porque después
+  -- ya no se puede reconstruir: las ventas siguen corriendo.
   ml_teoricos   integer,
+
+  -- Lo que el operador pagó de su bolsa cuando compró en la tienda.
+  -- Informativo y para reembolso; no entra a ningún costeo ni a los cierres.
+  costo_referencia numeric(14,2) check (costo_referencia is null or costo_referencia >= 0),
 
   llenado_id    uuid references public.llenados(id) on delete set null,
   check_in_id   uuid references public.check_ins(id) on delete set null,
@@ -160,17 +176,39 @@ create table if not exists public.agua_maquina_eventos (
   created_at    timestamptz not null default now(),
 
   constraint agua_evento_carga_trae_cantidad check (
-    tipo <> 'carga' or (garrafones is not null and ml_cargados is not null)),
+    tipo <> 'carga' or (origen is not null and ml_cargados is not null)),
+  -- Los garrafones solo tienen sentido cuando el agua salió del almacén. Lo que
+  -- el operador compra en la tienda se captura en litros y punto.
+  constraint agua_evento_garrafones_solo_almacen check (
+    garrafones is null or origen = 'almacen'),
+  constraint agua_evento_almacen_trae_garrafones check (
+    tipo <> 'carga' or origen <> 'almacen' or garrafones is not null),
   constraint agua_evento_medicion_trae_nivel check (
     tipo <> 'medicion' or ml_medidos is not null)
 );
 
 comment on table public.agua_maquina_eventos is
-  'Lo que físicamente pasó con el agua de una máquina. Una medición fija el baseline; el consumo entre mediciones se calcula con las ventas, no se registra evento por venta.';
+  'Lo que físicamente pasó con el agua de una máquina. La medición de llegada fija el baseline; el consumo entre mediciones se calcula con las ventas, no se registra evento por venta.';
+comment on column public.agua_maquina_eventos.origen is
+  'almacen = garrafón que bajó de la camioneta. compra_operador = litros que el operador compró en la tienda por su cuenta. Ver cuánta agua sigue entrando por la segunda vía es la medida de si el plan de la camioneta está funcionando.';
 comment on column public.agua_maquina_eventos.ml_teoricos is
   'Nivel que el sistema esperaba. La diferencia contra ml_medidos es la fuga o el desperdicio: es el número que justifica todo este módulo.';
 
 create index if not exists agua_eventos_maquina_idx on public.agua_maquina_eventos(maquina_id, fecha desc);
+
+-- Por dónde está entrando el agua. El objetivo del plan de la camioneta es que
+-- `litros_compra_operador` tienda a cero: mientras siga alto, se sigue comprando
+-- al menudeo en la tienda de junto, que es de donde salió el gasto.
+create or replace view public.v_agua_origen_30d as
+select coalesce(sum(ml_cargados) filter (where origen = 'almacen'), 0) / 1000            as litros_almacen,
+       coalesce(sum(ml_cargados) filter (where origen = 'compra_operador'), 0) / 1000    as litros_compra_operador,
+       coalesce(sum(garrafones) filter (where origen = 'almacen'), 0)::int               as garrafones_almacen,
+       round(coalesce(sum(costo_referencia) filter (where origen = 'compra_operador'), 0), 2) as gasto_operadores_reportado,
+       count(distinct maquina_id) filter (where origen = 'compra_operador')::int         as maquinas_surtidas_en_tienda
+  from public.agua_maquina_eventos
+ where tipo = 'carga' and fecha >= now() - interval '30 days';
+
+alter view public.v_agua_origen_30d set (security_invoker = true);
 
 -- ── 7. Estado del agua por máquina ───────────────────────────────────────────
 -- Fuente del criterio de agua del agente de ruteo y de la pantalla de planeación.
