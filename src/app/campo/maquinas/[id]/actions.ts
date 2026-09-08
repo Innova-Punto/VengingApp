@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { ML_POR_GARRAFON } from "@/lib/agua";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
@@ -224,6 +225,121 @@ export async function cerrarVisitaSinLlenado(input: {
   revalidatePath("/admin/dashboard");
   revalidatePath("/admin/jornadas", "layout");
   return { ok: true, message: "Visita cerrada." };
+}
+
+// ============================================================================
+// Agua del tanque
+// ============================================================================
+
+/**
+ * Registra el agua de la visita: el nivel que el operador encontró al llegar y,
+ * si le echó, de dónde salió.
+ *
+ * Se mide **antes** de cargar a propósito. El nivel de salida es aritmética
+ * —lo que había más lo que echó—, pero el de llegada es el único que se puede
+ * contrastar contra lo que el sistema esperaba. Ahí aparece la fuga.
+ *
+ * El teórico se guarda en el momento porque después ya no se puede
+ * reconstruir: las ventas siguen corriendo y mueven el estimado.
+ *
+ * No toca el inventario de polvo ni de vasos, ni el kardex, ni el cierre. El
+ * agua lleva sus propios libros y no se valúa.
+ */
+export async function registrarAgua(input: {
+  checkInId: string;
+  asignacionId: string;
+  maquinaId: string;
+  /** Nivel encontrado al llegar, en ml. Obligatorio. */
+  mlMedidos: number;
+  /** null = no le echó agua en esta visita. */
+  carga:
+    | { origen: "almacen"; garrafones: number }
+    | { origen: "compra_operador"; litros: number; costo: number | null }
+    | null;
+  nota: string | null;
+}): Promise<ActionResult> {
+  const user = await requireRole("operador", "admin", "direccion");
+
+  if (!input.checkInId) return { ok: false, message: "Falta check-in." };
+  if (!Number.isFinite(input.mlMedidos) || input.mlMedidos < 0) {
+    return { ok: false, message: "Falta el nivel del tanque." };
+  }
+
+  const supabase = createClient() as AnyClient;
+
+  const { data: maquina } = await supabase
+    .from("maquinas")
+    .select("requiere_agua, agua_capacidad_ml")
+    .eq("id", input.maquinaId)
+    .maybeSingle();
+
+  if (!maquina?.requiere_agua) {
+    return { ok: false, message: "Esta máquina no lleva agua." };
+  }
+
+  const capacidad = maquina.agua_capacidad_ml ?? 50_000;
+  const mlMedidos = Math.min(Math.trunc(input.mlMedidos), capacidad);
+
+  // Lo que el sistema esperaba encontrar. Null la primera vez: sin medición
+  // previa no hay baseline, y un teórico inventado sería peor que ninguno.
+  const { data: estado } = await supabase
+    .from("v_agua_maquina")
+    .select("ml_estimado")
+    .eq("maquina_id", input.maquinaId)
+    .maybeSingle();
+
+  const { error: errMed } = await supabase.from("agua_maquina_eventos").insert({
+    maquina_id: input.maquinaId,
+    tipo: "medicion",
+    ml_medidos: mlMedidos,
+    ml_teoricos: estado?.ml_estimado ?? null,
+    check_in_id: input.checkInId,
+    operador_id: user.id,
+    created_by: user.id,
+    nota: input.nota,
+  });
+  if (errMed) return { ok: false, message: errMed.message };
+
+  if (input.carga) {
+    const fila =
+      input.carga.origen === "almacen"
+        ? {
+            origen: "almacen" as const,
+            garrafones: Math.max(1, Math.trunc(input.carga.garrafones)),
+            ml_cargados:
+              Math.max(1, Math.trunc(input.carga.garrafones)) * ML_POR_GARRAFON,
+            costo_referencia: null,
+          }
+        : {
+            origen: "compra_operador" as const,
+            garrafones: null,
+            ml_cargados: Math.max(1, Math.trunc(input.carga.litros * 1000)),
+            costo_referencia: input.carga.costo,
+          };
+
+    const { error: errCarga } = await supabase
+      .from("agua_maquina_eventos")
+      .insert({
+        maquina_id: input.maquinaId,
+        tipo: "carga",
+        ...fila,
+        check_in_id: input.checkInId,
+        operador_id: user.id,
+        created_by: user.id,
+      });
+    // La medición ya quedó: si falla la carga, se avisa sin perder el nivel.
+    if (errCarga) {
+      return {
+        ok: false,
+        message: `Se guardó el nivel, pero no la carga de agua: ${errCarga.message}`,
+      };
+    }
+  }
+
+  revalidatePath(`/campo/maquinas/${input.maquinaId}`);
+  revalidatePath(`/campo/jornada/${input.asignacionId}`);
+  revalidatePath("/planeacion/salud-maquinas");
+  return { ok: true, message: "Agua registrada." };
 }
 
 // ============================================================================

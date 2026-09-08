@@ -5,6 +5,9 @@ import { requireRole } from "@/lib/auth";
 import { fmtCDMX } from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
 
+import { mlALitros } from "@/lib/agua";
+
+import AguaForm from "./AguaForm";
 import CerrarSinLlenadoForm from "./CerrarSinLlenadoForm";
 import CheckInForm from "./CheckInForm";
 import IncidenciaForm from "./IncidenciaForm";
@@ -71,7 +74,7 @@ export default async function MaquinaCampoPage({
     .from("maquinas")
     .select(
       `id, serie, alias, tipo, vaso_producto_id, vaso_capacidad_max, vaso_inventario_actual,
-       requiere_pesaje,
+       requiere_pesaje, requiere_agua, agua_capacidad_ml,
        ubicacion:ubicaciones(nombre, lat, lng, cliente:clientes(nombre)),
        tolvas:tolvas(
          id, numero, producto_id, gramaje_servicio,
@@ -260,6 +263,48 @@ export default async function MaquinaCampoPage({
     .eq("maquina_id", params.id);
   const esPrimerPesaje = (pesajesHistoricos ?? 0) === 0;
 
+  // ── Agua ──────────────────────────────────────────────────────────────────
+  // Obligatoria en cada visita de máquina que lleve agua, y a propósito FUERA
+  // de la puerta del pesaje mensual: el agua no tiene por qué esperar al cierre.
+  const llevaAgua = !esServicio && (maquina.requiere_agua ?? false);
+
+  const { data: aguaEventos } = llevaAgua && checkIn
+    ? await supabase
+        .from("agua_maquina_eventos")
+        .select("id, tipo, origen, garrafones, ml_cargados, ml_medidos, ml_teoricos")
+        .eq("check_in_id", checkIn.id)
+    : { data: [] };
+
+  const aguaMedicion = (aguaEventos ?? []).find((e) => e.tipo === "medicion");
+  const aguaCargas = (aguaEventos ?? []).filter((e) => e.tipo === "carga");
+  const aguaCapturada = !!aguaMedicion;
+  const aguaPendiente = llevaAgua && !!checkIn && !aguaCapturada;
+
+  // El estimado NO se le muestra al operador: si ve el número que el sistema
+  // espera, lo va a repetir, y la comparación deja de servir para nada.
+  const { data: aguaEstado } = llevaAgua
+    ? await supabase
+        .from("v_agua_maquina")
+        .select("ml_estimado")
+        .eq("maquina_id", params.id)
+        .maybeSingle()
+    : { data: null };
+
+  // ¿El vehículo del día carga garrafones? Las motos van en 0.
+  const { data: operadorRuteo } = llevaAgua
+    ? await supabase
+        .from("operadores_ruteo")
+        .select("vehiculo:vehiculos(capacidad_garrafones)")
+        .eq("operador_id", asig.operador_id ?? "")
+        .maybeSingle()
+    : { data: null };
+  const vehiculo = operadorRuteo
+    ? Array.isArray(operadorRuteo.vehiculo)
+      ? operadorRuteo.vehiculo[0]
+      : operadorRuteo.vehiculo
+    : null;
+  const puedeLlevarGarrafones = (vehiculo?.capacidad_garrafones ?? 0) > 0;
+
   // Solo tolvas con producto polvo asignado (donde se puede llenar)
   const tolvasPolvo = tolvas.filter((t) => t.producto_id !== null);
   type TolvaInfo = (typeof tolvasPolvo)[number];
@@ -378,6 +423,39 @@ export default async function MaquinaCampoPage({
             </div>
           </div>
 
+          {/* Agua: va arriba y fuera del candado del pesaje, para que se pueda
+              capturar también en días de cierre mensual. */}
+          {llevaAgua &&
+            (aguaCapturada ? (
+              <div className="rounded-lg border border-sky-200 bg-sky-50/60 px-3 py-2 text-xs text-sky-900">
+                💧 Agua registrada: encontraste{" "}
+                <strong>{mlALitros(aguaMedicion?.ml_medidos ?? null)}</strong>
+                {aguaCargas.length > 0 && (
+                  <>
+                    {" "}
+                    y cargaste{" "}
+                    <strong>
+                      {mlALitros(
+                        aguaCargas.reduce((s, c) => s + (c.ml_cargados ?? 0), 0),
+                      )}
+                    </strong>
+                    {aguaCargas.some((c) => c.origen === "compra_operador") &&
+                      " (comprada en tienda)"}
+                  </>
+                )}
+                .
+              </div>
+            ) : (
+              <AguaForm
+                checkInId={checkIn.id}
+                asignacionId={asignacionId}
+                maquinaId={maquina.id}
+                capacidadMl={maquina.agua_capacidad_ml ?? 50000}
+                mlEstimado={aguaEstado?.ml_estimado ?? null}
+                puedeLlevarGarrafones={puedeLlevarGarrafones}
+              />
+            ))}
+
           {/* Instrucción de planeación: bloquea todo lo demás hasta ejecutarse */}
           {haySustitucionPendiente &&
             sustituciones.map((s) => (
@@ -486,6 +564,17 @@ export default async function MaquinaCampoPage({
                     }
                   />
                 </>
+              );
+            }
+
+            // El agua es obligatoria antes de llenar o cerrar. El pesaje, si
+            // aplicaba, ya se resolvió arriba.
+            if (aguaPendiente) {
+              return (
+                <p className="rounded-md border border-sky-300 bg-sky-50 px-3 py-2 text-xs text-sky-900">
+                  🔒 Registra el agua de arriba para poder llenar o cerrar la
+                  visita.
+                </p>
               );
             }
 
