@@ -220,9 +220,13 @@ export default function AguaForm({
         {origen === "tienda" && (
           <div className="mt-2 space-y-2 rounded-md border border-sky-200 bg-white p-3">
             <div>
-              <label className="text-xs text-zinc-600">
-                Litros que le echaste
+              <label className="text-xs font-medium text-zinc-700">
+                Litros que le echaste al tanque
               </label>
+              <p className="text-[11px] text-zinc-500">
+                Lo que vaciaste, no lo que compraste. Si sobró agua en la moto,
+                no la cuentes aquí.
+              </p>
               {/* Atajos para lo que se consigue en la tienda. El campo manda:
                   si compró otra cosa, escribe los litros y ya. */}
               <div className="mt-1 flex flex-wrap gap-1.5">
@@ -258,13 +262,17 @@ export default function AguaForm({
                 <span className="text-sm text-zinc-500">litros</span>
               </div>
               <p className="mt-1 text-[11px] text-zinc-500">
-                Si compraste dos garrafones, suma los litros: 40.
+                Si vaciaste dos garrafones completos, suma los litros: 40.
               </p>
             </div>
             <div>
               <label className="text-xs text-zinc-600">
-                Cuánto pagaste (para tu reembolso)
+                Cuánto pagaste por el agua (para tu reembolso)
               </label>
+              <p className="text-[11px] text-zinc-500">
+                Aquí sí va todo lo que compraste, aunque no lo hayas vaciado
+                completo.
+              </p>
               <input
                 type="number"
                 inputMode="decimal"
