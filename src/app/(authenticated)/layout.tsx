@@ -43,6 +43,7 @@ const NAV_GROUPS: GroupDef[] = [
       { label: "Encartuchado", href: "/almacen/encartuchados" },
       { label: "Devoluciones", href: "/almacen/devoluciones" },
       { label: "Retornos de polvo", href: "/almacen/retornos" },
+      { label: "Agua (garrafones)", href: "/almacen/agua" },
       { label: "Conteos", href: "/almacen/conteos" },
     ],
   },

@@ -14,7 +14,7 @@ type Producto = {
   id: string;
   sku: string;
   nombre: string;
-  tipo: "polvo" | "vaso";
+  tipo: "polvo" | "vaso" | "agua";
   marca: string | null;
   sabor: string | null;
   categoria: string | null;
@@ -82,6 +82,7 @@ export default function ProductoForm({
           >
             <option value="polvo">Polvo (suplemento)</option>
             <option value="vaso">Vaso (consumible)</option>
+            <option value="agua">Agua (garrafón)</option>
           </select>
         </Field>
 

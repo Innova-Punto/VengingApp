@@ -37,6 +37,8 @@ type ParsedMaquina = {
   notas: string | null;
   vaso_producto_id: string | null;
   vaso_capacidad_max: number;
+  requiere_agua: boolean;
+  agua_capacidad_ml: number;
 };
 
 function parseMaquina(
@@ -64,6 +66,10 @@ function parseMaquina(
   const vasoProductoRaw =
     String(formData.get("vaso_producto_id") ?? "").trim() || null;
   const vasoCapacidadRaw = formData.get("vaso_capacidad_max");
+  // El tanque se captura en litros, que es como lo ve el operador; adentro
+  // todo vive en mililitros enteros, igual que los polvos en gramos.
+  const aguaLitrosRaw = formData.get("agua_capacidad_l");
+  const requiere_agua = formData.get("requiere_agua") === "true";
 
   if (!serie) return "Número de serie es obligatorio.";
   if (!ubicacion_id) return "Selecciona una ubicación.";
@@ -107,6 +113,15 @@ function parseMaquina(
     vaso_capacidad_max = n;
   }
 
+  let agua_capacidad_ml = 50000;
+  if (aguaLitrosRaw && String(aguaLitrosRaw).trim() !== "") {
+    const litros = Number(aguaLitrosRaw);
+    if (!Number.isFinite(litros) || litros <= 0) {
+      return "La capacidad del tanque de agua debe ser mayor a cero litros.";
+    }
+    agua_capacidad_ml = Math.round(litros * 1000);
+  }
+
   // En edit no permitimos cambiar num_tolvas (rompería tolvas existentes).
   if (!options.isCreate) {
     // num_tolvas se ignora en update por seguridad; lo mantenemos como info.
@@ -130,6 +145,8 @@ function parseMaquina(
     notas,
     vaso_producto_id: vasoProductoRaw,
     vaso_capacidad_max,
+    requiere_agua,
+    agua_capacidad_ml,
   };
 }
 

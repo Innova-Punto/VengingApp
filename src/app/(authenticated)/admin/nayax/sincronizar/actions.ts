@@ -217,7 +217,9 @@ export async function obtenerSnapshot(): Promise<ActionResult<Snapshot>> {
     const { data: productosLocalesRaw } = await (supabase as any)
       .from("productos")
       .select("id, sku, nombre, nayax_product_ids")
-      .eq("activo", true);
+      .eq("activo", true)
+      // El agua no tiene PA code: nunca se dispensa sola.
+      .neq("tipo", "agua");
     const productosLocales = (productosLocalesRaw ?? []) as {
       id: string;
       sku: string;

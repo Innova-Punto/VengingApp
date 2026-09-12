@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { mlALitros } from "@/lib/agua";
 import { requireRole } from "@/lib/auth";
+import { fmtCDMX } from "@/lib/datetime";
 import { urgenciaUltimaVisita } from "@/lib/maquinas-visita";
 import { createClient } from "@/lib/supabase/server";
 
@@ -102,6 +104,16 @@ export default async function EditarMaquinaPage({
     );
   }
   if (!maquina) notFound();
+
+  // Estado del agua. Va aparte del resto porque la vista solo trae máquinas
+  // que llevan agua: para las de servicio simplemente no hay renglón.
+  const { data: agua } = await supabase
+    .from("v_agua_maquina")
+    .select(
+      "agua_capacidad_ml, ml_estimado, dias_para_vaciarse, ultima_medicion, ml_ultima_medicion, sin_medicion",
+    )
+    .eq("maquina_id", params.id)
+    .maybeSingle();
 
   const ubicaciones = (ubicacionesRaw ?? []).map((u) => {
     const cliente = Array.isArray(u.cliente) ? u.cliente[0] : u.cliente;
@@ -271,6 +283,83 @@ export default async function EditarMaquinaPage({
           )}
         </div>
       </section>
+
+      {(maquina as { requiere_agua?: boolean }).requiere_agua && (
+        <section className="space-y-3">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight">Agua</h2>
+            <p className="text-sm text-zinc-600">
+              Lo que el operador reportó la última vez, menos lo que se ha
+              vendido desde entonces. El agua no se valúa: se controla en
+              litros, no en pesos.
+            </p>
+          </div>
+          <div className="rounded-lg border border-zinc-200 bg-white p-4">
+            {agua ? (
+              agua.sin_medicion ? (
+                <p className="text-sm text-zinc-500">
+                  Nunca se ha medido el tanque de esta máquina. Hasta que un
+                  operador reporte su nivel no se puede estimar cuánta agua le
+                  queda — el estimado no existe, no es cero.
+                </p>
+              ) : (
+                <dl className="grid grid-cols-1 gap-3 md:grid-cols-4">
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                      Capacidad del tanque
+                    </dt>
+                    <dd className="text-sm tabular-nums text-zinc-900">
+                      {mlALitros(agua.agua_capacidad_ml)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                      Agua estimada ahora
+                    </dt>
+                    <dd className="text-sm tabular-nums text-zinc-900">
+                      {mlALitros(agua.ml_estimado)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                      Le alcanza
+                    </dt>
+                    <dd
+                      className={`text-sm tabular-nums ${
+                        (agua.dias_para_vaciarse ?? 99) < 7
+                          ? "font-semibold text-red-700"
+                          : "text-zinc-900"
+                      }`}
+                    >
+                      {agua.dias_para_vaciarse != null
+                        ? `${agua.dias_para_vaciarse} días`
+                        : "—"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                      Última medición
+                    </dt>
+                    <dd className="text-sm text-zinc-900">
+                      {agua.ultima_medicion
+                        ? fmtCDMX(agua.ultima_medicion, {
+                            day: "2-digit",
+                            month: "short",
+                          })
+                        : "—"}
+                      <span className="ml-1 text-zinc-500">
+                        ({mlALitros(agua.ml_ultima_medicion)})
+                      </span>
+                    </dd>
+                  </div>
+                </dl>
+              )
+            ) : (
+              <p className="text-sm text-zinc-500">Sin datos de agua.</p>
+            )}
+          </div>
+        </section>
+      )}
 
       <section className="space-y-3">
         <div>

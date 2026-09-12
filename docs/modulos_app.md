@@ -1,6 +1,6 @@
 # Mapa funcional de la app — MuscleUp / VendingApp
 
-**Actualizado 14-ago-2026.** Qué hace cada módulo, quién entra, qué pantallas tiene y qué
+**Actualizado 5-sep-2026.** Qué hace cada módulo, quién entra, qué pantallas tiene y qué
 reglas de negocio aplica. Complemento de `muscleup_modelo_datos.md` (las tablas) y de
 `CLAUDE.md` (las convenciones).
 
@@ -184,6 +184,7 @@ compresión y reintentos) para que una señal débil no tumbe el Server Action.
 | Incidencias | `/admin/incidencias` | + análisis por máquina y autorización de mermas |
 | Errores operativos | `/admin/errores-operativos` | fallas de proceso atribuibles a operación |
 | **Servicios** | `/admin/servicios` | historial de visitas Smart Energy con checklist, evidencias y firma |
+| **Quejas** | `/admin/quejas` | quejas de usuario final: tablero por antigüedad, bitácora de toques y pago (ver §7) |
 | Nayax | `/admin/nayax` | sincronización, errores y mensajes descartados |
 | Pesajes | `/admin/pesajes/[id]` | corrección de pesajes con rastro |
 
@@ -198,7 +199,61 @@ máquinas, y produce el estado de resultados con la cascada de IVA, global y por
 
 ---
 
-## 7. Integración Nayax
+## 7. Quejas de usuario final (sep-2026)
+
+Sustituye la bitácora en Excel. **No se migró el histórico**: el módulo arrancó limpio con
+folio `QJA-000001`. Entran admin, dirección y planeación; el operador solo ve y valida las
+quejas de sus máquinas.
+
+| Pantalla | Ruta | Para qué |
+|---|---|---|
+| Tablero | `/admin/quejas` | 4 cubos por antigüedad (hoy · 1 día · 2 días · **3+ en rojo**) con drill-down, y la lista con el **último toque** de cada caso |
+| Captura | `/admin/quejas/nueva` | alta de la queja: WhatsApp, máquina, tipo, monto reclamado |
+| Detalle | `/admin/quejas/[id]` | bitácora de toques, validación, autorización de monto, pago, recuperación y cierre |
+| Reincidencia | `/admin/quejas/reincidencia` | quejas sin respaldo de venta + WhatsApp con más de una queja en 90 días |
+
+### El flujo
+```
+Mariana recibe el WhatsApp → captura la queja (abierta)
+  → toques día 1, 2, 3 y un toque final a los 7 días (bitácora)
+  → el operador valida en campo (procede / no procede + motivo)
+  → Mariana autoriza el monto (puede diferir del reclamado)
+  → pago con comprobante obligatorio (pagada)
+  → el operador recupera el dinero de la máquina (recuperado)
+  → cierre: resuelta  |  sin respuesta (exige bitácora con al menos un toque)
+```
+
+### Reglas de negocio
+- **Catálogo cashless.** 13 tipos, ninguno de efectivo: la máquina ya no recibe billete ni
+  moneda. El más grave es `cobro_sin_producto` (se cobró la tarjeta y no salió nada).
+- **El operador no se captura a mano**: se deduce de la ruta activa de la máquina.
+- **El monto lo decide Mariana**, no el usuario. `monto_autorizado` solo existe si
+  `procede = true` (constraint en base).
+- **No hay pago sin comprobante**: el estado `pagada` exige `comprobante_url` (constraint).
+- **No hay cierre por falta de respuesta sin evidencia**: si la queja no tiene ni un toque
+  registrado, la acción se rechaza. Es lo que se enseña al cliente y a dirección.
+- **Teléfono**: se captura completo con lada fija `+52` y 10 dígitos, pero **no se guarda**.
+  La app lo normaliza, calcula `sha256(sal || número)` y persiste solo el hash y los últimos
+  4 dígitos. La sal vive en `QUEJAS_TELEFONO_SALT` (entorno, no base) y **no se rota**:
+  si cambia, se pierde el histórico de reincidencia.
+
+### Reincidencia y fraude
+Dos señales, con jerarquía explícita:
+1. **Sin respaldo de venta** (objetiva, manda): quejas de cobro sin ninguna venta Nayax de esa
+   máquina en ±2 h. Si no hubo venta, no hubo cargo.
+2. **Reincidencia por WhatsApp** (indiciaria): quien repite en 90 días. La columna que
+   discrimina es **máquinas distintas** — repetir en la misma máquina acusa a la máquina,
+   repetir en varias acusa al usuario. Reincidir no es defraudar.
+
+### Enlace con el resto de la app
+- `incidencia_id` liga la queja con la falla técnica que la explica. Tres cobros sin producto
+  en la misma máquina no son tres quejas: son un lector descompuesto.
+- La vista `v_quejas_por_maquina` es la fuente del criterio "queja abierta" del agente de
+  ruteo (`docs/prompt_agente_ruteo.md`), que hasta ahora recibía vacío.
+
+---
+
+## 8. Integración Nayax
 
 - Ingesta idempotente por `nayax_transaction_id` (`procesar_venta_nayax`).
 - Mapea `nayax_machine_id` + PA code → máquina/tolva/producto. Las bebidas por receta se
@@ -210,7 +265,7 @@ máquinas, y produce el estado de resultados con la cascada de IVA, global y por
 
 ---
 
-## 8. Alertas automáticas
+## 9. Alertas automáticas
 
 | Alerta | Origen | Cuándo |
 |---|---|---|
@@ -221,7 +276,7 @@ máquinas, y produce el estado de resultados con la cascada de IVA, global y por
 
 ---
 
-## 9. Convenciones de UI
+## 10. Convenciones de UI
 
 - **Server Components** por default; `"use client"` solo con interactividad real.
 - Mutaciones vía **Server Actions** con `requireRole` al inicio.

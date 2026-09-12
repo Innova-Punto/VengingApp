@@ -1,22 +1,23 @@
 # Modelo de datos — MuscleUp / VendingApp
 
-**v3.0 · Auditado contra producción (Supabase `opncevovlgcblwlztqck`) el 14-ago-2026.**
+**v3.1 · Auditado contra producción (Supabase `opncevovlgcblwlztqck`) el 14-ago-2026.
+Conteos y módulo de quejas reverificados el 5-sep-2026.**
 
 Este documento describe **lo que existe hoy**, no un diseño teórico. Toda tabla, enum,
 función y bucket aquí listado fue verificado en la base de datos productiva.
 
 | Concepto | Estado actual |
 |---|---|
-| Tablas en `public` | **63** (todas con RLS habilitado y al menos 1 policy) |
-| Enums | 24 |
-| Funciones | 70 (25 de trigger, 45 RPC/utilitarias) |
-| Vistas | 4 |
-| Migraciones versionadas | 129 |
+| Tablas en `public` | **69** (todas con RLS habilitado y al menos 1 policy) |
+| Enums | 30 |
+| Funciones | 78 |
+| Vistas | 7 |
+| Migraciones versionadas | 142 archivos en `supabase/migrations/` |
 | Buckets de Storage | 7 (6 privados + `manuales-operador` público) |
 | Cron jobs (pg_cron) | 4 |
 
-Volumen operativo (14-ago-2026): 83 máquinas · 75 ubicaciones · 6 clientes · 31 productos ·
-11 rutas · 23,020 ventas Nayax · 57,038 movimientos de kardex · 2 cierres mensuales.
+Volumen operativo (5-sep-2026): 83 máquinas · 75 ubicaciones · 6 clientes · 31 productos ·
+11 rutas · 30,186 ventas Nayax · 74,451 movimientos de kardex · 3 cierres mensuales.
 
 ---
 
@@ -31,13 +32,16 @@ Volumen operativo (14-ago-2026): 83 máquinas · 75 ubicaciones · 6 clientes ·
 | Montos | `numeric(14,2)` MXN. Costo por gramo `numeric(12,6)`. |
 | Precios | **Se registran SIN IVA para costo; la venta guarda bruto, IVA y neto por separado.** |
 | Movimientos | `movimientos_inventario` es append-only. Correcciones = asientos compensatorios. |
-| Folios | Secuencias: `OC-`, `REC-`, `ENC-`, `SUR-`, `INC-`, `SRV-`, `VIC-`. |
+| Folios | Secuencias: `OC-`, `REC-`, `ENC-`, `SUR-`, `INC-`, `SRV-`, `VIC-`, `QJA-`. |
 | RLS | Habilitado en las 63 tablas. Escritura por rol vía `public.user_has_role()`; lectura del personal interno vía `public.user_es_interno()`, y del rol `cliente` acotada por `public.user_cliente_id()`. |
 | Zona horaria | Nayax entrega **UTC**; la operación es **CDMX (UTC−6)**. Los cortes de día/mes se calculan `at time zone 'America/Mexico_City'`. |
 | Nombres | `snake_case`, español. Plural para tablas, singular para campos. |
 
 ### Roles (`app_role`)
-`direccion`, `compras`, `almacen`, `planeador`, `operador`, `admin`.
+`direccion`, `compras`, `almacen`, `planeador`, `operador`, `admin`, `cliente`.
+
+`cliente` (ago-2026) es de **solo lectura y acotado**: `profiles.cliente_id` lo amarra a un
+cliente y `public.user_cliente_id()` filtra sus policies. Hoy solo ve visitas de servicio.
 
 ---
 
@@ -215,11 +219,62 @@ activa/operativa su prioridad y un motivo legible:
   el check-in de forma atómica.
 - Estas máquinas están **excluidas** de `reporte_ventas_maquinas` y de la alerta de venta.
 
-### `incidencias` (22) · `errores_operativos` (0)
+### `incidencias` (38) · `errores_operativos` (0)
 - `incidencias`: reportes del operador en campo, con folio `INC-`, severidad y flujo de
   autorización de merma (`autorizar_merma_incidencia`).
 - `errores_operativos`: fallas de proceso atribuibles a la operación
   (omisión de carga, llegada tarde, no registro de visita…), levantadas por supervisión.
+
+### `quejas` (1) + `queja_contactos` (0) — usuario final (sep-2026)
+Sustituye la bitácora en Excel (1,864 quejas en 21 meses, $116,674 pagados). **El histórico
+no se migró**: el módulo arrancó en `QJA-000001`.
+
+Tabla propia y no `incidencias` porque son ciclos de vida distintos: una incidencia se cierra
+arreglando la máquina; una queja tiene dinero de por medio, un usuario esperando y un
+comprobante de transferencia al final. Van ligadas por `quejas.incidencia_id` cuando la queja
+destapa una falla técnica.
+
+| Enum | Valores |
+|---|---|
+| `queja_tipo` (13) | `cobro_sin_producto`, `cobro_duplicado`, `maquina_da_agua`, `bebida_incompleta`, `vaso_vacio`, `vaso_atorado`, `vaso_atrapado_puerta`, `producto_mal_estado`, `mal_olor`, `terminal_no_pasa`, `touchscreen_no_sirve`, `maquina_en_error`, `otro` |
+| `queja_estado` (8) | `abierta` → `en_validacion` / `espera_cliente` → `procede` \| `no_procede` → `pagada` → `cerrada_resuelta` \| `cerrada_sin_respuesta` |
+| `queja_canal` | `whatsapp`, `llamada`, `correo`, `presencial` |
+| `queja_contacto_resultado` | `contesto`, `no_contesto`, `pendiente_info` |
+
+El catálogo de tipos está construido para operación **cashless**: en el Excel, 334 de 1,280
+quejas tipificadas (26%) eran de efectivo —cambio, billete atorado, monedas— y ya no pueden
+ocurrir.
+
+**Constraints que sostienen el proceso**
+- `quejas_autorizado_requiere_procede` — no hay `monto_autorizado` si `procede` no es `true`.
+- `quejas_pagada_requiere_comprobante` — el estado `pagada` exige `comprobante_url`.
+- Cerrar por falta de respuesta exige al menos un renglón en `queja_contactos`
+  (se valida en la Server Action, no en base).
+
+**Privacidad del teléfono.** No se persiste el número. La app lo normaliza a 10 dígitos,
+calcula `sha256(QUEJAS_TELEFONO_SALT || número)` (`src/lib/quejas/telefono.ts`, server-only) y
+guarda `telefono_hash` + `telefono_ultimos4`. La sal vive en el entorno, **no** en la base, y
+**no se rota**: al cambiarla los hashes viejos dejan de empatar y se pierde el histórico de
+reincidencia. Con 4 dígitos no alcanza para reincidencia —10,000 combinaciones y ~100 quejas
+al mes dan 39% de probabilidad de colisión en el mes—, de ahí el hash.
+
+**Vistas**
+- `v_quejas_por_maquina` — `quejas_abiertas`, `quejas_30d`, `quejas_tecnicas_30d`,
+  `pagado_30d`. Es la fuente del criterio de quejas del **agente de ruteo**.
+- `v_quejas_reincidencia` — WhatsApp con ≥2 quejas en 90 días, agrupado por hash.
+  `maquinas_distintas` es la columna que discrimina.
+- `v_quejas_sin_venta` — quejas de cobro contra las ventas Nayax de esa máquina en ±2 h.
+  `ventas_en_ventana = 0` significa que no hubo cargo. Es la señal objetiva y manda sobre
+  el conteo de reincidencia.
+
+Las tres son `security_invoker = true`.
+
+**Parámetros en `config_global`**: `quejas_dias_vieja` (3), `quejas_toques_iniciales` (3),
+`quejas_dias_toque_final` (7), `quejas_reincidencia_umbral` (3).
+
+**RLS**: lectura para personal interno (`user_es_interno()`); gestión para admin, dirección y
+planeación; el operador solo puede actualizar las quejas donde `operador_id = auth.uid()`
+—y solo el veredicto, nunca el monto ni el pago.
 
 ---
 
@@ -306,16 +361,19 @@ Acceso a privados siempre por **signed URL** (1 h) generada en servidor.
    **negativos** (salida) y el histórico fue backfilleado: 0 movimientos positivos vs 27,509
    negativos. Usar `ABS()` sigue siendo seguro en consultas de consumo, pero ya no es
    obligatorio. Ver `20260725160000_venta_signo_salida_negativo.sql`.
-3. **`ventas_maquina.cliente_id` es NULL**: identificar cliente vía
+3. ~~**`ventas_maquina.cliente_id` es NULL**~~ — **RESUELTO** (ago-2026). Hoy está poblado en
+   el 100% de las filas (0 nulos sobre 30,186 al 5-sep-2026); ya no hace falta el rodeo por
    `maquinas → ubicaciones → clientes`.
 4. **`costo_polvo` / `costo_vaso` en ventas están en cero**: valuar con
    `tolvas.costo_promedio_g_actual`.
 5. ~~**Migraciones stub**~~ — **RESUELTO** (ago-2026). Los cuerpos que solo vivían en el
    remoto se volcaron en `20260814160000_sync_esquema_remoto.sql`, y tres migraciones
    históricas que no corrían desde cero se corrigieron con el `drop` previo que Postgres exige.
-   Verificado: las 129 migraciones corren en una base limpia y el esquema resultante iguala a
-   producción (63 tablas, 4 vistas, 24 enums, 70 funciones, 0 tablas sin RLS).
-6. **`config_global` y `contratos_cliente` están vacías**: los parámetros viven hoy en código.
+   Verificado al 14-ago-2026: las 129 migraciones de entonces corrían en una base limpia y el
+   esquema resultante igualaba a producción (63 tablas, 4 vistas, 24 enums, 70 funciones,
+   0 tablas sin RLS).
+6. **`contratos_cliente` sigue vacía**: esos parámetros viven hoy en código. `config_global`
+   ya se está usando: parámetros de ruteo dinámico (sep-2026) y de quejas.
 7. ~~**Lectura abierta a cualquier autenticado**~~ — **RESUELTO** (ago-2026). Las 50 policies de
    lectura estaban en `using (true)`, así que cualquier usuario autenticado leía costos, OCs,
    ventas, márgenes y proveedores. Se cerraron a `public.user_es_interno()` en

@@ -7,7 +7,7 @@ import {
   eliminarItemSurtido,
 } from "../actions";
 
-type Producto = { sku: string; nombre: string; tipo: "polvo" | "vaso" };
+type Producto = { sku: string; nombre: string; tipo: string };
 
 type Item = {
   id: string;
