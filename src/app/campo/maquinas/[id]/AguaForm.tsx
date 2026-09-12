@@ -42,7 +42,6 @@ export default function AguaForm({
   const [origen, setOrigen] = useState<Origen | null>(null);
   const [garrafones, setGarrafones] = useState("1");
   const [litros, setLitros] = useState("");
-  const [costo, setCosto] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [, startTransition] = useTransition();
@@ -74,7 +73,7 @@ export default function AguaForm({
 
     let carga = null as
       | { origen: "almacen"; garrafones: number }
-      | { origen: "compra_operador"; litros: number; costo: number | null }
+      | { origen: "compra_operador"; litros: number }
       | null;
 
     if (origen === "almacen") {
@@ -90,12 +89,7 @@ export default function AguaForm({
         setError("¿Cuántos litros le echaste?");
         return;
       }
-      const c = costo === "" ? null : Number(costo);
-      if (c !== null && (!Number.isFinite(c) || c < 0)) {
-        setError("El monto pagado no es válido.");
-        return;
-      }
-      carga = { origen: "compra_operador", litros: l, costo: c };
+      carga = { origen: "compra_operador", litros: l };
     }
 
     setEnviando(true);
@@ -264,25 +258,6 @@ export default function AguaForm({
               <p className="mt-1 text-[11px] text-zinc-500">
                 Si vaciaste dos garrafones completos, suma los litros: 40.
               </p>
-            </div>
-            <div>
-              <label className="text-xs text-zinc-600">
-                Cuánto pagaste por el agua (para tu reembolso)
-              </label>
-              <p className="text-[11px] text-zinc-500">
-                Aquí sí va todo lo que compraste, aunque no lo hayas vaciado
-                completo.
-              </p>
-              <input
-                type="number"
-                inputMode="decimal"
-                min={0}
-                step={0.5}
-                placeholder="45.00"
-                value={costo}
-                onChange={(e) => setCosto(e.target.value)}
-                className="mt-1 w-28 rounded-md border border-zinc-300 px-2 py-2 text-right text-base shadow-sm focus:border-zinc-900 focus:outline-none"
-              />
             </div>
           </div>
         )}

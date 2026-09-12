@@ -254,7 +254,7 @@ export async function registrarAgua(input: {
   /** null = no le echó agua en esta visita. */
   carga:
     | { origen: "almacen"; garrafones: number }
-    | { origen: "compra_operador"; litros: number; costo: number | null }
+    | { origen: "compra_operador"; litros: number }
     | null;
   nota: string | null;
 }): Promise<ActionResult> {
@@ -308,18 +308,14 @@ export async function registrarAgua(input: {
             garrafones: Math.max(1, Math.trunc(input.carga.garrafones)),
             ml_cargados:
               Math.max(1, Math.trunc(input.carga.garrafones)) * ML_POR_GARRAFON,
-            costo_referencia: null,
           }
         : {
             origen: "compra_operador" as const,
             garrafones: null,
-            // Los litros son los que ENTRARON AL TANQUE; el costo es el de
-            // TODO lo que compró. La asimetría es deliberada (decisión de
-            // dirección, sep-2026): el litro tiene que cuadrar el tanque y el
-            // peso tiene que cuadrar el reembolso. Si un día alguien intenta
-            // "arreglar" que no coincidan, va a romper uno de los dos.
+            // Litros que ENTRARON AL TANQUE, no los que compró: si sobró agua
+            // en la moto, no se cuenta. Lo que pagó no se captura aquí — el
+            // reembolso vive en tesorería y este módulo es solo operación.
             ml_cargados: Math.max(1, Math.trunc(input.carga.litros * 1000)),
-            costo_referencia: input.carga.costo,
           };
 
     const { error: errCarga } = await supabase

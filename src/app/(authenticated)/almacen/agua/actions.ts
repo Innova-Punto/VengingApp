@@ -25,19 +25,12 @@ export async function registrarEntrada(formData: FormData) {
   const garrafones = entero(formData.get("garrafones"));
   if (garrafones === null) volver("¿Cuántos garrafones entraron?");
 
-  const costoRaw = String(formData.get("costo_referencia") ?? "").trim();
-  const costo = costoRaw === "" ? null : Number(costoRaw);
-  if (costo !== null && (!Number.isFinite(costo) || costo < 0)) {
-    volver("El costo no es un número válido.");
-  }
-
   const supabase = createClient();
   const { error } = await supabase.from("agua_almacen_movimientos").insert({
     tipo: "entrada_compra",
     garrafones,
-    // Informativo: no se suma a ningún costo ni entra a los cierres. Se guarda
-    // para que, si algún día se decide costear el agua, el histórico ya exista.
-    costo_referencia: costo,
+    // Aquí no se captura dinero: el gasto del agua vive en tesorería. Este
+    // módulo se queda en unidades físicas, que es lo que la operación mueve.
     proveedor_texto: String(formData.get("proveedor_texto") ?? "").trim() || null,
     nota: String(formData.get("nota") ?? "").trim() || null,
     created_by: user.id,

@@ -37,7 +37,7 @@ export default async function AguaAlmacenPage({
       supabase
         .from("agua_almacen_movimientos")
         .select(
-          `id, fecha, tipo, garrafones, costo_referencia, proveedor_texto, nota,
+          `id, fecha, tipo, garrafones, proveedor_texto, nota,
            operador:profiles!agua_almacen_movimientos_operador_id_fkey(full_name)`,
         )
         .order("fecha", { ascending: false })
@@ -79,7 +79,7 @@ export default async function AguaAlmacenPage({
         <p className="text-sm text-zinc-600">
           Control físico de garrafones: entradas, salidas a ruta y conteo. El
           agua <strong>no se valúa</strong> — no entra al kardex, al costo ni a
-          los cierres. El costo que se capture es solo referencia.
+          los cierres. Aquí no se captura dinero: el gasto vive en tesorería.
         </p>
       </div>
 
@@ -153,11 +153,10 @@ export default async function AguaAlmacenPage({
 
       {pctTienda > 0 && (
         <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          Los operadores reportan <strong>${Number(origen?.gasto_operadores_reportado ?? 0).toFixed(2)}</strong>{" "}
-          de agua comprada al menudeo en los últimos 30 días, en{" "}
-          {origen?.maquinas_surtidas_en_tienda ?? 0} máquinas. Ese número
-          bajando a cero es la señal de que la camioneta está cubriendo el
-          parque.
+          Todavía entran <strong>{litrosTienda} L</strong> de agua comprada al
+          menudeo por los operadores, en {origen?.maquinas_surtidas_en_tienda ?? 0}{" "}
+          máquinas. Que ese número baje a cero es la señal de que la camioneta
+          está cubriendo el parque.
         </p>
       )}
 
@@ -194,17 +193,6 @@ export default async function AguaAlmacenPage({
                 name="proveedor_texto"
                 placeholder="Purificadora del barrio"
                 className="mt-1 w-52 rounded-md border border-zinc-300 px-3 py-1.5 text-sm shadow-sm focus:border-zinc-900 focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-zinc-500">Costo total (referencia)</label>
-              <input
-                name="costo_referencia"
-                type="number"
-                min={0}
-                step="0.01"
-                placeholder="0.00"
-                className="mt-1 w-28 rounded-md border border-zinc-300 px-3 py-1.5 text-right text-sm shadow-sm focus:border-zinc-900 focus:outline-none"
               />
             </div>
           </div>
@@ -389,11 +377,6 @@ export default async function AguaAlmacenPage({
                   </td>
                   <td className="px-4 py-2 text-xs text-zinc-500">
                     {m.nota ?? ""}
-                    {m.costo_referencia != null && (
-                      <span className="ml-1 text-zinc-400">
-                        (${Number(m.costo_referencia).toFixed(2)} ref.)
-                      </span>
-                    )}
                   </td>
                 </tr>
               );
