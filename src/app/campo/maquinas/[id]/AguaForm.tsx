@@ -8,6 +8,17 @@ import { registrarAgua } from "./actions";
 
 type Origen = "no" | "almacen" | "tienda";
 
+/**
+ * Presentaciones que el operador encuentra en la tienda. Son un atajo para
+ * llenar el campo, no una lista cerrada: puede comprar cualquier cosa y
+ * escribir los litros a mano. Del CEDIS siempre bajan garrafones de 20 L.
+ */
+const PRESENTACIONES_TIENDA = [
+  { etiqueta: "Garrafón 20 L", litros: 20 },
+  { etiqueta: "Garrafón 10 L", litros: 10 },
+  { etiqueta: "Galón", litros: 3.8 },
+];
+
 export default function AguaForm({
   checkInId,
   asignacionId,
@@ -26,7 +37,9 @@ export default function AguaForm({
   puedeLlevarGarrafones: boolean;
 }) {
   const [nivelMl, setNivelMl] = useState<number | null>(null);
-  const [origen, setOrigen] = useState<Origen>("no");
+  // Sin valor por defecto a propósito: si "No le eché" viniera preseleccionado,
+  // un operador distraído lo pasaría de largo y nunca sabríamos si echó agua.
+  const [origen, setOrigen] = useState<Origen | null>(null);
   const [garrafones, setGarrafones] = useState("1");
   const [litros, setLitros] = useState("");
   const [costo, setCosto] = useState("");
@@ -51,6 +64,11 @@ export default function AguaForm({
 
     if (nivelMl === null) {
       setError("Marca cómo encontraste el tanque.");
+      return;
+    }
+
+    if (origen === null) {
+      setError("Contesta si le echaste agua o no.");
       return;
     }
 
@@ -152,7 +170,7 @@ export default function AguaForm({
           {(
             [
               ["no", "No le eché"],
-              ["almacen", "Garrafones del CEDIS"],
+              ["almacen", "Garrafones del CEDIS (20 L)"],
               ["tienda", "Compré en la tienda"],
             ] as [Origen, string][]
           ).map(([valor, etiqueta]) => (
@@ -202,17 +220,46 @@ export default function AguaForm({
         {origen === "tienda" && (
           <div className="mt-2 space-y-2 rounded-md border border-sky-200 bg-white p-3">
             <div>
-              <label className="text-xs text-zinc-600">Litros que le echaste</label>
-              <input
-                type="number"
-                inputMode="decimal"
-                min={0}
-                step={0.5}
-                placeholder="20"
-                value={litros}
-                onChange={(e) => setLitros(e.target.value)}
-                className="mt-1 w-28 rounded-md border border-zinc-300 px-2 py-2 text-right text-base shadow-sm focus:border-zinc-900 focus:outline-none"
-              />
+              <label className="text-xs text-zinc-600">
+                Litros que le echaste
+              </label>
+              {/* Atajos para lo que se consigue en la tienda. El campo manda:
+                  si compró otra cosa, escribe los litros y ya. */}
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                {PRESENTACIONES_TIENDA.map((p) => {
+                  const activo = Number(litros) === p.litros;
+                  return (
+                    <button
+                      key={p.etiqueta}
+                      type="button"
+                      onClick={() => setLitros(String(p.litros))}
+                      className={`rounded-md border px-2.5 py-1.5 text-xs font-medium active:scale-95 ${
+                        activo
+                          ? "border-sky-700 bg-sky-700 text-white"
+                          : "border-zinc-300 bg-white text-zinc-700"
+                      }`}
+                    >
+                      {p.etiqueta}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="mt-2 flex items-center gap-2">
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  step={0.1}
+                  placeholder="20"
+                  value={litros}
+                  onChange={(e) => setLitros(e.target.value)}
+                  className="w-28 rounded-md border border-zinc-300 px-2 py-2 text-right text-base shadow-sm focus:border-zinc-900 focus:outline-none"
+                />
+                <span className="text-sm text-zinc-500">litros</span>
+              </div>
+              <p className="mt-1 text-[11px] text-zinc-500">
+                Si compraste dos garrafones, suma los litros: 40.
+              </p>
             </div>
             <div>
               <label className="text-xs text-zinc-600">
