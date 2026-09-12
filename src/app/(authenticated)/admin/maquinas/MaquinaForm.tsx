@@ -31,6 +31,8 @@ type Maquina = {
   estado: "operativa" | "mantenimiento" | "baja";
   tipo: "polvo_directo" | "preparado";
   requiere_pesaje: boolean;
+  requiere_agua?: boolean;
+  agua_capacidad_ml?: number;
   fecha_instalacion: string | null;
   notas: string | null;
   vaso_producto_id: string | null;
@@ -154,6 +156,42 @@ export default function MaquinaForm({
             />
             <span className="text-sm">Sí, esta máquina requiere pesaje siempre</span>
           </label>
+        </Field>
+
+        <Field
+          label="Lleva agua"
+          hint="Las máquinas de servicio (Smart Energy) no preparan bebida y no llevan tanque."
+        >
+          <label className="mt-1 flex items-center gap-2 rounded-md border border-zinc-300 px-3 py-2">
+            <input
+              type="checkbox"
+              name="requiere_agua"
+              value="true"
+              defaultChecked={maquina?.requiere_agua ?? true}
+              className="h-4 w-4"
+            />
+            <span className="text-sm">
+              Sí, el operador reporta su agua en cada visita
+            </span>
+          </label>
+        </Field>
+
+        <Field
+          label="Capacidad del tanque de agua (litros)"
+          hint="50 L de fábrica. Cámbialo solo si esta máquina trae un tanque distinto: de aquí salen las fracciones (¼, ½, ¾) que ve el operador."
+        >
+          <input
+            name="agua_capacidad_l"
+            type="number"
+            min={1}
+            step="0.5"
+            defaultValue={
+              maquina?.agua_capacidad_ml != null
+                ? maquina.agua_capacidad_ml / 1000
+                : 50
+            }
+            className="input"
+          />
         </Field>
 
         <Field
