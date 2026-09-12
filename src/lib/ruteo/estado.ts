@@ -31,6 +31,14 @@ export type MaquinaEstado = {
   vasos_disponibles: number;
   agua_dias: number | null;
   agua_sin_medicion: boolean;
+  /** Días desde la última carga de agua. null = nunca se le ha cargado. */
+  dias_sin_agua: number | null;
+  /**
+   * Días desde que el supervisor pisó esta máquina. null = nunca.
+   * El barrido de la camioneta se mide con esto: el objetivo es que Diego
+   * revise todo el parque en 5 semanas, y el agua es lo que lo lleva ahí.
+   */
+  dias_sin_supervision: number | null;
   incidencias_abiertas: number;
   quejas_abiertas: number;
   quejas_tecnicas_30d: number;
@@ -96,6 +104,17 @@ export async function construirEstado(): Promise<EstadoRuteo> {
   const hoy = hoyCDMX();
   const fecha = hoy.toISOString().slice(0, 10);
 
+  // Quién supervisa hoy. Sale del catálogo y no de un nombre escrito a mano:
+  // si mañana hay dos supervisores, el barrido los toma a los dos.
+  const { data: supervisores } = await supabase
+    .from("operadores_ruteo")
+    .select("operador_id")
+    .eq("puesto", "supervisor")
+    .eq("activo", true);
+  const idsSupervisores: string[] = (supervisores ?? []).map(
+    (s: { operador_id: string }) => s.operador_id,
+  );
+
   const [
     { data: sugerencias },
     { data: config },
@@ -106,6 +125,8 @@ export async function construirEstado(): Promise<EstadoRuteo> {
     { data: incidenciasRows },
     { data: maquinasRows },
     { data: ventasRows },
+    { data: visitasSupervisor },
+    { data: cargasAgua },
   ] = await Promise.all([
     supabase.rpc("sugerencia_ruteo_diaria"),
     supabase.from("config_global").select("clave, valor, tipo_dato"),
@@ -136,6 +157,21 @@ export async function construirEstado(): Promise<EstadoRuteo> {
       .from("maquinas")
       .select("id, vaso_inventario_actual")
       .eq("activo", true),
+    // Última visita del supervisor por máquina: el barrido de 5 semanas se
+    // mide contra esto, no contra la visita de cualquiera.
+    supabase
+      .from("check_ins")
+      .select("maquina_id, fecha_entrada")
+      .in("operador_id", idsSupervisores)
+      .order("fecha_entrada", { ascending: false })
+      .limit(2000),
+    // Última carga de agua por máquina: es lo que hace cumplible el barrido
+    // de 5 semanas sin que nadie tenga que acordarse de a quién le toca.
+    supabase
+      .from("agua_maquina_eventos")
+      .select("maquina_id, fecha")
+      .eq("tipo", "carga")
+      .order("fecha", { ascending: false }),
     // Venta diaria promedio de 30 días: es el desempate del prompt.
     supabase.rpc("venta_diaria_por_maquina_30d"),
   ]);
@@ -178,6 +214,26 @@ export async function construirEstado(): Promise<EstadoRuteo> {
     vasosPorMaquina.set(m.id, Number(m.vaso_inventario_actual ?? 0));
   }
 
+  // La consulta viene ordenada por fecha descendente: la primera de cada
+  // máquina es la última carga.
+  const ultimaSupervision = new Map<string, string>();
+  for (const v of visitasSupervisor ?? []) {
+    if (!ultimaSupervision.has(v.maquina_id)) {
+      ultimaSupervision.set(v.maquina_id, v.fecha_entrada);
+    }
+  }
+
+  const ultimaCargaAgua = new Map<string, string>();
+  for (const c of cargasAgua ?? []) {
+    if (!ultimaCargaAgua.has(c.maquina_id)) {
+      ultimaCargaAgua.set(c.maquina_id, c.fecha);
+    }
+  }
+  const diasDesde = (iso: string | undefined): number | null =>
+    iso == null
+      ? null
+      : Math.round(((Date.now() - new Date(iso).getTime()) / 86_400_000) * 10) / 10;
+
   const ventaPorMaquina = new Map<string, number>();
   for (const v of (ventasRows ?? []) as { maquina_id: string; venta_dia: number }[]) {
     ventaPorMaquina.set(v.maquina_id, Number(v.venta_dia ?? 0));
@@ -215,6 +271,8 @@ export async function construirEstado(): Promise<EstadoRuteo> {
         vasos_disponibles: vasosPorMaquina.get(m.maquina_id) ?? 0,
         agua_dias: agua?.dias ?? null,
         agua_sin_medicion: agua?.sin ?? true,
+        dias_sin_agua: diasDesde(ultimaCargaAgua.get(m.maquina_id)),
+        dias_sin_supervision: diasDesde(ultimaSupervision.get(m.maquina_id)),
         incidencias_abiertas: incidenciasPorMaquina.get(m.maquina_id) ?? 0,
         quejas_abiertas: quejas?.abiertas ?? 0,
         quejas_tecnicas_30d: quejas?.tecnicas ?? 0,

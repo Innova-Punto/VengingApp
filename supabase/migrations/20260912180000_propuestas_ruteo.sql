@@ -77,8 +77,19 @@ insert into public.config_global (clave, valor, tipo_dato, descripcion) values
   ('ruteo_horas_sin_venta_umbral', '12', 'numero',
    'Horas sin vender EN HORARIO DE OPERACION para considerar muda una maquina. 12 es el umbral que ya usa la alerta automatica; se mantiene uno solo para que la app y el agente no se contradigan.'),
   ('ruteo_vasos_minimo', '50', 'numero',
-   'Vasos disponibles a partir de los cuales la maquina entra como criterio de visita.')
+   'Vasos disponibles a partir de los cuales la maquina entra como criterio de visita.'),
+  ('ruteo_garrafones_por_parada', '2', 'numero',
+   'Garrafones que baja la camioneta por maquina: 40 L, lo que le cabe a un tanque medio vacio. Con 6 paradas da 12, justo la capacidad del vehiculo.'),
+  ('ruteo_semanas_barrido_agua', '5', 'numero',
+   'Semanas en las que el supervisor debe pasar por TODAS las maquinas. Es un barrido de SUPERVISION, no de agua: el objetivo es que el las revise todas en ese lapso; el agua es lo que lo lleva ahi. Se mide contra la ultima visita del supervisor, no contra la de cualquier operador. Las maquinas que consumen mas de un tanque en ese lapso las completa el operador comprando en la tienda; bajar ese gasto es el otro objetivo.')
 on conflict do nothing;
+
+-- La camioneta trabaja con otra logica: menos paradas y mas tiempo en cada una,
+-- porque ademas de surtir atiende incidencias, quejas escaladas y el agua.
+update public.operadores_ruteo
+   set max_paradas = 6,
+       notas = 'Supervisor con camioneta. Tope de 6 paradas: ademas de surtir atiende incidencias, quejas escaladas y reparte agua (2 garrafones por parada = 12, la capacidad del vehiculo). Lo que se le deja libre es su capacidad de reaccion.'
+ where puesto = 'supervisor';
 
 -- ── Venta diaria por máquina ────────────────────────────────────────────────
 -- El desempate del prompt: entre dos máquinas igual de urgentes y de cercanas,

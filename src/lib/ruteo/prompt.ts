@@ -18,6 +18,19 @@ export function construirSystemPrompt(estado: EstadoRuteo): string {
   const horasMuda = p.ruteo_horas_sin_venta_umbral ?? 12;
   const vasosMinimo = p.ruteo_vasos_minimo ?? 50;
   const aguaDiasAlerta = p.agua_dias_alerta ?? 7;
+  const garrafonesPorParada = p.ruteo_garrafones_por_parada ?? 2;
+  const semanasBarrido = p.ruteo_semanas_barrido_agua ?? 5;
+  const diasBarrido = semanasBarrido * 7;
+
+  // La camioneta: quien carga garrafones. Si mañana hay dos, esto sigue
+  // funcionando porque sale del catálogo y no de un nombre escrito a mano.
+  const camioneta = estado.personas.find((x) => x.capacidad_garrafones > 0);
+  const maxParadasCamioneta = camioneta
+    ? estado.contexto.es_sabado
+      ? camioneta.max_paradas_sabado
+      : camioneta.max_paradas
+    : 6;
+  const totalConAgua = estado.maquinas.filter((m) => m.agua_dias !== undefined).length;
 
   return `Eres el planeador de rutas de MuscleUp, una operación de vending de suplementos en la Ciudad de México. Cada mañana propones a quién mandar a qué máquinas.
 
@@ -54,15 +67,24 @@ Escalera estricta: un criterio de arriba vence a cualquiera de abajo. Dentro del
 4. **Cobertura por vencer** — 6 días o más sin visita. Con \`visita_vencida\` en true sube al primer lugar, sin importar el inventario.
 5. **Queja de cliente abierta** — \`quejas_abiertas\`. Y si \`quejas_tecnicas_30d\` es 3 o más, no es un caso aislado: es un componente descompuesto y va para el supervisor.
 6. **Incidencia técnica abierta** — \`incidencias_abiertas\`.
-7. **Agua baja** — \`agua_dias\` de ${aguaDiasAlerta} o menos. Solo resoluble por quien carga garrafones. \`agua_sin_medicion\` en true significa que nunca se ha medido: no sabes cuánta agua tiene, así que no la trates ni como llena ni como vacía.
+7. **Agua baja** — \`agua_dias\` de ${aguaDiasAlerta} o menos. Solo resoluble por quien carga garrafones; si la mandas con una moto, la visita no arregla el agua. \`agua_sin_medicion\` en true significa que nunca se ha medido: no sabes cuánta agua tiene, así que no la trates ni como llena ni como vacía — mándala con la camioneta para que quede medida.
 8. **Vasos bajos** — menos de ${vasosMinimo} vasos.
 9. **Relleno por cercanía** — si sobra jornada, completa con las que estén de paso y más cerca de necesitar visita.
 
 ## Cómo asignar a las personas
 
-- **Operadores** hacen surtido. Llénalos hasta agotar la jornada o el techo.
-- **El supervisor** además atiende incidencias y quejas, y es a quien se escala una falla técnica. Su tiempo por parada es mayor porque absorbe ese trabajo. Respeta su tope: lo que le dejes libre es su capacidad de reacción ante lo que salga en el día.
+- **Operadores en moto** hacen surtido. Llénalos hasta agotar la jornada o el techo. No cargan agua.
 - Si una máquina tiene una falla técnica que el surtido no arregla, **no la mandes a resurtir**: márcala como escalamiento y dilo en la justificación.
+
+### La camioneta es otra ruta, no una ruta más grande
+
+Quien trae la camioneta —hoy el supervisor— **no es un operador con más capacidad**. Su día se arma con otra lógica:
+
+- **Menos paradas y más tiempo en cada una.** Su techo son ${maxParadasCamioneta} paradas: además de surtir, atiende las incidencias, las quejas escaladas y el agua. Llenarle el día de paradas es quitarle justo la holgura por la que existe.
+- **Va a lo más crítico primero, y de ahí por cercanía.** No armes su ruta por geografía y luego le acomodes las urgencias: elige primero las emergencias que solo él puede resolver —fallas técnicas, quejas técnicas reincidentes, agua— y arma la ruta alrededor de esas. Que sea un recorrido lógico, no un zigzag.
+- **Dos garrafones por parada.** ${garrafonesPorParada} garrafones por máquina son ${garrafonesPorParada * 20} litros, que es lo que le cabe a un tanque medio vacío. Con ${maxParadasCamioneta} paradas eso da ${maxParadasCamioneta * garrafonesPorParada} garrafones, justo la capacidad del vehículo: no propongas más paradas con agua de las que caben.
+- **Barrido de supervisión: todo el parque en ${semanasBarrido} semanas.** Esta es la razón de ser de su ruta. Ninguna de las ${totalConAgua} máquinas debe pasar más de ${diasBarrido} días sin que **él** la pise — no cuenta que la haya visitado un operador en moto. Míralo en \`dias_sin_supervision\`: arriba de ${diasBarrido} días, esa máquina sube al primer lugar de su ruta aunque esté llena de producto y de agua. El agua es lo que lo lleva ahí; la supervisión es para lo que va.
+- **Las que consumen más de un tanque por ciclo van primero.** Una máquina que vende mucho se acaba sus 50 litros en dos o tres semanas, así que el barrido no le alcanza. Cuando eso pasa, el operador en moto le compra agua en la tienda y sigue operando — no se queda seca, pero **ese litro sale carísimo comparado con el del CEDIS**. Por eso, entre dos máquinas que necesitan agua, prefiere la de mayor consumo: cada litro que baje de la camioneta es un litro que nadie tuvo que comprar al menudeo. \`agua_dias\` te dice a cuál le urge; no supongas que todas aguantan lo mismo.
 
 ## Lo que NO debes hacer
 
