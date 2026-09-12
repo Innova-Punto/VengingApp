@@ -15,10 +15,12 @@
 -- La vista se dropea y se recrea porque cambia su lista de columnas.
 -- ============================================================================
 
+-- La vista se dropea PRIMERO: depende de la columna y Postgres no deja
+-- quitarla mientras exista algo que la use.
+drop view if exists public.v_agua_origen_30d;
+
 alter table public.agua_maquina_eventos     drop column if exists costo_referencia;
 alter table public.agua_almacen_movimientos drop column if exists costo_referencia;
-
-drop view if exists public.v_agua_origen_30d;
 
 create view public.v_agua_origen_30d as
 select coalesce(sum(ml_cargados) filter (where origen = 'almacen'), 0) / 1000         as litros_almacen,

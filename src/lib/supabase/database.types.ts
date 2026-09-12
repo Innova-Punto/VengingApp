@@ -17,7 +17,6 @@ export type Database = {
       agua_almacen_movimientos: {
         Row: {
           asignacion_id: string | null
-          costo_referencia: number | null
           created_at: string
           created_by: string | null
           fecha: string
@@ -31,7 +30,6 @@ export type Database = {
         }
         Insert: {
           asignacion_id?: string | null
-          costo_referencia?: number | null
           created_at?: string
           created_by?: string | null
           fecha?: string
@@ -45,7 +43,6 @@ export type Database = {
         }
         Update: {
           asignacion_id?: string | null
-          costo_referencia?: number | null
           created_at?: string
           created_by?: string | null
           fecha?: string
@@ -91,7 +88,6 @@ export type Database = {
       agua_maquina_eventos: {
         Row: {
           check_in_id: string | null
-          costo_referencia: number | null
           created_at: string
           created_by: string | null
           fecha: string
@@ -109,7 +105,6 @@ export type Database = {
         }
         Insert: {
           check_in_id?: string | null
-          costo_referencia?: number | null
           created_at?: string
           created_by?: string | null
           fecha?: string
@@ -127,7 +122,6 @@ export type Database = {
         }
         Update: {
           check_in_id?: string | null
-          costo_referencia?: number | null
           created_at?: string
           created_by?: string | null
           fecha?: string
@@ -5182,6 +5176,7 @@ export type Database = {
         Row: {
           agua_capacidad_ml: number | null
           alias: string | null
+          carga_excede_capacidad: boolean | null
           dias_para_vaciarse: number | null
           maquina_id: string | null
           ml_cargados_desde: number | null
@@ -5198,7 +5193,6 @@ export type Database = {
       v_agua_origen_30d: {
         Row: {
           garrafones_almacen: number | null
-          gasto_operadores_reportado: number | null
           litros_almacen: number | null
           litros_compra_operador: number | null
           maquinas_surtidas_en_tienda: number | null
