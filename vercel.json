@@ -8,10 +8,6 @@
     {
       "path": "/api/health-check/daily",
       "schedule": "0 13 * * *"
-    },
-    {
-      "path": "/api/ruteo/generar",
-      "schedule": "0 12 * * *"
     }
   ]
 }

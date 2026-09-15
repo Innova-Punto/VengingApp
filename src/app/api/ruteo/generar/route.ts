@@ -14,9 +14,15 @@ export const maxDuration = 300;
 /**
  * Corrida del agente de ruteo.
  *
- * La dispara el cron de Vercel a las 6:00 CDMX (12:00 UTC) para que la
- * propuesta esté lista antes de que llegue cualquiera. El botón de la pantalla
- * de planeación llama a la Server Action, no a este endpoint.
+ * **El cron está apagado a propósito** (decisión de dirección, sep-2026): el
+ * agente arranca solo con el botón de la pantalla de planeación, hasta ver un
+ * par de propuestas y decidir si vale la pena que corra solo. Para encenderlo,
+ * basta con devolver esta entrada a `vercel.json`:
+ *
+ *   { "path": "/api/ruteo/generar", "schedule": "0 12 * * *" }   // 6:00 CDMX
+ *
+ * Este endpoint queda listo y protegido con CRON_SECRET; mientras tanto sirve
+ * para dispararlo a mano desde fuera si hiciera falta.
  */
 export async function GET(request: Request) {
   noStore();
