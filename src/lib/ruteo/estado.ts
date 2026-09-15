@@ -26,6 +26,8 @@ export type MaquinaEstado = {
   horas_sin_venta: number | null;
   abierta_ahora: boolean;
   dias_sin_visita: number | null;
+  /** Cada máquina tiene la suya en el catálogo. Hoy todas están en 3 días. */
+  frecuencia_visita_dias: number | null;
   visita_vencida: boolean;
   venta_diaria_mxn: number;
   vasos_disponibles: number;
@@ -266,6 +268,8 @@ export async function construirEstado(): Promise<EstadoRuteo> {
         abierta_ahora: !!m.abierta_ahora,
         dias_sin_visita:
           m.dias_sin_visita != null ? Number(m.dias_sin_visita) : null,
+        frecuencia_visita_dias:
+          m.frecuencia_dias != null ? Number(m.frecuencia_dias) : null,
         visita_vencida: !!m.visita_vencida,
         venta_diaria_mxn: Math.round(ventaPorMaquina.get(m.maquina_id) ?? 0),
         vasos_disponibles: vasosPorMaquina.get(m.maquina_id) ?? 0,
