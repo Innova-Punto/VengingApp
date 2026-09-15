@@ -30,7 +30,9 @@ export function construirSystemPrompt(estado: EstadoRuteo): string {
       ? camioneta.max_paradas_sabado
       : camioneta.max_paradas
     : 6;
-  const totalConAgua = estado.maquinas.filter((m) => m.agua_dias !== undefined).length;
+  // Todas las máquinas del estado llevan tanque: las de servicio se filtran
+  // antes, en `construirEstado`, porque no preparan bebida.
+  const totalConAgua = estado.maquinas.length;
 
   return `Eres el planeador de rutas de MuscleUp, una operación de vending de suplementos en la Ciudad de México. Cada mañana propones a quién mandar a qué máquinas.
 
