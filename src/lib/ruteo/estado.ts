@@ -90,6 +90,25 @@ const DIAS = [
   "sábado",
 ];
 
+/**
+ * Lanza todas las consultas a la vez, pero las entrega **por nombre**.
+ *
+ * Antes esto era un `Promise.all` con destructuring posicional, y al agregar
+ * dos consultas en medio de la lista se desalinearon en silencio: a la venta
+ * diaria le llegaban los check-ins, a la supervisión las cargas de agua y al
+ * agua las ventas. Cada campo recibía los datos del vecino y nadie tronaba.
+ * Por nombre, ese error no se puede cometer.
+ */
+async function enParalelo<T extends Record<string, Promise<unknown>>>(
+  consultas: T,
+): Promise<{ [K in keyof T]: Awaited<T[K]> }> {
+  const claves = Object.keys(consultas);
+  const valores = await Promise.all(Object.values(consultas));
+  return Object.fromEntries(
+    claves.map((k, i) => [k, valores[i]]),
+  ) as { [K in keyof T]: Awaited<T[K]> };
+}
+
 /** Fecha de hoy en CDMX, que es el día que se está planeando. */
 export function hoyCDMX(): Date {
   const s = new Date().toLocaleString("en-US", {
@@ -117,27 +136,15 @@ export async function construirEstado(): Promise<EstadoRuteo> {
     (s: { operador_id: string }) => s.operador_id,
   );
 
-  const [
-    { data: sugerencias, error: errorSugerencias },
-    { data: config },
-    { data: cedisRows },
-    { data: operadores },
-    { data: aguaRows },
-    { data: quejasRows },
-    { data: incidenciasRows },
-    { data: maquinasRows },
-    { data: ventasRows },
-    { data: visitasSupervisor },
-    { data: cargasAgua },
-  ] = await Promise.all([
-    supabase.rpc("sugerencia_ruteo_diaria"),
-    supabase.from("config_global").select("clave, valor, tipo_dato"),
-    supabase
+  const r = await enParalelo({
+    sugerencias: supabase.rpc("sugerencia_ruteo_diaria"),
+    config: supabase.from("config_global").select("clave, valor, tipo_dato"),
+    cedisRows: supabase
       .from("centros_distribucion")
       .select("nombre, lat, lng, minutos_carga")
       .eq("activo", true)
       .limit(1),
-    supabase
+    operadores: supabase
       .from("operadores_ruteo")
       .select(
         `operador_id, puesto, max_paradas, max_paradas_sabado, min_en_sitio_estimado,
@@ -145,23 +152,23 @@ export async function construirEstado(): Promise<EstadoRuteo> {
          vehiculo:vehiculos(identificador, tipo, capacidad_cartuchos, capacidad_garrafones, regresa_a_resguardo)`,
       )
       .eq("activo", true),
-    supabase
+    aguaRows: supabase
       .from("v_agua_maquina")
       .select("maquina_id, dias_para_vaciarse, sin_medicion"),
-    supabase
+    quejasRows: supabase
       .from("v_quejas_por_maquina")
       .select("maquina_id, quejas_abiertas, quejas_tecnicas_30d"),
-    supabase
+    incidenciasRows: supabase
       .from("incidencias")
       .select("maquina_id")
       .in("estado", ["abierta", "en_revision"]),
-    supabase
+    maquinasRows: supabase
       .from("maquinas")
       .select("id, vaso_inventario_actual")
       .eq("activo", true),
     // Última visita del supervisor por máquina: el barrido de 5 semanas se
     // mide contra esto, no contra la visita de cualquiera.
-    supabase
+    visitasSupervisor: supabase
       .from("check_ins")
       .select("maquina_id, fecha_entrada")
       .in("operador_id", idsSupervisores)
@@ -169,14 +176,28 @@ export async function construirEstado(): Promise<EstadoRuteo> {
       .limit(2000),
     // Última carga de agua por máquina: es lo que hace cumplible el barrido
     // de 5 semanas sin que nadie tenga que acordarse de a quién le toca.
-    supabase
+    cargasAgua: supabase
       .from("agua_maquina_eventos")
       .select("maquina_id, fecha")
       .eq("tipo", "carga")
       .order("fecha", { ascending: false }),
     // Venta diaria promedio de 30 días: es el desempate del prompt.
-    supabase.rpc("venta_diaria_por_maquina_30d"),
-  ]);
+    ventasRows: supabase.rpc("venta_diaria_por_maquina_30d"),
+  });
+
+  // Cada consulta se lee por su nombre, no por su posición en la lista.
+  const sugerencias = r.sugerencias.data;
+  const errorSugerencias = r.sugerencias.error;
+  const config = r.config.data;
+  const cedisRows = r.cedisRows.data;
+  const operadores = r.operadores.data;
+  const aguaRows = r.aguaRows.data;
+  const quejasRows = r.quejasRows.data;
+  const incidenciasRows = r.incidenciasRows.data;
+  const maquinasRows = r.maquinasRows.data;
+  const visitasSupervisor = r.visitasSupervisor.data;
+  const cargasAgua = r.cargasAgua.data;
+  const ventasRows = r.ventasRows.data;
 
   // Si la consulta del parque falla, se truena aquí y se dice por qué. La
   // versión anterior se tragaba el error y le entregaba al modelo un catálogo
