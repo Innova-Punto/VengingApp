@@ -33,7 +33,12 @@ export default async function AgentePage({
   // Nombres de máquina: el plan guarda ids, y un uuid no le dice nada a nadie.
   const plan = (propuesta?.plan ?? []) as PlanRuta[];
   const ids = new Set<string>();
-  for (const r of plan) for (const p of r.paradas) ids.add(p.maquina_id);
+  for (const r of plan) {
+    for (const p of r.paradas) ids.add(p.maquina_id);
+    // Las recortadas también llevan nombre: un pedazo de uuid no le dice nada
+    // a nadie, y son justo las que hay que mirar para decidir si mover algo.
+    for (const c of r.recortadas) ids.add(c.maquina_id);
+  }
   for (const e of (propuesta?.escalamientos ?? []) as { maquina_id: string }[]) {
     ids.add(e.maquina_id);
   }
