@@ -190,9 +190,15 @@ export function ordenarYValidar(
   // orden óptimo cambia al quitar una parada, así que no basta con restar.
   while (resultado.horas > params.horasJornada && trabajo.length > 0) {
     const menos = [...trabajo].sort((a, b) => b.prioridad - a.prioridad)[0];
+    // En minutos y no en horas redondeadas: "daba 4.0 h y la jornada es de 4 h"
+    // se lee como un absurdo cuando en realidad se pasaba por dos minutos.
+    const excedeMin = Math.max(
+      1,
+      Math.round((resultado.horas - params.horasJornada) * 60),
+    );
     recortadas.push({
       maquina_id: menos.maquina_id,
-      motivo: `La ruta daba ${resultado.horas.toFixed(1)} h y la jornada es de ${params.horasJornada} h.`,
+      motivo: `La ruta se pasaba ${excedeMin} min de la jornada de ${params.horasJornada} h (daba ${resultado.horas.toFixed(2)} h).`,
     });
     trabajo = trabajo.filter((p) => p.maquina_id !== menos.maquina_id);
     resultado = calcular(trabajo);
