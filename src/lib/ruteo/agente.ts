@@ -127,17 +127,29 @@ export async function correrAgente(
   const client = new Anthropic();
   const inicio = Date.now();
 
-  const respuestaApi = await client.messages.create({
+  // En streaming y no de un jalón: la respuesta es larga —cuatro rutas con su
+  // motivo, escalamientos y notas— y una petición que tarda minutos sin decir
+  // nada se corta sola. El stream mantiene viva la conexión mientras escribe.
+  const stream = client.messages.stream({
     model: MODELO,
     max_tokens: 16000,
     system: construirSystemPrompt(estado),
     messages: [{ role: "user", content: construirMensajeUsuario(estado) }],
   });
+  const respuestaApi = await stream.finalMessage();
 
   const duracionMs = Date.now() - inicio;
 
   if (respuestaApi.stop_reason === "refusal") {
     throw new Error("El modelo declinó la solicitud.");
+  }
+
+  // Se quedó sin espacio a media respuesta: el JSON viene cortado y al
+  // intentar leerlo sale un error de sintaxis que no explica nada. Ya pasó.
+  if (respuestaApi.stop_reason === "max_tokens") {
+    throw new Error(
+      "La respuesta del modelo se cortó por longitud: el plan quedó incompleto. Vuelve a intentar; si se repite, hay que subir el tope de tokens.",
+    );
   }
 
   const texto = respuestaApi.content

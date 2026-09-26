@@ -14,6 +14,13 @@ import { aceptarPropuesta, generarPropuesta } from "./actions";
 
 export const metadata = { title: "Propuesta del agente · Innovaypunto" };
 export const dynamic = "force-dynamic";
+/**
+ * El botón corre el agente dentro de esta ruta, y una corrida tarda entre dos
+ * y tres minutos. Sin este techo, la función se moría a media corrida: el
+ * usuario veía la animación para siempre y en la base no aparecía nada, ni
+ * siquiera el error, porque el proceso se mataba antes de poder escribirlo.
+ */
+export const maxDuration = 300;
 
 type MaquinaRef = {
   serie: string;
