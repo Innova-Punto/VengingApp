@@ -118,7 +118,7 @@ export async function construirEstado(): Promise<EstadoRuteo> {
   );
 
   const [
-    { data: sugerencias },
+    { data: sugerencias, error: errorSugerencias },
     { data: config },
     { data: cedisRows },
     { data: operadores },
@@ -177,6 +177,16 @@ export async function construirEstado(): Promise<EstadoRuteo> {
     // Venta diaria promedio de 30 días: es el desempate del prompt.
     supabase.rpc("venta_diaria_por_maquina_30d"),
   ]);
+
+  // Si la consulta del parque falla, se truena aquí y se dice por qué. La
+  // versión anterior se tragaba el error y le entregaba al modelo un catálogo
+  // vacío: el agente contestaba "no hay máquinas" y parecía que el parque
+  // estaba vacío, cuando lo que estaba roto era la consulta.
+  if (errorSugerencias) {
+    throw new Error(
+      `No se pudo leer el estado de las máquinas: ${errorSugerencias.message}`,
+    );
+  }
 
   const parametros: Record<string, number> = {};
   for (const c of config ?? []) {
