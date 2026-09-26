@@ -79,15 +79,9 @@ export default async function AgentePage({
             ruta como siempre — nada se bloquea.
           </p>
         </div>
-        <div className="text-right">
-          <form action={generarPropuesta}>
-            <GenerarButton />
-          </form>
-          <p className="mt-1 text-xs text-zinc-500">
-            Tarda entre 10 y 40 segundos. No le piques dos veces: cada corrida
-            cuesta.
-          </p>
-        </div>
+        <form action={generarPropuesta}>
+          <GenerarButton />
+        </form>
       </div>
 
       {searchParams.error && (
