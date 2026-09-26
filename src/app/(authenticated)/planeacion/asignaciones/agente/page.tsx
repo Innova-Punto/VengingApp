@@ -6,6 +6,7 @@ import type { PlanRuta } from "@/lib/ruteo/correr";
 import { createClient } from "@/lib/supabase/server";
 
 import DescartarForm from "./DescartarForm";
+import GenerarButton from "./GenerarButton";
 import { aceptarPropuesta, generarPropuesta } from "./actions";
 
 export const metadata = { title: "Propuesta del agente · Innovaypunto" };
@@ -78,14 +79,15 @@ export default async function AgentePage({
             ruta como siempre — nada se bloquea.
           </p>
         </div>
-        <form action={generarPropuesta}>
-          <button
-            type="submit"
-            className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
-          >
-            Generar propuesta ahora
-          </button>
-        </form>
+        <div className="text-right">
+          <form action={generarPropuesta}>
+            <GenerarButton />
+          </form>
+          <p className="mt-1 text-xs text-zinc-500">
+            Tarda entre 10 y 40 segundos. No le piques dos veces: cada corrida
+            cuesta.
+          </p>
+        </div>
       </div>
 
       {searchParams.error && (
