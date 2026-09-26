@@ -48,6 +48,13 @@ export async function correrPropuesta(opts: {
     if (estado.personas.length === 0) {
       throw new Error("No hay personas activas en el catálogo de ruteo.");
     }
+    // Nunca pedirle un plan al modelo sobre un parque vacío: no es que no haya
+    // máquinas, es que algo falló al leerlas. Cuesta dinero y confunde.
+    if (estado.maquinas.length === 0) {
+      throw new Error(
+        "El catálogo de máquinas llegó vacío. No se le pide plan al modelo con un parque vacío: revisa la consulta antes de volver a intentar.",
+      );
+    }
 
     const corrida = await correrAgente(estado);
 
