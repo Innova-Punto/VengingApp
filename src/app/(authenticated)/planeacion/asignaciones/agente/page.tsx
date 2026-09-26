@@ -6,13 +6,21 @@ import type { PlanRuta } from "@/lib/ruteo/correr";
 import { createClient } from "@/lib/supabase/server";
 
 import DescartarForm from "./DescartarForm";
+import { COLORES } from "./colores";
+import type { FueraMapa, RutaMapa } from "./MapaRutas";
+import MapaRutasLazy from "./MapaRutasLazy";
 import GenerarButton from "./GenerarButton";
 import { aceptarPropuesta, generarPropuesta } from "./actions";
 
 export const metadata = { title: "Propuesta del agente · Innovaypunto" };
 export const dynamic = "force-dynamic";
 
-type MaquinaRef = { serie: string; alias: string | null };
+type MaquinaRef = {
+  serie: string;
+  alias: string | null;
+  lat: number | null;
+  lng: number | null;
+};
 
 export default async function AgentePage({
   searchParams,
@@ -49,11 +57,22 @@ export default async function AgentePage({
   const { data: maquinas } = ids.size
     ? await supabase
         .from("maquinas")
-        .select("id, serie, alias")
+        .select("id, serie, alias, ubicacion:ubicaciones(lat, lng)")
         .in("id", Array.from(ids))
     : { data: [] };
   const porId = new Map<string, MaquinaRef>(
-    (maquinas ?? []).map((m) => [m.id, { serie: m.serie, alias: m.alias }]),
+    (maquinas ?? []).map((m) => {
+      const u = Array.isArray(m.ubicacion) ? m.ubicacion[0] : m.ubicacion;
+      return [
+        m.id,
+        {
+          serie: m.serie,
+          alias: m.alias,
+          lat: u?.lat ?? null,
+          lng: u?.lng ?? null,
+        },
+      ];
+    }),
   );
   const nombre = (id: string) => {
     const m = porId.get(id);
@@ -65,6 +84,59 @@ export default async function AgentePage({
   const recortadas = plan.flatMap((r) =>
     r.recortadas.map((c) => ({ ...c, operador: r.operador_nombre })),
   );
+
+  // ── Mapa ──────────────────────────────────────────────────────────────────
+  // El CEDIS es de donde salen todas y a donde cierra la camioneta: sin él la
+  // secuencia no se entiende, porque la primera parada no es el principio.
+  const { data: cedisRow } = await supabase
+    .from("centros_distribucion")
+    .select("lat, lng")
+    .eq("activo", true)
+    .limit(1)
+    .maybeSingle();
+  const cedis = cedisRow
+    ? { lat: Number(cedisRow.lat), lng: Number(cedisRow.lng) }
+    : null;
+
+  const conCoords = (id: string) => {
+    const m = porId.get(id);
+    return m?.lat != null && m?.lng != null
+      ? { lat: m.lat, lng: m.lng }
+      : null;
+  };
+
+  const rutasMapa: RutaMapa[] = plan.map((r) => ({
+    operador_id: r.operador_id,
+    operador_nombre: r.operador_nombre,
+    vehiculo: r.vehiculo,
+    lleva_agua: r.lleva_agua,
+    km_total: r.km_total,
+    horas_estimadas: r.horas_estimadas,
+    // Hoy solo la camioneta cierra en el CEDIS; se deduce de quién lleva agua.
+    regresa_a_resguardo: r.lleva_agua,
+    paradas: r.paradas.flatMap((p) => {
+      const c = conCoords(p.maquina_id);
+      return c
+        ? [{
+            maquina_id: p.maquina_id,
+            nombre: nombre(p.maquina_id),
+            orden: p.orden,
+            motivo: p.motivo,
+            km_desde_anterior: p.km_desde_anterior,
+            ...c,
+          }]
+        : [];
+    }),
+  }));
+
+  const sinAtenderMapa: FueraMapa[] = (
+    (propuesta?.sin_atender ?? []) as { maquina_id: string; motivo: string }[]
+  ).flatMap((f) => {
+    const c = conCoords(f.maquina_id);
+    return c
+      ? [{ maquina_id: f.maquina_id, nombre: nombre(f.maquina_id), motivo: f.motivo, ...c }]
+      : [];
+  });
 
   return (
     <div className="space-y-6">
@@ -157,14 +229,52 @@ export default async function AgentePage({
             </div>
           )}
 
+          {/* ── Mapa ───────────────────────────────────────────────────────── */}
+          {rutasMapa.some((r) => r.paradas.length > 0) && (
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                {rutasMapa.map((r, i) => (
+                  <span key={r.operador_id} className="flex items-center gap-1.5">
+                    <span
+                      className="inline-block h-3 w-3 rounded-full"
+                      style={{ backgroundColor: COLORES[i % COLORES.length] }}
+                    />
+                    <span className="font-medium">{r.operador_nombre}</span>
+                    <span className="text-zinc-500">
+                      {r.paradas.length} paradas · {r.km_total} km
+                    </span>
+                  </span>
+                ))}
+                {sinAtenderMapa.length > 0 && (
+                  <span className="flex items-center gap-1.5 text-zinc-500">
+                    <span className="inline-block h-3 w-3 rounded-full border border-zinc-400 bg-zinc-300" />
+                    sin atender hoy
+                  </span>
+                )}
+              </div>
+              <MapaRutasLazy
+                rutas={rutasMapa}
+                cedis={cedis}
+                sinAtender={sinAtenderMapa}
+              />
+              <p className="text-xs text-zinc-500">
+                El número es el orden de la parada. Las líneas salen del CEDIS;
+                la de la camioneta cierra ahí de regreso.
+              </p>
+            </div>
+          )}
+
           {/* ── Rutas ──────────────────────────────────────────────────────── */}
           <div className="space-y-4">
-            {plan.map((ruta) => (
+            {plan.map((ruta, i) => (
               <section
                 key={ruta.operador_id}
                 className="overflow-hidden rounded-lg border border-zinc-200 bg-white"
               >
-                <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-zinc-200 bg-zinc-50 px-4 py-3">
+                <div
+                  className="flex flex-wrap items-baseline justify-between gap-2 border-b border-zinc-200 bg-zinc-50 px-4 py-3 border-l-4"
+                  style={{ borderLeftColor: COLORES[i % COLORES.length] }}
+                >
                   <div>
                     <span className="font-semibold">{ruta.operador_nombre}</span>
                     <span className="ml-2 text-xs text-zinc-500">
