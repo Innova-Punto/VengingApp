@@ -102,7 +102,14 @@ export default function CampanaForm({
       .filter((x): x is { item: RecetaUI["items"][number]; gramos: number } => !!x);
   }, [receta, tolva]);
 
-  function bebida(id: string, base: { nombre: string; precio: number | null; gramos: number }) {
+  type Base = {
+    nombre: string;
+    precio: number | null;
+    gramos: number;
+    ingredientes: { tolva_numero: number; gramos: number }[];
+  };
+
+  function bebida(id: string, base: Base): BebidaCampana {
     return (
       bebidas[id] ?? {
         receta_item_id: id,
@@ -112,12 +119,38 @@ export default function CampanaForm({
         nombre_nuevo: "",
         precio_nuevo: base.precio,
         gramos_nuevos: base.gramos,
+        // Arranca con la receta tal como está hoy: lo que no se toque, no cambia.
+        ingredientes: base.ingredientes.map((i) => ({
+          tolva_numero: i.tolva_numero,
+          gramos_anteriores: i.gramos,
+          gramos_nuevos: i.gramos,
+        })),
       }
     );
   }
 
-  function setBebida(id: string, cambios: Partial<BebidaCampana>, base: { nombre: string; precio: number | null; gramos: number }) {
+  function setBebida(id: string, cambios: Partial<BebidaCampana>, base: Base) {
     setBebidas((prev) => ({ ...prev, [id]: { ...bebida(id, base), ...cambios } }));
+  }
+
+  /** Cambia los gramos de una tolva en una bebida. Vacío = el ingrediente sale. */
+  function setIngrediente(id: string, base: Base, tolvaNumero: number, valor: string) {
+    const actual = bebida(id, base);
+    const gramos = valor.trim() === "" ? null : Number(valor);
+    const previo =
+      base.ingredientes.find((i) => i.tolva_numero === tolvaNumero)?.gramos ?? null;
+
+    const resto = actual.ingredientes.filter((i) => i.tolva_numero !== tolvaNumero);
+    setBebida(
+      id,
+      {
+        ingredientes: [
+          ...resto,
+          { tolva_numero: tolvaNumero, gramos_anteriores: previo, gramos_nuevos: gramos },
+        ].sort((a, b) => a.tolva_numero - b.tolva_numero),
+      },
+      base,
+    );
   }
 
   function enviar() {
@@ -250,68 +283,110 @@ export default function CampanaForm({
             )}
           </div>
 
-          <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
-            <div className="border-b border-zinc-200 bg-zinc-50 px-4 py-3">
+          <div className="space-y-3">
+            <div>
               <h3 className="text-sm font-semibold">Bebidas que usan esa tolva</h3>
               <p className="text-xs text-zinc-600">
-                Escribe el nombre nuevo solo de las que cambian de sabor. Las que dejes en blanco
-                se quedan como están.
+                Escribe el nombre nuevo solo de las que cambian de sabor; las que dejes en
+                blanco se quedan igual. Y ajusta la receta completa si el sabor nuevo pide
+                otro balance — no solo la tolva que se sustituye.
               </p>
             </div>
-            <table className="w-full text-sm">
-              <thead className="border-b border-zinc-200 text-left text-xs text-zinc-500">
-                <tr>
-                  <th className="px-4 py-2 font-medium">Se llama hoy</th>
-                  <th className="px-4 py-2 font-medium">Pasa a llamarse</th>
-                  <th className="px-4 py-2 font-medium">Precio</th>
-                  <th className="px-4 py-2 font-medium">Gramos de la tolva {tolva}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100">
-                {bebidasAfectadas.map(({ item, gramos }) => {
-                  const base = { nombre: item.nombre, precio: item.precio_venta, gramos };
-                  const b = bebida(item.id, base);
-                  return (
-                    <tr key={item.id}>
-                      <td className="px-4 py-2 text-xs text-zinc-600">{item.nombre}</td>
-                      <td className="px-4 py-2">
-                        <input
-                          value={b.nombre_nuevo}
-                          onChange={(e) => setBebida(item.id, { nombre_nuevo: e.target.value }, base)}
-                          placeholder="dejar en blanco = no cambia"
-                          className="w-56 rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
-                        />
-                      </td>
-                      <td className="px-4 py-2">
-                        <input
-                          type="number"
-                          step="0.01"
-                          min={0}
-                          value={b.precio_nuevo ?? ""}
-                          onChange={(e) =>
-                            setBebida(item.id, { precio_nuevo: e.target.value ? Number(e.target.value) : null }, base)
-                          }
-                          className="w-24 rounded-md border border-zinc-300 px-2 py-1.5 text-right text-sm"
-                        />
-                      </td>
-                      <td className="px-4 py-2">
-                        <input
-                          type="number"
-                          min={1}
-                          step={1}
-                          value={b.gramos_nuevos ?? ""}
-                          onChange={(e) =>
-                            setBebida(item.id, { gramos_nuevos: e.target.value ? Number(e.target.value) : null }, base)
-                          }
-                          className="w-20 rounded-md border border-zinc-300 px-2 py-1.5 text-right text-sm"
-                        />
-                        <span className="ml-1 text-xs text-zinc-400">antes {gramos}g</span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+
+            {bebidasAfectadas.map(({ item, gramos }) => {
+              const base = {
+                nombre: item.nombre,
+                precio: item.precio_venta,
+                gramos,
+                ingredientes: item.ingredientes,
+              };
+              const b = bebida(item.id, base);
+              const valorDe = (t: number) => {
+                const ing = b.ingredientes.find((i) => i.tolva_numero === t);
+                return ing?.gramos_nuevos ?? "";
+              };
+              const antesDe = (t: number) =>
+                item.ingredientes.find((i) => i.tolva_numero === t)?.gramos ?? null;
+
+              return (
+                <div
+                  key={item.id}
+                  className="space-y-3 rounded-lg border border-zinc-200 bg-white p-4"
+                >
+                  <div className="flex flex-wrap items-end gap-3">
+                    <div className="min-w-48 flex-1">
+                      <label className="text-xs text-zinc-500">{item.nombre}</label>
+                      <input
+                        value={b.nombre_nuevo}
+                        onChange={(e) => setBebida(item.id, { nombre_nuevo: e.target.value }, base)}
+                        placeholder="dejar en blanco = no cambia"
+                        className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-zinc-500">Precio</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min={0}
+                        value={b.precio_nuevo ?? ""}
+                        onChange={(e) =>
+                          setBebida(
+                            item.id,
+                            { precio_nuevo: e.target.value ? Number(e.target.value) : null },
+                            base,
+                          )
+                        }
+                        className="mt-1 w-24 rounded-md border border-zinc-300 px-2 py-1.5 text-right text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                      Receta · gramos por tolva
+                    </div>
+                    <div className="mt-1 flex flex-wrap gap-2">
+                      {tolvasDeLaReceta.map((t) => {
+                        const antes = antesDe(t);
+                        const esLaQueCambia = t === tolva;
+                        return (
+                          <div
+                            key={t}
+                            className={`rounded-md border px-2 py-1.5 ${
+                              esLaQueCambia
+                                ? "border-orange-300 bg-orange-50"
+                                : "border-zinc-200 bg-white"
+                            }`}
+                          >
+                            <div className="text-[10px] font-medium text-zinc-500">
+                              Tolva {t}
+                              {esLaQueCambia && " · cambia"}
+                            </div>
+                            <input
+                              type="number"
+                              min={1}
+                              step={1}
+                              value={valorDe(t)}
+                              onChange={(e) => setIngrediente(item.id, base, t, e.target.value)}
+                              placeholder="—"
+                              className="w-16 rounded border border-zinc-300 px-1.5 py-1 text-right text-sm"
+                            />
+                            <div className="text-[10px] text-zinc-400">
+                              {antes != null ? `antes ${antes}g` : "no la usaba"}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <p className="mt-1 text-[11px] text-zinc-500">
+                      Vacío = ese ingrediente sale de la bebida. Un número donde antes no había
+                      = ingrediente nuevo.
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </>
       )}
