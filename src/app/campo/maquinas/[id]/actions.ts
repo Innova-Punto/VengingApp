@@ -398,10 +398,13 @@ export async function ejecutarSustitucion(input: {
           "Falta confirmar que ya cambiaste el letrero de la pantalla. Es lo único que el cliente ve: si el polvo cambia y el letrero no, compra un sabor y recibe otro.",
       };
     }
-    const { error: errLetrero } = await supabase
-      .from("sustituciones_tolva")
-      .update({ letrero_confirmado: true })
-      .eq("id", input.sustitucionId);
+    // Por RPC y no con un update directo: la policy de `sustituciones_tolva`
+    // no deja escribir al operador, y un update bloqueado por RLS no falla —
+    // simplemente no afecta renglones. Eso hacía que la casilla se marcara en
+    // la pantalla, no se guardara, y el cierre reventara contra el check.
+    const { error: errLetrero } = await supabase.rpc("op_confirmar_letrero", {
+      p_sustitucion_id: input.sustitucionId,
+    });
     if (errLetrero) return { ok: false, message: errLetrero.message };
   }
 
