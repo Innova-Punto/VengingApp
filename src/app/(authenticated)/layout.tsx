@@ -65,6 +65,11 @@ const NAV_GROUPS: GroupDef[] = [
       },
       { label: "Surtidos", href: "/planeacion/surtidos" },
       { label: "Sustituciones", href: "/planeacion/sustituciones" },
+      {
+        label: "Campañas de temporada",
+        href: "/planeacion/campanas",
+        roles: ["admin", "direccion", "planeador"],
+      },
       { label: "Devoluciones", href: "/almacen/devoluciones" },
     ],
   },
