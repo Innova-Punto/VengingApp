@@ -361,6 +361,12 @@ export async function ejecutarSustitucion(input: {
   /** Ruta de la foto ya subida desde el cliente (`bucket/path.ext`). */
   fotoPath: string | null;
   notas: string | null;
+  /**
+   * El operador confirma que ya cambió el letrero de la pantalla Nayax.
+   * Solo se exige en sustituciones de campaña de temporada: son las que
+   * renombran la bebida, y el letrero es lo único que el cliente ve.
+   */
+  letreroConfirmado: boolean;
 }): Promise<ActionResult> {
   await requireRole("operador", "admin", "direccion");
 
@@ -374,6 +380,30 @@ export async function ejecutarSustitucion(input: {
   }
 
   const supabase = createClient() as AnyClient;
+
+  // El letrero se marca ANTES de ejecutar, porque la base no deja cerrar una
+  // sustitución de campaña sin él. Si el operador no lo confirmó, se le dice
+  // aquí con claridad en vez de dejar que truene con un error de constraint.
+  const { data: sust } = await supabase
+    .from("sustituciones_tolva")
+    .select("campana_id")
+    .eq("id", input.sustitucionId)
+    .maybeSingle();
+
+  if (sust?.campana_id) {
+    if (!input.letreroConfirmado) {
+      return {
+        ok: false,
+        message:
+          "Falta confirmar que ya cambiaste el letrero de la pantalla. Es lo único que el cliente ve: si el polvo cambia y el letrero no, compra un sabor y recibe otro.",
+      };
+    }
+    const { error: errLetrero } = await supabase
+      .from("sustituciones_tolva")
+      .update({ letrero_confirmado: true })
+      .eq("id", input.sustitucionId);
+    if (errLetrero) return { ok: false, message: errLetrero.message };
+  }
 
   const { error } = await supabase.rpc("op_ejecutar_sustitucion", {
     p_sustitucion_id: input.sustitucionId,

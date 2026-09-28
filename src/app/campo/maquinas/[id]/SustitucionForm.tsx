@@ -14,6 +14,9 @@ export type SustitucionPendiente = {
   producto_entrante: string;
   gramos_en_tolva: number;
   motivo: string | null;
+  /** Nombres nuevos de las bebidas, cuando viene de una campaña de temporada. */
+  bebidas_nuevas: string[];
+  es_campana: boolean;
 };
 
 type Etapa = "idle" | "subiendo" | "guardando" | "error";
@@ -37,6 +40,7 @@ export default function SustitucionForm({
   const [gramos, setGramos] = useState("");
   const [foto, setFoto] = useState<File | null>(null);
   const [notas, setNotas] = useState("");
+  const [letrero, setLetrero] = useState(false);
   const [etapa, setEtapa] = useState<Etapa>("idle");
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
@@ -46,6 +50,12 @@ export default function SustitucionForm({
     const g = Number(gramos);
     if (!Number.isFinite(g) || g < 0 || gramos.trim() === "") {
       setError("Captura cuántos gramos retiraste (usa la báscula). Si la tolva estaba vacía, escribe 0.");
+      setEtapa("error");
+      return;
+    }
+
+    if (sustitucion.es_campana && !letrero) {
+      setError("Falta confirmar que ya cambiaste el letrero de la pantalla.");
       setEtapa("error");
       return;
     }
@@ -72,6 +82,7 @@ export default function SustitucionForm({
           gramosRetirados: Math.round(g),
           fotoPath,
           notas: notas.trim() || null,
+          letreroConfirmado: letrero,
         });
         if (!r.ok) {
           setError(r.message);
@@ -107,6 +118,38 @@ export default function SustitucionForm({
           </p>
         )}
       </div>
+
+      {/* El letrero es lo único de todo el cambio que el cliente ve. Si el
+          polvo cambia y la pantalla no, compra un sabor y recibe otro. */}
+      {sustitucion.es_campana && (
+        <label
+          className={`flex items-start gap-3 rounded-md border-2 p-3 ${
+            letrero ? "border-green-500 bg-green-50" : "border-orange-500 bg-white"
+          }`}
+        >
+          <input
+            type="checkbox"
+            checked={letrero}
+            onChange={(e) => setLetrero(e.target.checked)}
+            className="mt-0.5 h-5 w-5 shrink-0"
+          />
+          <span className="text-sm">
+            <span className="font-semibold">
+              Ya cambié el letrero de la pantalla
+            </span>
+            {sustitucion.bebidas_nuevas.length > 0 && (
+              <span className="mt-1 block text-xs text-zinc-700">
+                Debe decir:{" "}
+                <strong>{sustitucion.bebidas_nuevas.join(" · ")}</strong>
+              </span>
+            )}
+            <span className="mt-1 block text-xs text-zinc-600">
+              Es lo único que ve el cliente. Sin esto no se puede cerrar el
+              cambio.
+            </span>
+          </span>
+        </label>
+      )}
 
       <ol className="space-y-1 rounded-md bg-white/70 p-3 text-xs text-orange-900">
         <li>

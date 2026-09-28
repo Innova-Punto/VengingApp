@@ -580,6 +580,164 @@ export type Database = {
           },
         ]
       }
+      campana_bebidas: {
+        Row: {
+          campana_id: string
+          created_at: string
+          gramos_anteriores: number | null
+          gramos_nuevos: number | null
+          id: string
+          nombre_anterior: string
+          nombre_nuevo: string
+          precio_anterior: number | null
+          precio_nuevo: number | null
+          receta_item_id: string
+        }
+        Insert: {
+          campana_id: string
+          created_at?: string
+          gramos_anteriores?: number | null
+          gramos_nuevos?: number | null
+          id?: string
+          nombre_anterior: string
+          nombre_nuevo: string
+          precio_anterior?: number | null
+          precio_nuevo?: number | null
+          receta_item_id: string
+        }
+        Update: {
+          campana_id?: string
+          created_at?: string
+          gramos_anteriores?: number | null
+          gramos_nuevos?: number | null
+          id?: string
+          nombre_anterior?: string
+          nombre_nuevo?: string
+          precio_anterior?: number | null
+          precio_nuevo?: number | null
+          receta_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campana_bebidas_campana_id_fkey"
+            columns: ["campana_id"]
+            isOneToOne: false
+            referencedRelation: "campanas_temporada"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campana_bebidas_receta_item_id_fkey"
+            columns: ["receta_item_id"]
+            isOneToOne: false
+            referencedRelation: "receta_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campanas_temporada: {
+        Row: {
+          aplicada_at: string | null
+          cancelada_at: string | null
+          cancelada_por: string | null
+          creado_por: string | null
+          created_at: string
+          estado: string
+          id: string
+          motivo_cancelacion: string | null
+          nombre: string
+          notas: string | null
+          producto_entrante_id: string
+          producto_saliente_id: string
+          receta_id: string
+          tolva_numero: number
+          updated_at: string
+        }
+        Insert: {
+          aplicada_at?: string | null
+          cancelada_at?: string | null
+          cancelada_por?: string | null
+          creado_por?: string | null
+          created_at?: string
+          estado?: string
+          id?: string
+          motivo_cancelacion?: string | null
+          nombre: string
+          notas?: string | null
+          producto_entrante_id: string
+          producto_saliente_id: string
+          receta_id: string
+          tolva_numero: number
+          updated_at?: string
+        }
+        Update: {
+          aplicada_at?: string | null
+          cancelada_at?: string | null
+          cancelada_por?: string | null
+          creado_por?: string | null
+          created_at?: string
+          estado?: string
+          id?: string
+          motivo_cancelacion?: string | null
+          nombre?: string
+          notas?: string | null
+          producto_entrante_id?: string
+          producto_saliente_id?: string
+          receta_id?: string
+          tolva_numero?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campanas_temporada_cancelada_por_fkey"
+            columns: ["cancelada_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campanas_temporada_creado_por_fkey"
+            columns: ["creado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campanas_temporada_producto_entrante_id_fkey"
+            columns: ["producto_entrante_id"]
+            isOneToOne: false
+            referencedRelation: "productos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campanas_temporada_producto_entrante_id_fkey"
+            columns: ["producto_entrante_id"]
+            isOneToOne: false
+            referencedRelation: "v_inventario_producto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campanas_temporada_producto_saliente_id_fkey"
+            columns: ["producto_saliente_id"]
+            isOneToOne: false
+            referencedRelation: "productos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campanas_temporada_producto_saliente_id_fkey"
+            columns: ["producto_saliente_id"]
+            isOneToOne: false
+            referencedRelation: "v_inventario_producto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campanas_temporada_receta_id_fkey"
+            columns: ["receta_id"]
+            isOneToOne: false
+            referencedRelation: "recetas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       centros_distribucion: {
         Row: {
           activo: boolean
@@ -3477,6 +3635,93 @@ export type Database = {
           },
         ]
       }
+      propuestas_ruteo: {
+        Row: {
+          costo_usd: number | null
+          created_at: string
+          decidida_at: string | null
+          decidida_por: string | null
+          duracion_ms: number | null
+          error: string | null
+          escalamientos: Json | null
+          estado: Database["public"]["Enums"]["propuesta_ruteo_estado"]
+          estado_entrada: Json | null
+          fecha: string
+          fuente: string
+          generada_por: string | null
+          id: string
+          modelo: string | null
+          motivo_descarte: string | null
+          notas: string | null
+          plan: Json | null
+          respuesta: Json | null
+          sin_atender: Json | null
+          tokens_entrada: number | null
+          tokens_salida: number | null
+        }
+        Insert: {
+          costo_usd?: number | null
+          created_at?: string
+          decidida_at?: string | null
+          decidida_por?: string | null
+          duracion_ms?: number | null
+          error?: string | null
+          escalamientos?: Json | null
+          estado?: Database["public"]["Enums"]["propuesta_ruteo_estado"]
+          estado_entrada?: Json | null
+          fecha: string
+          fuente?: string
+          generada_por?: string | null
+          id?: string
+          modelo?: string | null
+          motivo_descarte?: string | null
+          notas?: string | null
+          plan?: Json | null
+          respuesta?: Json | null
+          sin_atender?: Json | null
+          tokens_entrada?: number | null
+          tokens_salida?: number | null
+        }
+        Update: {
+          costo_usd?: number | null
+          created_at?: string
+          decidida_at?: string | null
+          decidida_por?: string | null
+          duracion_ms?: number | null
+          error?: string | null
+          escalamientos?: Json | null
+          estado?: Database["public"]["Enums"]["propuesta_ruteo_estado"]
+          estado_entrada?: Json | null
+          fecha?: string
+          fuente?: string
+          generada_por?: string | null
+          id?: string
+          modelo?: string | null
+          motivo_descarte?: string | null
+          notas?: string | null
+          plan?: Json | null
+          respuesta?: Json | null
+          sin_atender?: Json | null
+          tokens_entrada?: number | null
+          tokens_salida?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "propuestas_ruteo_decidida_por_fkey"
+            columns: ["decidida_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "propuestas_ruteo_generada_por_fkey"
+            columns: ["generada_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       proveedores: {
         Row: {
           activo: boolean
@@ -4432,6 +4677,7 @@ export type Database = {
       }
       sustituciones_tolva: {
         Row: {
+          campana_id: string | null
           cancelada_at: string | null
           cancelada_por: string | null
           check_in_id: string | null
@@ -4447,6 +4693,7 @@ export type Database = {
           gramos_recibidos: number | null
           gramos_retirados: number | null
           id: string
+          letrero_confirmado: boolean | null
           lote_retorno_id: string | null
           maquina_id: string
           motivo: string | null
@@ -4463,6 +4710,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          campana_id?: string | null
           cancelada_at?: string | null
           cancelada_por?: string | null
           check_in_id?: string | null
@@ -4478,6 +4726,7 @@ export type Database = {
           gramos_recibidos?: number | null
           gramos_retirados?: number | null
           id?: string
+          letrero_confirmado?: boolean | null
           lote_retorno_id?: string | null
           maquina_id: string
           motivo?: string | null
@@ -4494,6 +4743,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          campana_id?: string | null
           cancelada_at?: string | null
           cancelada_por?: string | null
           check_in_id?: string | null
@@ -4509,6 +4759,7 @@ export type Database = {
           gramos_recibidos?: number | null
           gramos_retirados?: number | null
           id?: string
+          letrero_confirmado?: boolean | null
           lote_retorno_id?: string | null
           maquina_id?: string
           motivo?: string | null
@@ -4525,6 +4776,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "sustituciones_tolva_campana_id_fkey"
+            columns: ["campana_id"]
+            isOneToOne: false
+            referencedRelation: "campanas_temporada"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "sustituciones_tolva_cancelada_por_fkey"
             columns: ["cancelada_por"]
@@ -5382,6 +5640,10 @@ export type Database = {
         }
         Returns: Json
       }
+      aplicar_campana_temporada: {
+        Args: { p_campana_id: string }
+        Returns: Json
+      }
       aplicar_conteo_almacen: {
         Args: {
           p_cartuchos: Json
@@ -5743,6 +6005,13 @@ export type Database = {
         Args: { check_role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean
       }
+      venta_diaria_por_maquina_30d: {
+        Args: never
+        Returns: {
+          maquina_id: string
+          venta_dia: number
+        }[]
+      }
     }
     Enums: {
       agua_almacen_mov:
@@ -5842,6 +6111,7 @@ export type Database = {
         | "retorno_polvo_tolva"
       oc_estado: "borrador" | "enviada" | "parcial" | "recibida" | "cancelada"
       producto_tipo: "polvo" | "vaso" | "agua"
+      propuesta_ruteo_estado: "generada" | "aceptada" | "descartada" | "error"
       puesto_operativo: "operador" | "supervisor"
       queja_canal: "whatsapp" | "llamada" | "correo" | "presencial"
       queja_contacto_resultado: "contesto" | "no_contesto" | "pendiente_info"
@@ -6111,6 +6381,7 @@ export const Constants = {
       ],
       oc_estado: ["borrador", "enviada", "parcial", "recibida", "cancelada"],
       producto_tipo: ["polvo", "vaso", "agua"],
+      propuesta_ruteo_estado: ["generada", "aceptada", "descartada", "error"],
       puesto_operativo: ["operador", "supervisor"],
       queja_canal: ["whatsapp", "llamada", "correo", "presencial"],
       queja_contacto_resultado: ["contesto", "no_contesto", "pendiente_info"],
