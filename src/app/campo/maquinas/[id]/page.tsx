@@ -156,7 +156,7 @@ export default async function MaquinaCampoPage({
   const { data: sustPendientes } = await supabase
     .from("sustituciones_tolva")
     .select(
-      `id, motivo, tolva_id,
+      `id, motivo, tolva_id, campana_id,
        tolva:tolvas(numero, inventario_actual_g),
        saliente:productos!sustituciones_tolva_producto_saliente_id_fkey(nombre),
        entrante:productos!sustituciones_tolva_producto_entrante_id_fkey(nombre)`,
@@ -168,10 +168,34 @@ export default async function MaquinaCampoPage({
   type FilaSust = {
     id: string;
     motivo: string | null;
+    campana_id: string | null;
     tolva: EmbS<{ numero: number; inventario_actual_g: number | null }>;
     saliente: EmbS<{ nombre: string }>;
     entrante: EmbS<{ nombre: string }>;
   };
+  // Los nombres nuevos de las bebidas, para que el operador sepa qué debe
+  // decir el letrero de la pantalla y no tenga que adivinarlo.
+  const campanaIds = ((sustPendientes ?? []) as { campana_id: string | null }[])
+    .map((s) => s.campana_id)
+    .filter((x): x is string => !!x);
+
+  const { data: bebidasCampana } = campanaIds.length
+    ? await supabase
+        .from("campana_bebidas")
+        .select("campana_id, nombre_nuevo")
+        .in("campana_id", campanaIds)
+    : { data: [] };
+
+  const nombresPorCampana = new Map<string, string[]>();
+  for (const b of (bebidasCampana ?? []) as {
+    campana_id: string;
+    nombre_nuevo: string;
+  }[]) {
+    const prev = nombresPorCampana.get(b.campana_id) ?? [];
+    prev.push(b.nombre_nuevo);
+    nombresPorCampana.set(b.campana_id, prev);
+  }
+
   const sustituciones: SustitucionPendiente[] = ((sustPendientes ?? []) as FilaSust[]).map(
     (s) => {
       const t = Array.isArray(s.tolva) ? s.tolva[0] : s.tolva;
@@ -184,6 +208,10 @@ export default async function MaquinaCampoPage({
         producto_entrante: ent?.nombre ?? "—",
         gramos_en_tolva: t?.inventario_actual_g ?? 0,
         motivo: s.motivo,
+        es_campana: !!s.campana_id,
+        bebidas_nuevas: s.campana_id
+          ? (nombresPorCampana.get(s.campana_id) ?? [])
+          : [],
       };
     },
   );
