@@ -10,6 +10,14 @@ const ROLES = ["admin", "direccion", "planeador"] as const;
 
 export type CampanaResult = { ok: false; message: string } | { ok: true };
 
+export type IngredienteCampana = {
+  tolva_numero: number;
+  /** Null = la bebida no usaba esa tolva: el ingrediente es nuevo. */
+  gramos_anteriores: number | null;
+  /** Null = el ingrediente sale de la bebida. */
+  gramos_nuevos: number | null;
+};
+
 export type BebidaCampana = {
   receta_item_id: string;
   nombre_anterior: string;
@@ -18,6 +26,8 @@ export type BebidaCampana = {
   nombre_nuevo: string;
   precio_nuevo: number | null;
   gramos_nuevos: number | null;
+  /** La receta completa que va a quedar, no solo la tolva sustituida. */
+  ingredientes: IngredienteCampana[];
 };
 
 /**
@@ -82,20 +92,51 @@ export async function crearCampana(input: {
     return { ok: false, message: error?.message ?? "No se pudo crear la campaña." };
   }
 
-  const { error: errBebidas } = await sb.from("campana_bebidas").insert(
-    input.bebidas.map((b) => ({
-      campana_id: campana.id,
-      receta_item_id: b.receta_item_id,
-      nombre_anterior: b.nombre_anterior,
-      precio_anterior: b.precio_anterior,
-      gramos_anteriores: b.gramos_anteriores,
-      nombre_nuevo: b.nombre_nuevo.trim(),
-      precio_nuevo: b.precio_nuevo,
-      gramos_nuevos: b.gramos_nuevos,
-    })),
-  );
+  const { data: bebidasCreadas, error: errBebidas } = await sb
+    .from("campana_bebidas")
+    .insert(
+      input.bebidas.map((b) => ({
+        campana_id: campana.id,
+        receta_item_id: b.receta_item_id,
+        nombre_anterior: b.nombre_anterior,
+        precio_anterior: b.precio_anterior,
+        gramos_anteriores: b.gramos_anteriores,
+        nombre_nuevo: b.nombre_nuevo.trim(),
+        precio_nuevo: b.precio_nuevo,
+        gramos_nuevos: b.gramos_nuevos,
+      })),
+    )
+    .select("id, receta_item_id");
   if (errBebidas) {
     return { ok: false, message: `Campaña creada, pero las bebidas: ${errBebidas.message}` };
+  }
+
+  // La receta completa que va a quedar. Solo se guardan los ingredientes que
+  // de verdad cambian: los que siguen igual no tienen por qué reescribirse.
+  const idPorItem = new Map<string, string>(
+    (bebidasCreadas ?? []).map((b: { id: string; receta_item_id: string }) => [
+      b.receta_item_id,
+      b.id,
+    ]),
+  );
+  const ingredientes = input.bebidas.flatMap((b) =>
+    (b.ingredientes ?? [])
+      .filter((i) => i.gramos_anteriores !== i.gramos_nuevos)
+      .map((i) => ({
+        campana_bebida_id: idPorItem.get(b.receta_item_id)!,
+        tolva_numero: i.tolva_numero,
+        gramos_anteriores: i.gramos_anteriores,
+        gramos_nuevos: i.gramos_nuevos,
+      })),
+  );
+
+  if (ingredientes.length > 0) {
+    const { error: errIng } = await sb
+      .from("campana_bebida_ingredientes")
+      .insert(ingredientes);
+    if (errIng) {
+      return { ok: false, message: `Campaña creada, pero la receta: ${errIng.message}` };
+    }
   }
 
   // Una sustitución pendiente por máquina. El operador las ejecuta en campo,
