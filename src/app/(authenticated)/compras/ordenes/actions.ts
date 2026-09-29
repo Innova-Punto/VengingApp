@@ -132,12 +132,83 @@ export async function aprobarOc(formData: FormData) {
   redirect(`/compras/ordenes/${id}`);
 }
 
+/**
+ * Cancela una OC.
+ *
+ * En borrador se cancela sin más: nadie la vio, no compromete nada.
+ *
+ * Ya **enviada** también se puede, pero solo si no tiene ninguna recepción y
+ * con motivo escrito. Una OC enviada sin nada recibido no movió inventario ni
+ * dinero: cancelarla solo la marca como muerta. El caso real es que el pedido
+ * se renegoció o el proveedor ya no lo va a surtir — y dejar viva una orden que
+ * ya no existe también es mentir, solo que del otro lado.
+ *
+ * Con recepciones NO se cancela: ahí el camino es cerrarla incompleta, que
+ * conserva lo que sí llegó.
+ */
 export async function cancelarOc(formData: FormData) {
-  const current = await requireRole(...ROLES);
+  await requireRole(...ROLES);
   const id = String(formData.get("id") ?? "");
+  const motivo = String(formData.get("motivo") ?? "").trim();
   if (!id) redirect("/compras/ordenes");
-  await cambiarEstadoOc(id, "cancelada", current);
+
+  const supabase = createClient();
+
+  const { data: oc } = await supabase
+    .from("ordenes_compra")
+    .select("estado, folio")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!oc) redirect("/compras/ordenes");
+
+  if (oc.estado !== "borrador" && oc.estado !== "enviada") {
+    redirect(
+      `/compras/ordenes/${id}?error=` +
+        encodeURIComponent(
+          `No se puede cancelar una OC ${oc.estado}. Si llegó incompleta, ciérrala con faltantes.`,
+        ),
+    );
+  }
+
+  if (oc.estado === "enviada") {
+    if (!motivo) {
+      redirect(
+        `/compras/ordenes/${id}?error=` +
+          encodeURIComponent(
+            "Escribe por qué se cancela: esta OC ya se le envió al proveedor y el motivo es lo único que va a explicar el folio muerto.",
+          ),
+      );
+    }
+
+    const { count } = await supabase
+      .from("recepciones")
+      .select("id", { count: "exact", head: true })
+      .eq("oc_id", id);
+
+    if ((count ?? 0) > 0) {
+      redirect(
+        `/compras/ordenes/${id}?error=` +
+          encodeURIComponent(
+            `${oc.folio} ya tiene ${count} recepción(es): no se puede cancelar sin borrar mercancía que sí llegó. Ciérrala incompleta con el motivo.`,
+          ),
+      );
+    }
+  }
+
+  const { error } = await supabase
+    .from("ordenes_compra")
+    .update({
+      estado: "cancelada",
+      motivo_cierre: motivo || null,
+    })
+    .eq("id", id);
+  if (error) {
+    redirect(`/compras/ordenes/${id}?error=` + encodeURIComponent(error.message));
+  }
+
   revalidatePath(`/compras/ordenes/${id}`);
+  revalidatePath("/compras/ordenes");
   redirect("/compras/ordenes");
 }
 
