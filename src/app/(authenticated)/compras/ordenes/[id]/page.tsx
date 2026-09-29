@@ -20,8 +20,10 @@ const ESTADO_BADGE: Record<string, string> = {
 
 export default async function DetalleOcPage({
   params,
+  searchParams,
 }: {
   params: { id: string };
+  searchParams: { error?: string };
 }) {
   await requireRole("admin", "direccion", "compras");
 
@@ -116,6 +118,12 @@ export default async function DetalleOcPage({
 
   return (
     <div className="space-y-8">
+      {searchParams.error && (
+        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+          {decodeURIComponent(searchParams.error)}
+        </p>
+      )}
+
       <div>
         <Link
           href="/compras/ordenes"
@@ -374,6 +382,43 @@ export default async function DetalleOcPage({
             </p>
           )}
         </section>
+      )}
+
+      {/* Cancelar una OC ya enviada: solo si nadie recibió nada, y con motivo.
+          El caso real es que el pedido se renegoció o el proveedor ya no lo va
+          a surtir, y dejar viva una orden que ya no existe también miente. */}
+      {oc.estado === "enviada" && (numRecepciones ?? 0) === 0 && (
+        <section className="rounded-lg border border-zinc-200 bg-white p-4">
+          <h2 className="text-sm font-semibold">¿Se canceló el pedido?</h2>
+          <p className="mt-1 text-xs text-zinc-600">
+            Esta OC ya se le envió al proveedor pero no ha llegado nada. Si el
+            pedido cambió o se canceló, márcala aquí y levanta una nueva — así
+            el folio viejo queda con su explicación en vez de quedarse vivo.
+          </p>
+          <form action={cancelarOc} className="mt-3 flex flex-wrap items-center gap-2">
+            <input type="hidden" name="id" value={params.id} />
+            <input
+              name="motivo"
+              required
+              placeholder="¿Por qué se cancela?"
+              className="min-w-64 flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm"
+            />
+            <button
+              type="submit"
+              className="rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
+            >
+              Cancelar OC
+            </button>
+          </form>
+        </section>
+      )}
+
+      {oc.estado === "enviada" && (numRecepciones ?? 0) > 0 && (
+        <p className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+          Esta OC ya tiene {numRecepciones} recepción(es), así que no se puede
+          cancelar sin borrar mercancía que sí llegó. Si el proveedor no va a
+          surtir el resto, ciérrala incompleta más abajo.
+        </p>
       )}
 
       {(oc.estado === "enviada" || oc.estado === "parcial") && (
