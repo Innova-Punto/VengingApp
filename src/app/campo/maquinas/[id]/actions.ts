@@ -110,6 +110,10 @@ export async function registrarLlenado(
   const vasos_cargados = vasosCargadosRaw
     ? Math.max(0, Number(vasosCargadosRaw) || 0)
     : 0;
+  const vasosPlaneadosRaw = formData.get("vasos_planeados");
+  const vasos_planeados = vasosPlaneadosRaw
+    ? Math.max(0, Number(vasosPlaneadosRaw) || 0)
+    : 0;
   // Las fotos ahora se suben desde el cliente directo a Storage. Aquí solo
   // recibimos las rutas resultantes (formato `bucket/path.ext`).
   const fotoUrlRaw = formData.get("foto_url");
@@ -144,10 +148,26 @@ export async function registrarLlenado(
   if (!Array.isArray(items)) {
     return { ok: false, message: "Items inválidos." };
   }
-  // Permite cierre si hay cartuchos cargados O vasos cargados (la máquina
-  // puede tener solo vasos planeados, solo cartuchos, o ambos).
-  if (items.length === 0 && vasos_cargados === 0) {
-    return { ok: false, message: "Debes indicar al menos un cartucho o vaso cargado." };
+  // Lo que se exige es que la visita tenga algo PLANEADO que rendir, no que el
+  // operador haya cargado algo. Cargar cero es un desenlace legítimo: la máquina
+  // ya estaba surtida y todo lo que llevaba se regresa al almacén como
+  // devolución pendiente. El RPC genera esa devolución tanto para cartuchos como
+  // para vasos.
+  //
+  // La validación anterior pedía "al menos un cartucho o vaso cargado", y dejaba
+  // a Jorge atorado en las máquinas con surtido de puros vasos: al cargar 0 no
+  // había renglón de cartucho que salvara el cierre. En las máquinas con polvo
+  // el mismo caso sí pasaba, porque los renglones de cartucho se mandan aunque
+  // vayan en cero — la regla nunca fue pareja.
+  //
+  // Si de plano no hay surtido planeado, la pantalla muestra "Cerrar sin
+  // llenado" y esta acción ni se invoca.
+  if (items.length === 0 && vasos_planeados === 0) {
+    return {
+      ok: false,
+      message:
+        "Esta visita no tiene surtido planeado. Ciérrala con «Cerrar sin llenado».",
+    };
   }
 
   const supabase = createClient() as AnyClient;

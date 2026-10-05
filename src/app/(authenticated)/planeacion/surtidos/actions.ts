@@ -504,261 +504,48 @@ export async function eliminarItemSurtido(formData: FormData): Promise<void> {
 }
 
 // ============================================================================
-// Completar surtido: aplica PEPS, descuenta inventario, registra kardex
+// Completar surtido
+//
+// Todo el trabajo vive en el RPC `completar_surtido`: una sola transacción que
+// valida stock (agregado por producto, no item por item), aplica PEPS,
+// descuenta contadores, registra kardex y sella el surtido. Si algo falla,
+// Postgres revierte todo y el surtido se queda pendiente — se puede reintentar.
+//
+// Antes esto se hacía con ~10 llamadas sueltas desde aquí, cada una con su
+// propio commit: cuando el PEPS reventaba a media lista el surtido se quedaba
+// marcado como completado con el inventario descontado a medias, y el reintento
+// salía en silencio sin hacer nada (SUR-000387, 1-oct-2026).
 // ============================================================================
 
-type PepsCartucho = {
-  encartuchado_id: string;
-  cantidad_tomar: number;
-  costo_promedio_g: number;
-};
-
-type PepsVaso = {
-  lote_id: string;
-  cantidad_tomar: number;
-  costo_por_unidad: number;
-};
-
 export async function completarSurtido(formData: FormData): Promise<void> {
-  const current = await requireRole(...ROLES);
+  await requireRole(...ROLES);
 
   const id = String(formData.get("id") ?? "");
   if (!id) redirect("/planeacion/surtidos");
 
   const supabase = createClient();
 
-  const { data: surt } = await supabase
-    .from("surtidos")
-    .select("id, estado, asignacion_id, folio")
-    .eq("id", id)
-    .maybeSingle();
-  if (!surt) redirect("/planeacion/surtidos");
-  if (surt.estado === "completado") {
-    redirect(`/planeacion/surtidos/${id}`);
-  }
-
-  const { data: items } = await supabase
-    .from("surtido_items")
-    .select(
-      `id, maquina_id, producto_id, cartuchos_entregados, vasos_entregados,
-       producto:productos(sku, nombre, tipo, gramaje_cartucho_default)`,
-    )
-    .eq("surtido_id", id);
-
-  // Helper para llamar RPCs no expuestas en el typegen.
-  // IMPORTANTE: castamos el cliente entero (no solo .rpc) para que la
-  // llamada se haga como método y preserve el binding de `this` interno.
-  type RpcResult<T> = Promise<{ data: T | null; error: { message: string } | null }>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabaseAny = supabase as any;
-  const callRpc = <T>(fn: string, args: Record<string, unknown>): RpcResult<T> =>
-    supabaseAny.rpc(fn, args);
+  const { error } = await (supabase as any).rpc("completar_surtido", {
+    p_surtido_id: id,
+  });
 
-  // -- Paso 1: validar stock disponible para TODOS los items antes de tocar nada
-  const erroresStock: string[] = [];
-  for (const it of items ?? []) {
-    const prod = Array.isArray(it.producto) ? it.producto[0] : it.producto;
-    if (!prod) continue;
-
-    if (prod.tipo === "polvo" && (it.cartuchos_entregados ?? 0) > 0) {
-      // Cuenta total disponible de cartuchos del producto
-      const { data: encs } = await supabase
-        .from("encartuchados")
-        .select("cantidad_disponible")
-        .eq("producto_id", it.producto_id);
-      const disp = (encs ?? []).reduce(
-        (s, e) => s + (e.cantidad_disponible ?? 0),
-        0,
-      );
-      if (disp < it.cartuchos_entregados) {
-        erroresStock.push(
-          `${prod.sku ?? prod.nombre}: pides ${it.cartuchos_entregados} cartucho(s), solo hay ${disp}`,
-        );
-      }
-    }
-    if (prod.tipo === "vaso" && (it.vasos_entregados ?? 0) > 0) {
-      const { data: lotes } = await supabase
-        .from("lotes")
-        .select("unidades_disponibles")
-        .eq("producto_id", it.producto_id)
-        .eq("activo", true);
-      const disp = (lotes ?? []).reduce(
-        (s, l) => s + (l.unidades_disponibles ?? 0),
-        0,
-      );
-      if (disp < it.vasos_entregados) {
-        erroresStock.push(
-          `${prod.sku ?? prod.nombre}: pides ${it.vasos_entregados} vaso(s), solo hay ${disp}`,
-        );
-      }
-    }
-  }
-
-  if (erroresStock.length > 0) {
-    const msg = `Stock insuficiente — ${erroresStock.join(" | ")}`;
+  if (error) {
     redirect(
-      `/planeacion/surtidos/${id}?error=${encodeURIComponent(msg)}`,
+      `/planeacion/surtidos/${id}?error=${encodeURIComponent(error.message)}`,
     );
   }
 
-  // -- Paso 1.5: CLAIM atómico (idempotencia). Marcamos el surtido como
-  // completado ANTES de descontar. El UPDATE condicional (estado <> 'completado')
-  // solo lo gana UNA ejecución gracias al bloqueo de fila de Postgres; si hay un
-  // doble clic o un reintento concurrente, las demás ejecuciones obtienen 0 filas
-  // y salen sin volver a descontar inventario. Esto evita el descuadre por
-  // salidas de cartucho/vaso duplicadas.
-  const { data: claim } = await supabase
+  const { data: surt } = await supabase
     .from("surtidos")
-    .update({
-      estado: "completado",
-      surtido_por: current.id,
-      fecha_completado: new Date().toISOString(),
-    })
+    .select("asignacion_id")
     .eq("id", id)
-    .neq("estado", "completado")
-    .select("id")
     .maybeSingle();
-  if (!claim) {
-    // Otra ejecución ya lo completó: no re-descontar.
-    redirect(`/planeacion/surtidos/${id}`);
-  }
-
-  // -- Paso 2: aplicar PEPS y descontar inventario por cada item
-  for (const it of items ?? []) {
-    const prod = Array.isArray(it.producto) ? it.producto[0] : it.producto;
-    if (!prod) continue;
-
-    if (prod.tipo === "polvo" && (it.cartuchos_entregados ?? 0) > 0) {
-      const { data: picked, error: pepsErr } = await callRpc<PepsCartucho[]>(
-        "pick_batch_peps_cartucho",
-        {
-          p_producto_id: it.producto_id,
-          p_cartuchos_requeridos: it.cartuchos_entregados,
-        },
-      );
-      if (pepsErr) {
-        redirect(
-          `/planeacion/surtidos/${id}?error=${encodeURIComponent(pepsErr.message)}`,
-        );
-      }
-      const picks = picked ?? [];
-
-      const primario = picks[0];
-      if (primario) {
-        await supabase
-          .from("surtido_items")
-          .update({ encartuchado_id: primario.encartuchado_id })
-          .eq("id", it.id);
-      }
-
-      for (const p of picks) {
-        const { data: encActual } = await supabase
-          .from("encartuchados")
-          .select("cantidad_disponible, gramos_por_cartucho")
-          .eq("id", p.encartuchado_id)
-          .maybeSingle();
-        if (!encActual) continue;
-
-        const nuevaCantidad = encActual.cantidad_disponible - p.cantidad_tomar;
-        await supabase
-          .from("encartuchados")
-          .update({ cantidad_disponible: nuevaCantidad })
-          .eq("id", p.encartuchado_id);
-
-        const gramosTotales =
-          p.cantidad_tomar * encActual.gramos_por_cartucho;
-        const valor =
-          Math.round(gramosTotales * p.costo_promedio_g * 100) / 100;
-
-        await supabase.from("movimientos_inventario").insert({
-          tipo: "surtido_salida_cartucho",
-          producto_id: it.producto_id,
-          encartuchado_id: p.encartuchado_id,
-          maquina_id: it.maquina_id,
-          presentacion: "cartucho",
-          cantidad_cartuchos: -p.cantidad_tomar,
-          gramos: -gramosTotales,
-          costo_por_gramo_snapshot: p.costo_promedio_g,
-          valor_movimiento: -valor,
-          referencia_tabla: "surtido_items",
-          referencia_id: it.id,
-          usuario_id: current.id,
-        });
-      }
-    }
-
-    if (prod.tipo === "vaso" && (it.vasos_entregados ?? 0) > 0) {
-      const { data: picked, error: pepsErr } = await callRpc<PepsVaso[]>(
-        "pick_lote_peps_vaso",
-        {
-          p_producto_id: it.producto_id,
-          p_unidades_requeridas: it.vasos_entregados,
-        },
-      );
-      if (pepsErr) {
-        redirect(
-          `/planeacion/surtidos/${id}?error=${encodeURIComponent(pepsErr.message)}`,
-        );
-      }
-      const picks = picked ?? [];
-
-      const primario = picks[0];
-      if (primario) {
-        await supabase
-          .from("surtido_items")
-          .update({ lote_vaso_id: primario.lote_id })
-          .eq("id", it.id);
-      }
-
-      for (const p of picks) {
-        const { data: loteActual } = await supabase
-          .from("lotes")
-          .select("unidades_disponibles")
-          .eq("id", p.lote_id)
-          .maybeSingle();
-        if (!loteActual) continue;
-
-        const nuevasUnidades =
-          (loteActual.unidades_disponibles ?? 0) - p.cantidad_tomar;
-        await supabase
-          .from("lotes")
-          .update({ unidades_disponibles: nuevasUnidades })
-          .eq("id", p.lote_id);
-
-        const valor =
-          Math.round(p.cantidad_tomar * p.costo_por_unidad * 100) / 100;
-
-        await supabase.from("movimientos_inventario").insert({
-          tipo: "surtido_salida_cartucho",
-          producto_id: it.producto_id,
-          lote_id: p.lote_id,
-          maquina_id: it.maquina_id,
-          presentacion: "vaso",
-          cantidad_vasos: -p.cantidad_tomar,
-          costo_por_gramo_snapshot: p.costo_por_unidad,
-          valor_movimiento: -valor,
-          referencia_tabla: "surtido_items",
-          referencia_id: it.id,
-          usuario_id: current.id,
-        });
-      }
-    }
-  }
-
-  // -- Paso 3: el surtido ya se marcó completado en el claim atómico (Paso 1.5).
-
-  await supabase
-    .from("asignaciones_diarias")
-    .update({ estado: "surtida" })
-    .eq("id", surt.asignacion_id)
-    // Defensa: nunca regresar el estado si la jornada ya inició o se completó.
-    // El trigger de BD también lo bloquea, pero aquí evitamos el error feo
-    // al usuario haciendo que el UPDATE simplemente no aplique.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .in("estado", ["planeada", "surtida"] as any);
 
   revalidatePath("/planeacion/surtidos");
   revalidatePath(`/planeacion/surtidos/${id}`);
-  revalidatePath(`/planeacion/asignaciones/${surt.asignacion_id}`);
+  if (surt?.asignacion_id) {
+    revalidatePath(`/planeacion/asignaciones/${surt.asignacion_id}`);
+  }
   redirect(`/planeacion/surtidos/${id}`);
 }
