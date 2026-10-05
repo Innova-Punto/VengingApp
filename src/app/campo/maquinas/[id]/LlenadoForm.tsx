@@ -94,6 +94,12 @@ export default function LlenadoForm({
       (s, it) => s + (lineas[it.id]?.cartuchos_cargados ?? 0),
       0,
     );
+    // Lo planeado va aparte de lo cargado: el servidor lo usa para distinguir
+    // "no cargué nada" (válido, todo se devuelve) de "no había nada que cargar".
+    const vasosPlaneados = vasoItems.reduce(
+      (s, it) => s + it.cartuchos_entregados,
+      0,
+    );
 
     setEtapa("cerrando");
     startTransition(async () => {
@@ -103,6 +109,7 @@ export default function LlenadoForm({
       fd.set("maquina_id", maquinaId);
       fd.set("items", JSON.stringify(payloadCartuchos));
       fd.set("vasos_cargados", String(vasosCargados));
+      fd.set("vasos_planeados", String(vasosPlaneados));
       if (fotoUrl) fd.set("foto_url", fotoUrl);
       if (fotoSalidaUrl) fd.set("foto_salida_url", fotoSalidaUrl);
       if (notas) fd.set("notas", notas);
@@ -339,9 +346,10 @@ export default function LlenadoForm({
       {error && <p className="text-xs text-red-700">{error}</p>}
 
       <p className="text-[11px] text-zinc-500">
-        Al finalizar, se descuenta inventario de cartuchos y se actualiza el
-        inventario de cada tolva. Los cartuchos no usados generan una
-        devolución pendiente al almacén.
+        Al finalizar se actualiza el inventario de cada tolva y el de vasos de
+        la máquina. Lo que no uses —cartuchos o vasos— genera una devolución
+        pendiente al almacén. Si la máquina no necesitaba nada, deja todo en
+        cero y finaliza: se devuelve completo.
       </p>
     </div>
   );
