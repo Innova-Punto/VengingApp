@@ -130,9 +130,19 @@ export async function correrAgente(
   // En streaming y no de un jalón: la respuesta es larga —cuatro rutas con su
   // motivo, escalamientos y notas— y una petición que tarda minutos sin decir
   // nada se corta sola. El stream mantiene viva la conexión mientras escribe.
+  //
+  // El tope arrancó en 16,000 y nunca tuvo holgura: las corridas buenas de
+  // septiembre gastaron entre 12,620 y 15,449 tokens de salida. La mejor pasó a
+  // 551 tokens del techo. En cuanto el parque y las emergencias crecieron, el
+  // plan dejó de caber y todas las corridas empezaron a morir cortadas.
+  //
+  // 64,000 es el default recomendado para peticiones en streaming (sin stream,
+  // el tope prudente es ~16,000 por los timeouts de HTTP, pero aquí no aplica).
+  // El modelo admite hasta 128,000. Subirlo no encarece nada por sí solo: se
+  // paga lo que de verdad se genera, no el tope.
   const stream = client.messages.stream({
     model: MODELO,
-    max_tokens: 16000,
+    max_tokens: 64000,
     system: construirSystemPrompt(estado),
     messages: [{ role: "user", content: construirMensajeUsuario(estado) }],
   });
@@ -146,9 +156,13 @@ export async function correrAgente(
 
   // Se quedó sin espacio a media respuesta: el JSON viene cortado y al
   // intentar leerlo sale un error de sintaxis que no explica nada. Ya pasó.
+  //
+  // Con el tope en 64,000 esto ya no es un tropiezo de suerte: si se dispara,
+  // el plan creció de verdad y reintentar no lo va a arreglar. El mensaje dice
+  // cuánto gastó para que el dato esté a la mano y no haya que ir a buscarlo.
   if (respuestaApi.stop_reason === "max_tokens") {
     throw new Error(
-      "La respuesta del modelo se cortó por longitud: el plan quedó incompleto. Vuelve a intentar; si se repite, hay que subir el tope de tokens.",
+      `La respuesta del modelo se cortó por longitud a los ${respuestaApi.usage.output_tokens.toLocaleString("es-MX")} tokens: el plan quedó incompleto. Reintentar no ayuda — avisa a sistemas para revisar el tope.`,
     );
   }
 
