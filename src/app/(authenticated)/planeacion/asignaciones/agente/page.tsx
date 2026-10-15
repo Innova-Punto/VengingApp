@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { requireRole } from "@/lib/auth";
 import { fmtCDMX } from "@/lib/datetime";
-import type { PlanRuta } from "@/lib/ruteo/correr";
+import { gastoDelMesUsd, topeUsdMes, type PlanRuta } from "@/lib/ruteo/correr";
 import { createClient } from "@/lib/supabase/server";
 
 import DescartarForm from "./DescartarForm";
@@ -36,6 +36,8 @@ export default async function AgentePage({
 }) {
   await requireRole("admin", "direccion", "planeador");
   const supabase = createClient();
+
+  const [gastoMes, tope] = await Promise.all([gastoDelMesUsd(), topeUsdMes()]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: propuesta } = await (supabase as any)
@@ -163,9 +165,22 @@ export default async function AgentePage({
             ruta como siempre — nada se bloquea.
           </p>
         </div>
-        <form action={generarPropuesta}>
-          <GenerarButton />
-        </form>
+        <div className="flex flex-col items-end gap-2">
+          <form action={generarPropuesta}>
+            <GenerarButton />
+          </form>
+          {/*
+            El gasto a la vista. No es un semáforo para frenar a nadie —correr
+            el agente cuesta centavos frente a lo que mueve una ruta—, es para
+            que el número exista sin tener que ir a buscarlo a otra consola.
+          */}
+          <div className="text-right text-[11px] leading-tight text-zinc-500">
+            <span className="tabular-nums">
+              ${gastoMes.toFixed(2)} USD gastados este mes
+            </span>
+            <span className="text-zinc-400"> · alarma en ${tope.toFixed(0)}</span>
+          </div>
+        </div>
       </div>
 
       {searchParams.error && (
