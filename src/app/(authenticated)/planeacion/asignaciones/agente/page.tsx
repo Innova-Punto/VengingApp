@@ -191,8 +191,13 @@ export default async function AgentePage({
 
       {!propuesta && (
         <div className="rounded-lg border border-zinc-200 bg-white p-6 text-sm text-zinc-600">
-          Todavía no hay ninguna propuesta. El agente corre solo a las 6:00 de
-          la mañana; si la quieres ahora, usa el botón de arriba.
+          {/*
+            El cron está apagado a propósito (decisión de dirección, sep-2026):
+            el agente solo corre con el botón. El texto decía que corría solo a
+            las 6:00 y eso dejaba esperando una propuesta que nunca llegaba.
+          */}
+          Todavía no hay ninguna propuesta. El agente no corre solo: genérala
+          con el botón de arriba cuando la quieras.
         </div>
       )}
 
