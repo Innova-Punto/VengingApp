@@ -23,6 +23,39 @@ export type ResultadoCorrida = {
   duracionMs: number;
 };
 
+/** Tope por default si la clave no está en config_global. */
+const TOPE_USD_MES_DEFAULT = 75;
+
+/**
+ * Lo que lleva gastado el agente en el mes calendario corriente, en dólares.
+ *
+ * El mes se corta en CDMX, no en UTC: si no, las corridas de la tarde del
+ * último día del mes caerían en el siguiente y el número no cuadraría con lo
+ * que cualquiera entiende por "este mes".
+ */
+export async function gastoDelMesUsd(): Promise<number> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createAdminClient() as any;
+
+  const { data } = await supabase.rpc("ruteo_gasto_mes_usd");
+  return Number(data ?? 0);
+}
+
+/** El tope vigente, para mostrarlo junto al gastado. */
+export async function topeUsdMes(): Promise<number> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createAdminClient() as any;
+
+  const { data } = await supabase
+    .from("config_global")
+    .select("valor")
+    .eq("clave", "ruteo_tope_usd_mes")
+    .maybeSingle();
+
+  const n = Number(data?.valor);
+  return Number.isFinite(n) && n > 0 ? n : TOPE_USD_MES_DEFAULT;
+}
+
 /**
  * Una corrida completa: junta el estado, se lo da al modelo, ordena y valida
  * lo que contesta, y guarda todo.
@@ -53,6 +86,19 @@ export async function correrPropuesta(opts: {
     if (estado.maquinas.length === 0) {
       throw new Error(
         "El catálogo de máquinas llegó vacío. No se le pide plan al modelo con un parque vacío: revisa la consulta antes de volver a intentar.",
+      );
+    }
+
+    // Alarma de fuga, no presupuesto. El tope está muy por encima del gasto
+    // normal (~$0.53 por corrida), así que si se dispara es que algo está
+    // corriendo solo: un cron en bucle, un reintento desbocado. Se revisa
+    // aquí, justo antes de la única línea que cuesta dinero.
+    const [gastado, tope] = await Promise.all([gastoDelMesUsd(), topeUsdMes()]);
+    if (gastado >= tope) {
+      throw new Error(
+        `El agente lleva $${gastado.toFixed(2)} USD gastados este mes y el tope está en $${tope.toFixed(2)}. ` +
+          "Eso es muchísimo más que el gasto normal (~$0.53 por corrida), así que probablemente algo esté corriendo solo. " +
+          "Revisa las corridas del mes; si de verdad hace falta correr más, sube 'ruteo_tope_usd_mes' en configuración.",
       );
     }
 
