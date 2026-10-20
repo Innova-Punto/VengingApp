@@ -129,7 +129,10 @@ const NAV_GROUPS: GroupDef[] = [
       { label: "Ventas", href: "/cliente/ventas" },
       { label: "Visitas", href: "/cliente/visitas" },
       { label: "Incidencias y quejas", href: "/cliente/incidencias" },
-      { label: "Visitas de servicio", href: "/admin/servicios" },
+      // Apuntaba a /admin/servicios, la pantalla interna. Con una cuenta de
+      // cliente el listado tronaba por timeout: RLS re-derivaba la propiedad
+      // por cada renglón de respuesta del checklist. Ahora tiene la suya.
+      { label: "Servicios", href: "/cliente/servicios" },
     ],
   },
   {
