@@ -115,11 +115,22 @@ const NAV_GROUPS: GroupDef[] = [
     ],
   },
   {
-    // Único grupo visible para el rol `cliente`. No se le agregan items aquí
-    // sin revisar antes las policies de RLS del rol.
-    label: "Servicios",
+    // Único grupo visible para el rol `cliente`.
+    //
+    // Todo lo que cuelga de /cliente lee de las vistas `v_cliente_*`, que ya
+    // vienen acotadas al cliente del usuario y sin una sola columna de costo
+    // o margen. No se agregan items aquí apuntando a pantallas internas: esas
+    // leen de las tablas, y RLS filtra renglones pero no columnas.
+    label: "Mi operación",
     roles: ["cliente"],
-    items: [{ label: "Visitas de servicio", href: "/admin/servicios" }],
+    items: [
+      { label: "Resumen", href: "/cliente" },
+      { label: "Mis máquinas", href: "/cliente/maquinas" },
+      { label: "Ventas", href: "/cliente/ventas" },
+      { label: "Visitas", href: "/cliente/visitas" },
+      { label: "Incidencias y quejas", href: "/cliente/incidencias" },
+      { label: "Visitas de servicio", href: "/admin/servicios" },
+    ],
   },
   {
     label: "Admin",

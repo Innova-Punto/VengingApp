@@ -111,6 +111,12 @@ Detalle completo en `docs/muscleup_modelo_datos.md`. Resumen operativo:
    sin baseline.
 5. **Las máquinas `tipo = 'servicio'` no venden.** Excluirlas de cualquier reporte o alerta
    basada en venta, o generan falsas alarmas permanentes.
+6. **RLS filtra renglones, no columnas.** Darle lectura al rol `cliente` sobre una tabla le
+   enseña *todas* las columnas de sus renglones — incluidas `costo_polvo`, `utilidad_bruta`
+   y `margen_porcentaje` en `ventas_maquina`, o `costo_promedio_g_actual` en `tolvas`. Por
+   eso el portal del cliente (`/cliente`) lee de las vistas `v_cliente_*`, que solo traen las
+   columnas que decidimos enseñar. **Nunca** apuntar una pantalla de cliente a una tabla ni a
+   una pantalla interna, y nunca agregarle columnas de costo a esas vistas.
 
 ---
 
@@ -229,10 +235,11 @@ npm run db:types
 | Ingesta Nayax + dashboards + supervisión + health checks | ✅ producción |
 | Ventas intercompany | ✅ producción |
 | **Quejas de usuario final** (tablero por antigüedad, toques, pago, reincidencia) | ✅ producción (sep-2026) |
+| **Portal del cliente** (resumen, máquinas, ventas, visitas, incidencias) | ✅ producción (oct-2026) |
+| Agente de ruteo (propone y Mariana acepta) | ✅ producción (oct-2026) |
 | Reportes a cliente (`reportes_cliente`) | ⚠️ tabla creada, sin flujo en UI |
 | Calibraciones (`calibraciones_maquina`) | ⚠️ tabla creada, sin flujo en UI |
 | Contratos de cliente | ⚠️ tabla vacía; parámetros hoy en código |
-| Agente de ruteo (propone y Mariana acepta) | 🔨 catálogos y prompt listos; el agente no está construido |
 
 **Deuda técnica** (detalle en `docs/muscleup_modelo_datos.md` §10). Resueltos en ago-2026:
 overloads de `op_registrar_llenado`, migraciones sin DDL, el signo del kardex, la lectura
