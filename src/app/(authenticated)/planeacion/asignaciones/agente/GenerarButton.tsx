@@ -18,19 +18,23 @@ import { useFormStatus } from "react-dom";
  */
 
 /**
- * Los tiempos salen de las corridas reales, no de una estimación: las primeras
- * tardaron entre 141 y 175 segundos. Poner "10 a 40 segundos" —como decía al
- * principio— hacía que la pantalla anunciara problemas a los 45 segundos,
- * cuando lo normal es casi el triple. Quien cree que se rompió, vuelve a picar.
+ * Los tiempos salen de las corridas reales, no de una estimación.
+ *
+ * Las primeras mediciones (141 a 175 s) eran de un sábado, cuando la jornada
+ * vale la mitad y el agente arma rutas de cuatro paradas. El primer lunes
+ * medido tardó 287 s con 38 paradas: 2.4 veces más plan con la misma entrada.
+ * Anunciar "2 a 3 minutos" hacía que la pantalla pareciera atorada al minuto
+ * cuatro de una corrida perfectamente normal — y quien cree que se rompió,
+ * vuelve a picar.
  */
 const ETAPAS = [
-  { desde: 0, texto: "Leyendo el estado del parque…", detalle: "inventario, ventas, quejas, agua y visitas de las 72 máquinas" },
-  { desde: 6, texto: "El agente está decidiendo…", detalle: "a quién mandar a dónde, y por qué. Es la parte larga: suele tomar dos minutos" },
-  { desde: 130, texto: "Escribiendo el plan…", detalle: "las rutas con su justificación, los escalamientos y las notas" },
-  { desde: 170, texto: "Ordenando las paradas…", detalle: "ruta más corta desde el CEDIS y validación de la jornada" },
+  { desde: 0, texto: "Leyendo el estado del parque…", detalle: "inventario, ventas, quejas, agua y visitas de las 82 máquinas" },
+  { desde: 6, texto: "El agente está decidiendo…", detalle: "a quién mandar a dónde, y por qué. Es la parte larga y se toma varios minutos" },
+  { desde: 200, texto: "Escribiendo el plan…", detalle: "las rutas con su justificación, los escalamientos y las notas" },
+  { desde: 290, texto: "Ordenando las paradas…", detalle: "ruta más corta desde el CEDIS y validación de la jornada" },
 ];
 
-const TARDE = 240;
+const TARDE = 420;
 
 export default function GenerarButton() {
   const { pending } = useFormStatus();
@@ -55,7 +59,7 @@ export default function GenerarButton() {
           Generar propuesta ahora
         </button>
         <p className="mt-1 text-xs text-zinc-500">
-          Tarda entre 2 y 3 minutos.
+          Tarda alrededor de 5 minutos.
         </p>
       </div>
     );
@@ -89,8 +93,8 @@ export default function GenerarButton() {
 
       <p className={`mt-2 text-xs ${tarda ? "font-medium text-amber-800" : "text-blue-800"}`}>
         {tarda
-          ? "Se está tardando más de lo normal (lo habitual son 2 a 3 minutos), pero sigue corriendo. No le piques otra vez: cada clic es una corrida nueva."
-          : "Todo va bien. Suele tardar de 2 a 3 minutos — no le piques otra vez, cada clic es una corrida nueva."}
+          ? "Se está tardando más de lo normal (un día entre semana suele cerrar cerca de los 5 minutos), pero sigue corriendo. No le piques otra vez: cada clic es una corrida nueva."
+          : "Todo va bien. Entre semana suele tardar unos 5 minutos — no le piques otra vez, cada clic es una corrida nueva."}
       </p>
 
       <style>{`

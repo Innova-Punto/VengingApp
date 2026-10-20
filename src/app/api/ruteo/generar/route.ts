@@ -7,9 +7,11 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 export const revalidate = 0;
-// El modelo se toma su tiempo con 72 máquinas; 8 h de jornada que planear no
-// se resuelven en 10 segundos.
-export const maxDuration = 300;
+// El modelo se toma su tiempo con 82 máquinas; 8 h de jornada que planear no
+// se resuelven en 10 segundos. Medido el 19-oct, un lunes: 287 s. Se sube al
+// mismo techo que la pantalla para que el cron, si algún día se enciende, no
+// muera donde el botón sí aguanta.
+export const maxDuration = 800;
 
 /**
  * Corrida del agente de ruteo.

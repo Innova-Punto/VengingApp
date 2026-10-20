@@ -15,12 +15,25 @@ import { aceptarPropuesta, generarPropuesta } from "./actions";
 export const metadata = { title: "Propuesta del agente · Innovaypunto" };
 export const dynamic = "force-dynamic";
 /**
- * El botón corre el agente dentro de esta ruta, y una corrida tarda entre dos
- * y tres minutos. Sin este techo, la función se moría a media corrida: el
- * usuario veía la animación para siempre y en la base no aparecía nada, ni
- * siquiera el error, porque el proceso se mataba antes de poder escribirlo.
+ * El botón corre el agente dentro de esta ruta. Sin este techo, la función se
+ * moría a media corrida: el usuario veía la animación para siempre y en la
+ * base no aparecía nada, ni siquiera el error, porque el proceso se mataba
+ * antes de poder escribirlo.
+ *
+ * Estaba en 300 y la corrida del 19-oct tardó **287 segundos**: trece de
+ * margen. Las corridas de septiembre que parecían holgadas (165 s) eran de un
+ * sábado, cuando la jornada vale la mitad y el agente arma rutas de cuatro
+ * paradas. El lunes armó 38 paradas contra 15.7 del sábado — misma entrada,
+ * 2.4 veces más plan. Ese es el día normal, y 287 s es su piso, no su techo.
+ *
+ * 800 es el máximo que permite Vercel con Fluid compute. Si el plan no llega,
+ * el límite efectivo se queda donde el plan diga: la prueba lo va a decir.
+ *
+ * Esto compra tiempo, no resuelve. El arreglo de fondo es sacar la corrida del
+ * request —que corra en segundo plano y la pantalla muestre el resultado
+ * cuando esté— porque así no hay techo de reloj que perseguir.
  */
-export const maxDuration = 300;
+export const maxDuration = 800;
 
 type MaquinaRef = {
   serie: string;

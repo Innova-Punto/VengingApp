@@ -124,7 +124,12 @@ export async function correrAgente(
     );
   }
 
-  const client = new Anthropic();
+  // El SDK trae su propio reloj, de 10 minutos por default. Subir el techo de
+  // Vercel a 800 s sin tocar este dejaría el límite real en 600: la corrida
+  // moriría por el lado del SDK y el mensaje no hablaría de tiempo. Se deja
+  // justo por debajo del techo de la función para que, si algo se pasa, quien
+  // corte sea Vercel y el error diga lo que de verdad pasó.
+  const client = new Anthropic({ timeout: 780_000 });
   const inicio = Date.now();
 
   // En streaming y no de un jalón: la respuesta es larga —cuatro rutas con su
