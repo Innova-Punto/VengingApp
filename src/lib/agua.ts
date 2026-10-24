@@ -35,6 +35,30 @@ export function fraccionesTanque(
 }
 
 /**
+ * Cuántos litros conviene que el operador compre en la tienda camino a una
+ * máquina, para dejarla llena.
+ *
+ * Se redondea hacia abajo a múltiplos de 10 L porque así se vende el agua, y
+ * porque el nivel de partida es un estimado: el tanque es transparente pero no
+ * tiene escala, y el operador lo reporta por cuartos. Sugerir "37 L" fingiría
+ * una precisión que el dato no tiene.
+ *
+ * Devuelve null cuando no hay nada que comprar o cuando nunca se ha medido —
+ * ahí lo honesto es que mida primero, no que cargue agua a ciegas.
+ */
+export function litrosASugerir(
+  mlEstimado: number | null | undefined,
+  capacidadMl: number | null | undefined,
+  sinMedicion: boolean | null | undefined,
+): number | null {
+  if (sinMedicion) return null;
+  if (mlEstimado == null || !capacidadMl) return null;
+  const faltanL = (capacidadMl - mlEstimado) / 1000;
+  if (faltanL < 10) return null;
+  return Math.floor(faltanL / 10) * 10;
+}
+
+/**
  * Qué tan grave es la diferencia entre lo que el sistema esperaba y lo que el
  * operador encontró. Un tanque destapado se evapora y el operador redondea a
  * cuartos, así que una diferencia chica es ruido, no fuga: el umbral es medio
