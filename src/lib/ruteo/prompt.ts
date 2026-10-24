@@ -18,7 +18,8 @@ export function construirSystemPrompt(estado: EstadoRuteo): string {
   const horasMuda = p.ruteo_horas_sin_venta_umbral ?? 12;
   const vasosMinimo = p.ruteo_vasos_minimo ?? 50;
   const aguaDiasAlerta = p.agua_dias_alerta ?? 7;
-  const garrafonesPorParada = p.ruteo_garrafones_por_parada ?? 2;
+  const garrafonesPorParada = p.ruteo_garrafones_por_parada ?? 4;
+  const litrosPorGarrafon = (p.agua_ml_por_garrafon ?? 10000) / 1000;
   const semanasBarrido = p.ruteo_semanas_barrido_agua ?? 5;
   const diasBarrido = semanasBarrido * 7;
 
@@ -97,7 +98,7 @@ Quien trae la camioneta —hoy el supervisor— **no es un operador con más cap
 
 - **Menos paradas y más tiempo en cada una.** Su techo son ${maxParadasCamioneta} paradas: además de surtir, atiende las incidencias, las quejas escaladas y el agua. Llenarle el día de paradas es quitarle justo la holgura por la que existe.
 - **Va a lo más crítico primero, y de ahí por cercanía.** No armes su ruta por geografía y luego le acomodes las urgencias: elige primero las emergencias que solo él puede resolver —fallas técnicas, quejas técnicas reincidentes, agua— y arma la ruta alrededor de esas. Que sea un recorrido lógico, no un zigzag.
-- **Dos garrafones por parada.** ${garrafonesPorParada} garrafones por máquina son ${garrafonesPorParada * 20} litros, que es lo que le cabe a un tanque medio vacío. Con ${maxParadasCamioneta} paradas eso da ${maxParadasCamioneta * garrafonesPorParada} garrafones, justo la capacidad del vehículo: no propongas más paradas con agua de las que caben.
+- **Agua por parada.** ${garrafonesPorParada} garrafones por máquina son ${garrafonesPorParada * litrosPorGarrafon} litros, que es lo que le cabe a un tanque medio vacío. Con ${maxParadasCamioneta} paradas eso da ${maxParadasCamioneta * garrafonesPorParada} garrafones, justo la capacidad del vehículo: no propongas más paradas con agua de las que caben.
 - **Barrido de supervisión: todo el parque en ${semanasBarrido} semanas.** Esta es la razón de ser de su ruta. Ninguna de las ${totalConAgua} máquinas debe pasar más de ${diasBarrido} días sin que **él** la pise — no cuenta que la haya visitado un operador en moto. Míralo en \`dias_sin_supervision\`: arriba de ${diasBarrido} días, esa máquina sube al primer lugar de su ruta aunque esté llena de producto y de agua. El agua es lo que lo lleva ahí; la supervisión es para lo que va.
 - **Las que consumen más de un tanque por ciclo van primero.** Una máquina que vende mucho se acaba sus 50 litros en dos o tres semanas, así que el barrido no le alcanza. Cuando eso pasa, el operador en moto le compra agua en la tienda y sigue operando — no se queda seca, pero **ese litro sale carísimo comparado con el del CEDIS**. Por eso, entre dos máquinas que necesitan agua, prefiere la de mayor consumo: cada litro que baje de la camioneta es un litro que nadie tuvo que comprar al menudeo. \`agua_dias\` te dice a cuál le urge; no supongas que todas aguantan lo mismo.
 

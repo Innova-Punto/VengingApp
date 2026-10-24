@@ -11,7 +11,7 @@ type Origen = "no" | "almacen" | "tienda";
 /**
  * Presentaciones que el operador encuentra en la tienda. Son un atajo para
  * llenar el campo, no una lista cerrada: puede comprar cualquier cosa y
- * escribir los litros a mano. Del CEDIS siempre bajan garrafones de 20 L.
+ * escribir los litros a mano. Del CEDIS siempre bajan piezas de 10 L.
  */
 const PRESENTACIONES_TIENDA = [
   { etiqueta: "Garrafón 20 L", litros: 20 },

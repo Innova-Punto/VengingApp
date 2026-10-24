@@ -2,11 +2,25 @@
  * Agua: helpers compartidos entre campo, almacén y planeación.
  *
  * Todo se maneja en **mililitros enteros**, igual que los polvos en gramos.
- * Un garrafón son 20 L; un tanque de máquina, 50 L; una bebida, 300 ml.
+ * Una pieza de agua son 10 L; un tanque de máquina, 50 L; una bebida, 300 ml.
  */
 
-/** Garrafón estándar. El valor vigente vive en `config_global.agua_ml_por_garrafon`. */
-export const ML_POR_GARRAFON = 20_000;
+/**
+ * Litros por pieza de agua. El valor vigente vive en
+ * `config_global.agua_ml_por_garrafon`.
+ *
+ * Bajó de 20 L a 10 L en oct-2026: por precio se empezó a comprar en
+ * presentación de 10 L. **El inventario cuenta piezas, no litros**, así que
+ * este número es la única traducción entre una cosa y la otra.
+ *
+ * Eso implica un supuesto que hay que respetar: **todo el inventario de agua
+ * es de la misma presentación.** El día que convivan piezas de 10 L y de 20 L,
+ * este número deja de ser cierto para la mitad del almacén y las cuentas se
+ * van a ir sin que nadie lo note. Si eso llega a pasar, lo que toca es llevar
+ * el inventario en mililitros —como ya se hace con el polvo en gramos y con el
+ * agua dentro de la máquina— y no seguir moviendo esta constante.
+ */
+export const ML_POR_GARRAFON = 10_000;
 
 /** Consumo por bebida. El vigente vive en `config_global.agua_ml_por_bebida`. */
 export const ML_POR_BEBIDA = 300;
