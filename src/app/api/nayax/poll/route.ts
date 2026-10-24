@@ -33,6 +33,12 @@ type NayaxProduct = {
   "Product Name"?: string | null;
   "Product Bruto"?: number | string | null;
   "Product Catalog Number"?: string | null;
+  /**
+   * Número de selección interno de la máquina. NO es el PA Code y no sirve
+   * para mapear: en Tlatelolco va dos abajo. Se usa solo para diferenciar
+   * renglones de un mismo ticket cuando no viene PA Code.
+   */
+  "Product Code in Map"?: number | string | null;
 };
 
 type NayaxData = {
@@ -204,32 +210,35 @@ async function handleGET(request: Request) {
       let archivado = false;
       for (const prod of productos) {
         const paCode = prod["Product PA Code"];
-        if (!paCode) {
-          errores += 1;
-          erroresDetalle.push({
+        const nombreNayax = prod["Product Name"] ?? null;
+
+        // Sin PA Code la venta YA NO se tira. El dinero es el dato duro: en
+        // octubre se perdieron 76 transacciones y $3,304 que el cliente sí
+        // pagó, y nadie se enteró en 24 días. La venta entra marcada como
+        // `producto_sin_identificar` y el RPC se abstiene de descontar polvo,
+        // porque no sabemos qué se despachó y suponerlo ensuciaría el cierre.
+        //
+        // El payload se sigue archivando: es lo que permite reconstruir qué
+        // bebida era cuando alguien arregle el planograma en Nayax.
+        if (!paCode && !archivado) {
+          await supabaseAny.from("nayax_mensajes_descartados").insert({
+            sqs_message_id: msg.MessageId ?? null,
             transaction_id: transactionId,
-            error: "Producto sin PA Code",
+            machine_id: machineId,
+            motivo: "Producto sin PA Code (registrado como venta sin identificar)",
+            payload,
           });
-          // Archivar el payload completo UNA sola vez por mensaje, para
-          // que podamos auditar si era una venta real o un evento de máquina.
-          // El mensaje se borra de la cola (no es retryable: la data ya
-          // venía incompleta).
-          if (!archivado) {
-            await supabaseAny.from("nayax_mensajes_descartados").insert({
-              sqs_message_id: msg.MessageId ?? null,
-              transaction_id: transactionId,
-              machine_id: machineId,
-              motivo: "Producto sin PA Code",
-              payload,
-            });
-            archivado = true;
-          }
-          continue;
+          archivado = true;
         }
+
         const precioBruto = parseNumber(prod["Product Bruto"]);
 
-        // Identificador único: {TransactionId}-{PA Code} (soporta multivend)
-        const txKey = `${transactionId}-${paCode}`;
+        // Identificador único: {TransactionId}-{PA Code} (soporta multivend).
+        // Sin PA Code se usa el código interno de la máquina para no colapsar
+        // dos renglones distintos de un mismo ticket en una sola venta.
+        const txKey = paCode
+          ? `${transactionId}-${paCode}`
+          : `${transactionId}-sin-pa-${prod["Product Code in Map"] ?? "0"}`;
 
         try {
           const { error: rpcErr } = await supabaseAny.rpc(
@@ -237,12 +246,13 @@ async function handleGET(request: Request) {
             {
               p_nayax_transaction_id: txKey,
               p_nayax_machine_id: machineId,
-              p_nayax_item_code: paCode,
+              p_nayax_item_code: paCode ?? null,
               p_fecha_transaccion: machineTime,
               p_precio_bruto: precioBruto,
               p_metodo_pago: metodoPago,
               p_ticket_id: ticketId,
               p_sync_log_id: syncLogId,
+              p_nombre_nayax: nombreNayax,
             },
           );
           if (rpcErr) {
