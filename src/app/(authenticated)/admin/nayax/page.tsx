@@ -258,14 +258,24 @@ export default async function NayaxPage() {
                     <td className="px-3 py-2 text-right tabular-nums">
                       ${Number(v.precio_neto).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
+                    {/*
+                      La utilidad viene en null cuando la bebida no se pudo
+                      identificar: sin saber qué se despachó no hay costo. Se
+                      muestra como raya, no como cero — un cero afirmaría que
+                      no ganamos nada, y eso no lo sabemos.
+                    */}
                     <td
                       className={`px-3 py-2 text-right tabular-nums ${
-                        Number(v.utilidad_bruta) < 0
-                          ? "text-red-700"
-                          : "text-green-700"
+                        v.utilidad_bruta == null
+                          ? "text-zinc-400"
+                          : Number(v.utilidad_bruta) < 0
+                            ? "text-red-700"
+                            : "text-green-700"
                       }`}
                     >
-                      ${Number(v.utilidad_bruta).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {v.utilidad_bruta == null
+                        ? "—"
+                        : `$${Number(v.utilidad_bruta).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums text-xs text-zinc-500">
                       {v.margen_porcentaje != null
