@@ -71,7 +71,7 @@ end;
 $$;
 
 comment on function public.check_llenado_no_desborda() is
-  'Frena un llenado que dejaría la tolva arriba del 200% de su capacidad. Ver migración 20261031190000.';
+  'Frena un llenado que dejaría la tolva arriba del 200% de su capacidad. Ver migración 20261031185830.';
 
 drop trigger if exists trg_llenado_no_desborda on public.llenado_items;
 create trigger trg_llenado_no_desborda

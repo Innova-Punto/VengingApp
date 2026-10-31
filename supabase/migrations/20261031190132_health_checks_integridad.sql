@@ -20,7 +20,7 @@
 -- Los cuatro chequeos
 -- -------------------
 --   tolva_desbordada · Crítico. Arriba del doble de su capacidad. Desde la
---        migración 20261031190000 el llenado ya no puede provocarlo, así que
+--        migración 20261031185830 el llenado ya no puede provocarlo, así que
 --        si aparece es que entró por otro lado y hay que ir a ver por dónde.
 --   tolva_sobre_capacidad · Advertencia. Entre 100% y 200%. Hoy hay 49 y el
 --        exceso máximo son 347 g: ruido normal de cartuchos de 400 g entrando
@@ -96,7 +96,7 @@ select 'nayax_descartes_24h'::text,
  where d.created_at > now() - interval '24 hours';
 
 comment on view public.v_health_checks_integridad is
-  'Chequeos de cantidades que no cuadran, nacidos del caso de la caja de chocolate (oct-2026). Ver migración 20261031191500.';
+  'Chequeos de cantidades que no cuadran, nacidos del caso de la caja de chocolate (oct-2026). Ver migración 20261031190132.';
 
 create view public.v_health_checks
 with (security_invoker = true) as
