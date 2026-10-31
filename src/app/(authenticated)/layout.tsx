@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { requireUser, type AppRole } from "@/lib/auth";
 import { signOut } from "@/app/(auth)/login/actions";
+import FranjaSalud from "@/components/FranjaSalud";
 import { Logo } from "@/components/Logo";
 import NavMenu, { type NavGroup } from "@/components/NavMenu";
 
@@ -194,6 +195,15 @@ export default async function AuthenticatedLayout({
           </div>
         </div>
       </header>
+
+      {/* Solo para quien puede hacer algo al respecto. El rol `cliente` no la
+          ve nunca: son problemas nuestros, y enseñárselos sería contarle de la
+          cocina. Los operadores tampoco — su pantalla es /campo y lo que les
+          toca resolver les llega en la visita, no en una franja. */}
+      {(user.roles.includes("admin") ||
+        user.roles.includes("direccion") ||
+        user.roles.includes("planeador") ||
+        user.roles.includes("almacen")) && <FranjaSalud />}
 
       <main className="mx-auto max-w-7xl px-6 py-6">{children}</main>
     </div>

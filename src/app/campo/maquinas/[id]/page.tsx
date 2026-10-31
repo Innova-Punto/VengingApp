@@ -78,7 +78,7 @@ export default async function MaquinaCampoPage({
        ubicacion:ubicaciones(nombre, lat, lng, cliente:clientes(nombre)),
        tolvas:tolvas(
          id, numero, producto_id, gramaje_servicio,
-         inventario_actual_g, capacidad_max_g,
+         inventario_actual_g, capacidad_max_g, capacidad_max_g_override,
          producto:productos(sku, nombre)
        ),
        vaso_producto:productos!maquinas_vaso_producto_id_fkey(sku, nombre)`,
@@ -110,7 +110,8 @@ export default async function MaquinaCampoPage({
         .from("surtido_items")
         .select(
           `id, producto_id, cartuchos_entregados, vasos_entregados, encartuchado_id,
-           producto:productos(sku, nombre, tipo)`,
+           producto:productos(sku, nombre, tipo),
+           encartuchado:encartuchados(gramos_por_cartucho)`,
         )
         .eq("surtido_id", surtido.id)
         .eq("maquina_id", maquina.id)
@@ -347,7 +348,15 @@ export default async function MaquinaCampoPage({
     cartuchos_entregados: number;
     encartuchado_id: string | null;
     producto: { sku: string; nombre: string; tipo: string } | null;
-    tolvas_candidatas: { id: string; numero: number; gramaje_servicio: number | null }[];
+    tolvas_candidatas: {
+      id: string;
+      numero: number;
+      gramaje_servicio: number | null;
+      inventario_actual_g: number | null;
+      capacidad_g: number | null;
+    }[];
+    /** Lo que pesa cada cartucho de este renglón, para ver si cabe. */
+    gramos_por_cartucho: number | null;
     es_vaso: boolean;
   };
   const surtidoItemsInfo: ItemInfo[] = (surtidoItems ?? []).flatMap((si): ItemInfo[] => {
@@ -361,11 +370,15 @@ export default async function MaquinaCampoPage({
         encartuchado_id: null,
         producto: prod,
         tolvas_candidatas: [],
+        gramos_por_cartucho: null,
         es_vaso: true,
       };
       return [item];
     }
     if ((si.cartuchos_entregados ?? 0) === 0) return [];
+    const enc = Array.isArray(si.encartuchado)
+      ? si.encartuchado[0]
+      : si.encartuchado;
     const tolvasCandidatas = tolvasPolvo.filter(
       (t: TolvaInfo) => t.producto_id === si.producto_id,
     );
@@ -379,7 +392,10 @@ export default async function MaquinaCampoPage({
         id: t.id,
         numero: t.numero,
         gramaje_servicio: t.gramaje_servicio,
+        inventario_actual_g: t.inventario_actual_g,
+        capacidad_g: t.capacidad_max_g_override ?? t.capacidad_max_g,
       })),
+      gramos_por_cartucho: enc?.gramos_por_cartucho ?? null,
       es_vaso: false,
     };
     return [item];
