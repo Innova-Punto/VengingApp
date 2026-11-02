@@ -66,3 +66,27 @@ export function startOfNDaysAgoCDMX(n: number): Date {
   t.setUTCDate(t.getUTCDate() - n);
   return t;
 }
+
+/**
+ * Medianoche CDMX del día 1 del mes, corrido `offsetMeses` hacia atrás.
+ *
+ * El mes se calcula sobre el calendario **CDMX**, no sobre el del servidor:
+ * el 1 de cada mes, entre las 00:00 y las 06:00 hora de México, en UTC ya es
+ * día 1 también, pero el último día del mes a las 19:00 CDMX en UTC ya es el
+ * día 1 del mes siguiente. Partir del reloj de Vercel haría que esa tarde el
+ * reporte cambiara de mes seis horas antes de tiempo.
+ *
+ * `Date.UTC` normaliza el desbordamiento solo: pedir el mes -1 de enero
+ * devuelve diciembre del año anterior sin que haya que tratar el caso aparte.
+ */
+export function startOfMonthCDMX(offsetMeses = 0): Date {
+  const [anio, mes] = isoFechaCDMX(new Date()).split("-").map(Number);
+  const d = new Date(Date.UTC(anio, mes - 1 - offsetMeses, 1));
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  return new Date(`${d.getUTCFullYear()}-${mm}-01T00:00:00-06:00`);
+}
+
+/** Nombre del mes de una fecha, en CDMX (ej. "noviembre"). */
+export function nombreMesCDMX(d: Date): string {
+  return fmtCDMX(d, { month: "long" });
+}
