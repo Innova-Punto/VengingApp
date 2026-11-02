@@ -17,7 +17,13 @@ import {
 import Link from "next/link";
 
 import { requireRole } from "@/lib/auth";
-import { isoFechaCDMX, startOfNDaysAgoCDMX, startOfTodayCDMX } from "@/lib/datetime";
+import {
+  isoFechaCDMX,
+  nombreMesCDMX,
+  startOfMonthCDMX,
+  startOfNDaysAgoCDMX,
+  startOfTodayCDMX,
+} from "@/lib/datetime";
 import { getIncidenciaTipoInfo } from "@/lib/incidencias-catalogo";
 import { createClient } from "@/lib/supabase/server";
 
@@ -37,6 +43,51 @@ const RANGOS: Record<string, { label: string; dias: number }> = {
   "90d": { label: "Últimos 90 días", dias: 90 },
 };
 
+/** Las opciones del selector, en el orden en que se enseñan. */
+const OPCIONES_RANGO = [
+  { key: "7d", label: "Últimos 7 días" },
+  { key: "30d", label: "Últimos 30 días" },
+  { key: "90d", label: "Últimos 90 días" },
+  { key: "mes", label: "Este mes" },
+  { key: "mes_ant", label: "Mes anterior" },
+];
+
+/**
+ * El rango del dashboard, resuelto a fechas concretas.
+ *
+ * Antes era solo un número de días contado hacia atrás desde ahorita. Con los
+ * meses de calendario eso ya no alcanza: "mes anterior" tiene principio **y
+ * fin**, y es el primer rango de esta pantalla que no termina en el presente.
+ *
+ * Los meses se cortan con el calendario CDMX, no con el reloj de Vercel: el
+ * último día del mes a las 19:00 hora de México en UTC ya es día 1 del
+ * siguiente, y el dashboard se vaciaría seis horas antes de tiempo.
+ */
+function rangoDashboard(key: string): {
+  desde: Date;
+  hasta: Date;
+  label: string;
+} {
+  if (key === "mes" || key === "mes_ant") {
+    const esActual = key === "mes";
+    const inicioEsteMes = startOfMonthCDMX(0);
+    const desde = esActual ? inicioEsteMes : startOfMonthCDMX(1);
+    const hasta = esActual ? new Date() : new Date(inicioEsteMes.getTime() - 1);
+    const mes = nombreMesCDMX(desde);
+    const diaFin = Number(isoFechaCDMX(hasta).slice(8));
+    // El día final va en la etiqueta porque "este mes" puede ser un solo día.
+    // Sin eso, comparar los dos rangos invita a leer la diferencia de días
+    // como una caída de venta.
+    return {
+      desde,
+      hasta,
+      label: `${esActual ? "Este mes" : "Mes anterior"} · ${mes} 1–${diaFin}`,
+    };
+  }
+  const r = RANGOS[key] ?? RANGOS["30d"];
+  return { desde: startOfNDaysAgoCDMX(r.dias), hasta: new Date(), label: r.label };
+}
+
 export default async function DashboardPage({
   searchParams,
 }: {
@@ -46,9 +97,10 @@ export default async function DashboardPage({
   const supabase = createClient();
 
   const rangoKey = searchParams.rango ?? "30d";
-  const rango = RANGOS[rangoKey] ?? RANGOS["30d"];
+  const rango = rangoDashboard(rangoKey);
   // Inicio del rango y de "hoy" en hora CDMX (no UTC del servidor).
-  const desde = startOfNDaysAgoCDMX(rango.dias).toISOString();
+  const desde = rango.desde.toISOString();
+  const hasta = rango.hasta.toISOString();
   const hoyInicioIso = startOfTodayCDMX().toISOString();
 
   // Mes y año en hora CDMX (no UTC del servidor).
@@ -73,7 +125,11 @@ export default async function DashboardPage({
          producto:productos(sku, nombre),
          maquina:maquinas(serie, alias)`,
       )
+      // La cota superior no estaba: con rangos que siempre terminaban en el
+      // presente nunca estorbó, pero "mes anterior" sí tiene fin y sin esto
+      // traería octubre *más* todo lo que va de noviembre.
       .gte("fecha_transaccion", desde)
+      .lte("fecha_transaccion", hasta)
       .range(0, 200000),
     supabase
       .from("ventas_maquina")
@@ -194,10 +250,18 @@ export default async function DashboardPage({
 
   // Series para gráficos
   // a) Ingresos / utilidad por día (rango) — agrupado por fecha CDMX
+  //
+  // Se siembran los días del rango en cero antes de acumular, para que un día
+  // sin ventas salga como un cero en la gráfica y no como un hueco. Antes se
+  // contaba hacia atrás desde hoy; ahora se recorre de `desde` a `hasta`, que
+  // es lo único que funciona con un rango que no termina en el presente.
   const porDia = new Map<string, { ingresos: number; utilidad: number }>();
-  for (let i = rango.dias - 1; i >= 0; i--) {
-    const d = isoFechaCDMX(new Date(Date.now() - i * 86400000));
-    porDia.set(d, { ingresos: 0, utilidad: 0 });
+  for (
+    let d = new Date(rango.desde);
+    d <= rango.hasta;
+    d.setUTCDate(d.getUTCDate() + 1)
+  ) {
+    porDia.set(isoFechaCDMX(d), { ingresos: 0, utilidad: 0 });
   }
   for (const v of ventasArr) {
     const d = isoFechaCDMX(v.fecha_transaccion);
@@ -206,11 +270,19 @@ export default async function DashboardPage({
     acc.utilidad += Number(v.utilidad_bruta ?? 0);
     porDia.set(d, acc);
   }
-  const ventasPorDia = Array.from(porDia.entries()).map(([fecha, v]) => ({
-    fecha,
-    ingresos: Math.round(v.ingresos * 100) / 100,
-    utilidad: Math.round(v.utilidad * 100) / 100,
-  }));
+  // Ordenar por fecha y no confiar en el orden de inserción del Map. Si una
+  // venta cae en un día que la siembra no cubrió, el `set` de arriba la agrega
+  // al final: la gráfica terminaba con un punto fuera de lugar, fechado días
+  // antes que el anterior. Pasaba con los rangos de N días, porque la siembra
+  // arrancaba un día después de lo que traía la consulta. Con un sort deja de
+  // importar de dónde salió cada llave.
+  const ventasPorDia = Array.from(porDia.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([fecha, v]) => ({
+      fecha,
+      ingresos: Math.round(v.ingresos * 100) / 100,
+      utilidad: Math.round(v.utilidad * 100) / 100,
+    }));
 
   // b) Top productos para chart (reusa topProductos)
   const topProductosChart = topProductos.map((p) => ({
@@ -303,9 +375,9 @@ export default async function DashboardPage({
             defaultValue={rangoKey}
             className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm shadow-sm focus:border-zinc-900 focus:outline-none"
           >
-            {Object.entries(RANGOS).map(([k, v]) => (
-              <option key={k} value={k}>
-                {v.label}
+            {OPCIONES_RANGO.map((o) => (
+              <option key={o.key} value={o.key}>
+                {o.label}
               </option>
             ))}
           </select>
