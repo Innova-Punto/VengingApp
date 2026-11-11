@@ -117,4 +117,4 @@ select 'maquina_sin_venta_48h'::text,
         and v.fecha_transaccion > now() - interval '48 hours');
 
 comment on view public.v_health_checks_integridad is
-  'Chequeos de cantidades que no cuadran y de ingesta que se rompe. Nacidos del caso de la caja de chocolate (oct-2026) y del cambio de dispositivos Nayax (nov-2026). Ver migraciones 20261031190132 y 20261111000000.';
+  'Chequeos de cantidades que no cuadran y de ingesta que se rompe. Nacidos del caso de la caja de chocolate (oct-2026) y del cambio de dispositivos Nayax (nov-2026). Ver migraciones 20261031190132 y 20261111144451.';
