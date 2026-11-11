@@ -208,6 +208,38 @@ async function handleGET(request: Request) {
       // Por cada producto en Products[] (multivend)
       let allOkOrDup = true;
       let archivado = false;
+
+      /**
+       * Guarda el payload cuando algo sale mal, sea lo que sea.
+       *
+       * Antes solo se archivaba el caso de "sin PA Code". Cualquier otro fallo
+       * —y el más caro resultó ser "máquina no encontrada"— solo sumaba uno a
+       * un contador y escribía el mensaje en el sync log, donde nadie mira.
+       *
+       * En noviembre se cambiaron 9 dispositivos Nayax y cada uno empezó a
+       * reportar con un Machine ID nuevo que el catálogo no conocía. Ocho
+       * máquinas se quedaron mudas **siete días** sin que saltara nada,
+       * justamente porque el único fallo que dejaba rastro visible era el otro.
+       *
+       * El payload trae `Machine Name`, que es lo que permite saber a qué
+       * máquina corresponde un ID desconocido. Sin archivarlo hay que ir al
+       * portal de Nayax a buscarlo a mano. Con archivarlo, el mapeo sale solo.
+       *
+       * Se archiva una vez por mensaje (no por renglón) para no inflar la
+       * tabla cuando un ticket multivend falla entero por la misma causa.
+       */
+      const archivarFallo = async (motivo: string) => {
+        if (archivado) return;
+        archivado = true;
+        await supabaseAny.from("nayax_mensajes_descartados").insert({
+          sqs_message_id: msg.MessageId ?? null,
+          transaction_id: transactionId,
+          machine_id: machineId,
+          motivo,
+          payload,
+        });
+      };
+
       for (const prod of productos) {
         const paCode = prod["Product PA Code"];
         const nombreNayax = prod["Product Name"] ?? null;
@@ -220,15 +252,10 @@ async function handleGET(request: Request) {
         //
         // El payload se sigue archivando: es lo que permite reconstruir qué
         // bebida era cuando alguien arregle el planograma en Nayax.
-        if (!paCode && !archivado) {
-          await supabaseAny.from("nayax_mensajes_descartados").insert({
-            sqs_message_id: msg.MessageId ?? null,
-            transaction_id: transactionId,
-            machine_id: machineId,
-            motivo: "Producto sin PA Code (registrado como venta sin identificar)",
-            payload,
-          });
-          archivado = true;
+        if (!paCode) {
+          await archivarFallo(
+            "Producto sin PA Code (registrado como venta sin identificar)",
+          );
         }
 
         const precioBruto = parseNumber(prod["Product Bruto"]);
@@ -269,17 +296,17 @@ async function handleGET(request: Request) {
                 error: rpcErr.message,
               });
               allOkOrDup = false;
+              await archivarFallo(rpcErr.message);
             }
           } else {
             procesados += 1;
           }
         } catch (e) {
+          const msgErr = e instanceof Error ? e.message : String(e);
           errores += 1;
-          erroresDetalle.push({
-            transaction_id: txKey,
-            error: e instanceof Error ? e.message : String(e),
-          });
+          erroresDetalle.push({ transaction_id: txKey, error: msgErr });
           allOkOrDup = false;
+          await archivarFallo(msgErr);
         }
       }
 
