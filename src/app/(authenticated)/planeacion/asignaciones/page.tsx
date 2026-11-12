@@ -192,6 +192,20 @@ export default async function AsignacionesPage({
                     >
                       {ruta?.nombre ?? "—"}
                     </Link>
+                    {/* En una ruta del agente el nombre de arriba es una
+                        etiqueta derivada —la ruta base de la mayoría de las
+                        paradas—, no la ruta que se va a hacer. El 12-nov a
+                        Diego le tocó "RUTA CENTRO" con 2 de 6 máquinas de
+                        centro. Decirlo evita leer la fila como una ruta fija y
+                        preguntarse por qué hay dos iguales el mismo día. */}
+                    {a.notas?.startsWith("Propuesta del agente") && (
+                      <span
+                        className="ml-2 rounded px-1.5 py-0.5 align-middle text-[10px] font-medium text-zinc-600 ring-1 ring-inset ring-zinc-300"
+                        title="Ruta armada por el agente para este día. El nombre de la ruta es solo la zona de la mayoría de las paradas, no una ruta fija."
+                      >
+                        dinámica
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-2 text-zinc-700">
                     {op?.full_name ?? "—"}
