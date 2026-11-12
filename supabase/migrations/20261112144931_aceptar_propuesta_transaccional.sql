@@ -158,7 +158,7 @@ end;
 $$;
 
 comment on function public.aceptar_propuesta_ruteo(uuid) is
-  'Convierte una propuesta del agente en asignaciones diarias, en una sola transacción. Revisa todos los choques antes de escribir. Ver migración 20261112001000.';
+  'Convierte una propuesta del agente en asignaciones diarias, en una sola transacción. Revisa todos los choques antes de escribir. Ver migración 20261112144931.';
 
 revoke all on function public.aceptar_propuesta_ruteo(uuid) from public, anon;
 grant execute on function public.aceptar_propuesta_ruteo(uuid) to authenticated;

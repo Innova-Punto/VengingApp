@@ -31,4 +31,4 @@ create unique index if not exists asignaciones_diarias_fecha_ruta_vigente_idx
   where estado <> 'cancelada';
 
 comment on index public.asignaciones_diarias_fecha_ruta_vigente_idx is
-  'Una ruta no puede tener dos asignaciones vigentes el mismo día. Las canceladas no cuentan: cancelar libera el lugar. Ver migración 20261112000000.';
+  'Una ruta no puede tener dos asignaciones vigentes el mismo día. Las canceladas no cuentan: cancelar libera el lugar. Ver migración 20261112144705.';
