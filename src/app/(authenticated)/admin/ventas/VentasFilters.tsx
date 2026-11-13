@@ -11,6 +11,10 @@ const RANGOS = [
   { key: "7d", label: "7 días" },
   { key: "30d", label: "30 días" },
   { key: "90d", label: "90 días" },
+  // Meses de calendario, separados de las ventanas de N días: "30 días" y
+  // "este mes" casi nunca son lo mismo y conviene que se vean como dos cosas.
+  { key: "mes", label: "Este mes", grupo: "mes" },
+  { key: "mes_ant", label: "Mes anterior", grupo: "mes" },
 ];
 
 export default function VentasFilters({
@@ -86,21 +90,29 @@ export default function VentasFilters({
           <label className="text-[10px] uppercase tracking-wide text-zinc-500">
             Rango
           </label>
-          <div className="mt-0.5 flex flex-wrap gap-1">
-            {RANGOS.map((r) => (
-              <button
-                key={r.key}
-                type="button"
-                onClick={() => setRangoPreset(r.key)}
-                disabled={isPending}
-                className={`rounded-md border px-2 py-1 text-xs ${
-                  !isCustom && rango === r.key
-                    ? "border-brand bg-brand text-white"
-                    : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
-                }`}
-              >
-                {r.label}
-              </button>
+          <div className="mt-0.5 flex flex-wrap items-center gap-1">
+            {RANGOS.map((r, i) => (
+              <span key={r.key} className="flex items-center gap-1">
+                {/* Separador antes del primer chip de mes: son otra familia. */}
+                {r.grupo === "mes" && RANGOS[i - 1]?.grupo !== "mes" && (
+                  <span
+                    aria-hidden
+                    className="mx-0.5 h-5 w-px bg-zinc-200"
+                  />
+                )}
+                <button
+                  type="button"
+                  onClick={() => setRangoPreset(r.key)}
+                  disabled={isPending}
+                  className={`rounded-md border px-2 py-1 text-xs ${
+                    !isCustom && rango === r.key
+                      ? "border-brand bg-brand text-white"
+                      : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
+                  }`}
+                >
+                  {r.label}
+                </button>
+              </span>
             ))}
           </div>
         </div>

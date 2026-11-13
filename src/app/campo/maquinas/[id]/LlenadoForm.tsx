@@ -17,6 +17,8 @@ type TolvaCandidata = {
   id: string;
   numero: number;
   gramaje_servicio: number | null;
+  inventario_actual_g: number | null;
+  capacidad_g: number | null;
 };
 
 type Item = {
@@ -26,8 +28,33 @@ type Item = {
   encartuchado_id: string | null;
   producto: { sku: string; nombre: string; tipo: string } | null;
   tolvas_candidatas: TolvaCandidata[];
+  gramos_por_cartucho: number | null;
   es_vaso: boolean;
 };
+
+/**
+ * ¿Esta carga deja la tolva arriba del doble de su capacidad?
+ *
+ * Es el mismo umbral que frena el trigger `trg_llenado_no_desborda` en la base.
+ * Aquí se repite a propósito: la base es la que manda —ahí no hay forma de
+ * esquivarlo— pero enterarse hasta que truena el guardado significa que el
+ * operador ya vació la bolsa. Esto se lo dice antes, en el gimnasio, cuando
+ * todavía puede no hacerlo.
+ *
+ * Pasarse un poco no cuenta. Un cartucho de 400 g entrando a una tolva casi
+ * llena se pasa por decenas de gramos y es normal; al doble nunca es normal.
+ */
+function noCabe(
+  tolva: TolvaCandidata | undefined,
+  gramosPorCartucho: number | null,
+  cartuchos: number,
+): { quedaria: number; capacidad: number } | null {
+  if (!tolva || !gramosPorCartucho || cartuchos <= 0) return null;
+  const cap = tolva.capacidad_g ?? 0;
+  if (cap <= 0) return null;
+  const quedaria = (tolva.inventario_actual_g ?? 0) + cartuchos * gramosPorCartucho;
+  return quedaria > cap * 2 ? { quedaria, capacidad: cap } : null;
+}
 
 type Linea = {
   surtido_item_id: string;
@@ -149,6 +176,28 @@ export default function LlenadoForm({
       return;
     }
 
+    // Lo mismo que frena la base, pero antes de que se vacíe la bolsa.
+    const desborda = items
+      .filter((it) => !it.es_vaso)
+      .map((it) => {
+        const l = lineas[it.id];
+        const t = it.tolvas_candidatas.find((c) => c.id === l?.tolva_id);
+        const r = noCabe(t, it.gramos_por_cartucho, l?.cartuchos_cargados ?? 0);
+        return r ? { it, t: t!, ...r } : null;
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null);
+
+    if (desborda.length > 0) {
+      const d = desborda[0];
+      setEtapa("error");
+      setError(
+        `No cargues el cartucho de ${d.it.producto?.sku ?? "este producto"}: en la tolva ${d.t.numero} caben ${d.capacidad} g y quedarían ${d.quedaria} g, más del doble. ` +
+          `Casi siempre es un gramaje mal capturado en almacén, no un problema de la máquina. ` +
+          `Pon 0 cartuchos en ese renglón, levanta una incidencia y sigue con el resto de la visita.`,
+      );
+      return;
+    }
+
     setEtapa("subiendo_foto");
 
     // Subimos en paralelo ambas fotos (si existen). Si alguna falla
@@ -184,6 +233,23 @@ export default function LlenadoForm({
   }
 
   const enviando = etapa === "subiendo_foto" || etapa === "cerrando";
+
+  // Qué renglones no caben, con lo capturado en este momento. Se recalcula en
+  // cada render porque depende de lo que el operador va escribiendo.
+  const desbordes: Record<
+    string,
+    { quedaria: number; capacidad: number } | null
+  > = {};
+  for (const it of items) {
+    if (it.es_vaso) continue;
+    const l = lineas[it.id];
+    const t = it.tolvas_candidatas.find((c) => c.id === l?.tolva_id);
+    desbordes[it.id] = noCabe(
+      t,
+      it.gramos_por_cartucho,
+      l?.cartuchos_cargados ?? 0,
+    );
+  }
 
   return (
     <div className="space-y-3 rounded-lg border border-zinc-200 bg-white p-4">
@@ -257,6 +323,17 @@ export default function LlenadoForm({
                 <p className="mt-1 text-[11px] text-amber-700">
                   {sinUsar} {it.es_vaso ? "vaso(s)" : "cartucho(s)"} sin usar
                   {it.es_vaso ? "" : " para devolución de almacén"}.
+                </p>
+              )}
+              {/* En el renglón, no hasta el checkout: para cuando se cierra la
+                  visita la bolsa ya se vació y el aviso llega tarde. */}
+              {desbordes[it.id] && (
+                <p className="mt-1 rounded-md border border-red-300 bg-red-50 px-2 py-1.5 text-[11px] font-medium text-red-900">
+                  ⚠️ No lo cargues: en esta tolva caben{" "}
+                  {desbordes[it.id]!.capacidad} g y quedarían{" "}
+                  {desbordes[it.id]!.quedaria} g, más del doble. Casi siempre es
+                  un gramaje mal capturado en almacén. Pon 0 y levanta una
+                  incidencia.
                 </p>
               )}
             </div>

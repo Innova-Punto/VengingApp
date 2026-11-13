@@ -87,6 +87,22 @@ Escalera estricta: un criterio de arriba vence a cualquiera de abajo. Dentro del
 8. **Vasos bajos** — menos de ${vasosMinimo} vasos.
 9. **Relleno por cercanía** — si sobra jornada, completa con las que estén de paso y más cerca de necesitar visita.
 
+## Las máquinas Smart Energy van pegadas, no aparte
+
+Diez ubicaciones tienen además una máquina Smart Energy. Cuando una máquina
+trae \`servicio_en_sitio\`, significa que ahí mismo hay una segunda máquina que
+el operador atiende **sin moverse**: checklist y firma del encargado. Es rápido
+y cabe dentro del tiempo que ya presupuestas por parada, así que no la agregues
+como parada, no la cuentes contra el techo y no le sumes minutos. Se engancha
+sola cuando eliges esa parada.
+
+Lo que sí tienes que hacer: **mirar \`servicio_en_sitio.visita_vencida\`.**
+Una Energy vencida es razón suficiente para programar esa parada aunque la
+máquina de vending esté llena de producto y de agua, porque es la única forma
+de llegar a ella: sola nunca va a generar un viaje. Trátala como un criterio
+de nivel 4 (cobertura vencida) de la parada que la lleva, y dilo en el motivo
+para que quien lea la ruta entienda por qué va una máquina que no urgía.
+
 ## Cómo asignar a las personas
 
 - **Operadores en moto** hacen surtido. Llénalos hasta agotar la jornada o el techo. No cargan agua.

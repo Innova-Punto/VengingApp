@@ -1,6 +1,9 @@
 import { requireRole } from "@/lib/auth";
 import {
   fmtCDMXFechaHora,
+  isoFechaCDMX,
+  nombreMesCDMX,
+  startOfMonthCDMX,
   startOfNDaysAgoCDMX,
   startOfTodayCDMX,
 } from "@/lib/datetime";
@@ -51,6 +54,30 @@ function rangoFechas(sp: SearchParams): { desde: Date; hasta: Date; label: strin
     ayerInicio.setUTCDate(ayerInicio.getUTCDate() - 1);
     const ayerFin = new Date(hoyInicio.getTime() - 1);
     return { desde: ayerInicio, hasta: ayerFin, label: "Ayer" };
+  }
+
+  // Meses de calendario, no ventanas de N días. "Este mes" es del 1 a ahorita,
+  // y "mes anterior" el mes completo: es el corte con el que se cierra y con
+  // el que se factura, y el que la gente tiene en la cabeza al preguntar
+  // "¿cómo vamos?".
+  //
+  // Los dos rangos traen el número de días en la etiqueta a propósito. Comparar
+  // "este mes" contra "mes anterior" es comparar 2 días contra 31, y un
+  // encabezado que no lo diga invita justo a esa lectura: ver la mitad del
+  // ingreso y pensar que la venta se cayó. Dejarlo escrito cuesta nada.
+  if (key === "mes" || key === "mes_ant") {
+    const esActual = key === "mes";
+    const inicioEsteMes = startOfMonthCDMX(0);
+    const desde = esActual ? inicioEsteMes : startOfMonthCDMX(1);
+    const hasta = esActual ? new Date() : new Date(inicioEsteMes.getTime() - 1);
+    const mes = nombreMesCDMX(desde);
+    const diaIni = Number(isoFechaCDMX(desde).slice(8));
+    const diaFin = Number(isoFechaCDMX(hasta).slice(8));
+    return {
+      desde,
+      hasta,
+      label: `${esActual ? "Este mes" : "Mes anterior"} · ${mes} ${diaIni}–${diaFin}`,
+    };
   }
   const r = RANGOS[key] ?? RANGOS["hoy"];
   const hasta = new Date();

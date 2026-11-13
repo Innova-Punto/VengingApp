@@ -137,8 +137,22 @@ export async function correrPropuesta(opts: {
         regresaAResguardo: persona.regresa_a_resguardo,
       });
 
-      return {
+      // Cada parada se lleva su Energy, si la tiene. Va aquí y no en la
+      // respuesta del modelo a propósito: el acompañamiento es un hecho del
+      // sitio, no una decisión de ruteo, y dejárselo al modelo sería darle una
+      // oportunidad de olvidarlo.
+      const conServicio = {
         ...validada,
+        paradas: validada.paradas.map((p) => {
+          const srv = porMaquina.get(p.maquina_id)?.servicio_en_sitio;
+          return srv
+            ? { ...p, servicio: { id: srv.id, alias: srv.alias } }
+            : p;
+        }),
+      };
+
+      return {
+        ...conServicio,
         operador_id: persona.id,
         operador_nombre: persona.nombre,
         vehiculo: persona.vehiculo,

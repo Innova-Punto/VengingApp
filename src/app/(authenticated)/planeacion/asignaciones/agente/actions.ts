@@ -5,7 +5,6 @@ import { redirect } from "next/navigation";
 
 import { requireRole } from "@/lib/auth";
 import { correrPropuesta } from "@/lib/ruteo/correr";
-import type { PlanRuta } from "@/lib/ruteo/correr";
 import { createClient } from "@/lib/supabase/server";
 
 const ROLES = ["admin", "direccion", "planeador"] as const;
@@ -39,108 +38,42 @@ export async function generarPropuesta() {
  * decir, con el tiempo, si el agente sirve.
  */
 export async function aceptarPropuesta(formData: FormData) {
-  const user = await requireRole(...ROLES);
+  await requireRole(...ROLES);
   const propuestaId = String(formData.get("propuesta_id") ?? "");
   if (!propuestaId) volver("Falta la propuesta.");
 
   const supabase = createClient();
 
+  // La fecha se lee aparte solo para el redirect de salida. Las validaciones
+  // —que exista, que siga en "generada"— las hace el RPC con la propuesta
+  // bloqueada, que es donde sirven: comprobarlas aquí antes de llamar sería
+  // mirar el semáforo y cruzar diez segundos después.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: propuesta } = await (supabase as any)
     .from("propuestas_ruteo")
-    .select("id, fecha, estado, plan")
+    .select("fecha")
     .eq("id", propuestaId)
     .maybeSingle();
 
-  if (!propuesta) volver("No se encontró la propuesta.");
-  if (propuesta.estado !== "generada") {
-    volver(`Esta propuesta ya está ${propuesta.estado}.`);
-  }
-
-  const plan = (propuesta.plan ?? []) as PlanRuta[];
-  if (plan.length === 0) volver("La propuesta no trae rutas.");
-
-  const creadas: string[] = [];
-
-  for (const ruta of plan) {
-    if (ruta.paradas.length === 0) continue;
-    const maquinaIds = ruta.paradas.map((p) => p.maquina_id);
-
-    // La ruta de la asignación es la más representada entre las máquinas
-    // elegidas: el modelo de datos exige `ruta_id` y única por fecha.
-    const { data: rutasDe } = await supabase
-      .from("ruta_maquinas")
-      .select("ruta_id, ruta:rutas(id, nombre, activa)")
-      .in("maquina_id", maquinaIds);
-
-    const conteo = new Map<string, { n: number; nombre: string }>();
-    for (const rm of rutasDe ?? []) {
-      const r = Array.isArray(rm.ruta) ? rm.ruta[0] : rm.ruta;
-      if (!r?.activa) continue;
-      const prev = conteo.get(rm.ruta_id) ?? { n: 0, nombre: r.nombre };
-      conteo.set(rm.ruta_id, { n: prev.n + 1, nombre: r.nombre });
-    }
-    const ganadora = Array.from(conteo.entries()).sort((a, b) => b[1].n - a[1].n)[0];
-    if (!ganadora) {
-      volver(
-        `Las máquinas de ${ruta.operador_nombre} no pertenecen a ninguna ruta activa.`,
-      );
-    }
-
-    const { data: asig, error } = await supabase
-      .from("asignaciones_diarias")
-      .insert({
-        fecha: propuesta.fecha,
-        ruta_id: ganadora[0],
-        operador_id: ruta.operador_id,
-        notas: `Propuesta del agente de ruteo · ${ruta.paradas.length} paradas · ${ruta.km_total} km · ${ruta.horas_estimadas} h estimadas`,
-        creado_por: user.id,
-        estado: "planeada",
-      })
-      .select("id")
-      .single();
-
-    if (error || !asig) {
-      if (error?.code === "23505") {
-        volver(
-          `La ruta ${ganadora[1].nombre} ya tiene asignación el ${propuesta.fecha}. Cancélala primero. (Se crearon ${creadas.length} antes de este error.)`,
-        );
-      }
-      volver(error?.message ?? "Error al crear la asignación.");
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: insErr } = await (supabase as any)
-      .from("asignacion_maquinas")
-      .insert(
-        ruta.paradas.map((p) => ({
-          asignacion_id: asig.id,
-          maquina_id: p.maquina_id,
-          orden: p.orden,
-          orden_sugerido: p.orden,
-          justificacion: p.motivo,
-          origen: "agente",
-        })),
-      );
-    if (insErr) {
-      volver(`Asignación creada pero al copiar máquinas: ${insErr.message}`);
-    }
-    creadas.push(asig.id);
-  }
-
+  // Todo el trabajo vive en `aceptar_propuesta_ruteo`, en una sola
+  // transacción. Antes esto era un `for` que insertaba de a una: si la cuarta
+  // ruta chocaba, las tres primeras ya estaban escritas y la propuesta seguía
+  // sin aceptar, sin forma de volver atrás más que borrando a mano. Lo mismo
+  // que nos pasó con los surtidos (migración 20261005184113).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase as any)
-    .from("propuestas_ruteo")
-    .update({
-      estado: "aceptada",
-      decidida_por: user.id,
-      decidida_at: new Date().toISOString(),
-    })
-    .eq("id", propuestaId);
+  const { error } = await (supabase as any).rpc("aceptar_propuesta_ruteo", {
+    p_propuesta_id: propuestaId,
+  });
+
+  if (error) volver(error.message);
 
   revalidatePath("/planeacion/asignaciones");
   revalidatePath("/planeacion/asignaciones/agente");
-  redirect(`/planeacion/asignaciones?fecha=${propuesta.fecha}`);
+  redirect(
+    propuesta?.fecha
+      ? `/planeacion/asignaciones?fecha=${propuesta.fecha}`
+      : "/planeacion/asignaciones",
+  );
 }
 
 /**

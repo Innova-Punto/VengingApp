@@ -47,8 +47,8 @@ export async function crearRecepcion(
        items:oc_items(
          id, cantidad, recibido, costo_unitario, presentacion_id,
          presentacion:presentaciones_proveedor(
-           id, peso_neto_gramos, unidades_por_presentacion,
-           producto:productos(id, tipo, sku, requiere_encartuchado)
+           id, nombre_presentacion, peso_neto_gramos, unidades_por_presentacion,
+           producto:productos(id, tipo, sku, requiere_encartuchado, gramaje_cartucho_default)
          )
        )`,
     )
@@ -80,12 +80,14 @@ export async function crearRecepcion(
     fecha_caducidad: string | null;
     costo_unitario: number;
     presentacion_id: string;
+    presentacion_nombre: string;
     peso_neto_gramos: number;
     unidades_por_presentacion: number;
     producto_id: string;
     producto_tipo: "polvo" | "vaso";
     producto_sku: string;
     producto_requiere_encartuchado: boolean;
+    producto_gramaje_default: number | null;
     pendiente: number;
   };
 
@@ -134,6 +136,7 @@ export async function crearRecepcion(
       fecha_caducidad: fechaCadRaw,
       costo_unitario: Number(it.costo_unitario),
       presentacion_id: pres.id,
+      presentacion_nombre: pres.nombre_presentacion,
       peso_neto_gramos: pres.peso_neto_gramos,
       unidades_por_presentacion: pres.unidades_por_presentacion,
       producto_id: prod.id,
@@ -141,6 +144,7 @@ export async function crearRecepcion(
       producto_sku: prod.sku,
       producto_requiere_encartuchado:
         prod.requiere_encartuchado !== false,
+      producto_gramaje_default: prod.gramaje_cartucho_default ?? null,
       pendiente,
     });
   }
@@ -149,6 +153,50 @@ export async function crearRecepcion(
     return {
       ok: false,
       message: "Debes indicar la cantidad recibida en al menos un item.",
+    };
+  }
+
+  // Candado de unidades, antes de escribir nada.
+  //
+  // Para los pre-empacados el cartucho sale de dividir el peso neto entre las
+  // unidades de la presentación. Si la presentación dice "1 caja con 6 bolsas"
+  // pero quedó capturada con 1 unidad, la división da la caja entera y el
+  // sistema cree que un cartucho pesa 5,448 g. Eso ya pasó con el chocolate:
+  // tres recepciones, cuatro llenados desbordando tolvas de 1,500 g y 31 kg de
+  // inventario fantasma (migración 20261031173400).
+  //
+  // Solo se bloquea el caso inequívoco —el peso neto es múltiplo exacto del
+  // gramaje por default del producto— porque ahí no hay interpretación posible:
+  // o la presentación trae ese número de unidades o el default está mal. Una
+  // presentación de otro tamaño (una bolsa de 750 g para un default de 908)
+  // pasa sin estorbar: eso es un empaque distinto, no un error de captura.
+  for (const l of lineas) {
+    if (
+      l.producto_tipo !== "polvo" ||
+      l.producto_requiere_encartuchado !== false ||
+      !l.producto_gramaje_default
+    ) {
+      continue;
+    }
+    const unidades = Math.max(1, l.unidades_por_presentacion);
+    const gramosPorCartucho = Math.round(l.peso_neto_gramos / unidades);
+    if (gramosPorCartucho === l.producto_gramaje_default) continue;
+
+    const unidadesReales = l.peso_neto_gramos / l.producto_gramaje_default;
+    if (!Number.isInteger(unidadesReales) || unidadesReales === unidades) {
+      continue;
+    }
+
+    return {
+      ok: false,
+      message:
+        `La presentación "${l.presentacion_nombre}" de ${l.producto_sku} pesa ` +
+        `${l.peso_neto_gramos} g y dice traer ${unidades} unidad(es), así que cada ` +
+        `cartucho saldría de ${gramosPorCartucho} g — pero el producto se maneja en ` +
+        `cartuchos de ${l.producto_gramaje_default} g. Son ${unidadesReales} unidades, ` +
+        `no ${unidades}. Corrige la presentación en Admin → Proveedores antes de ` +
+        `recibir: si se recibe así, el almacén queda con cartuchos de ${gramosPorCartucho} g ` +
+        `que al llenarse desbordan la tolva.`,
     };
   }
 

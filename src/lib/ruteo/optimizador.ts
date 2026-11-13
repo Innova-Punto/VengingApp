@@ -20,6 +20,13 @@ export type ParadaPropuesta = {
 export type ParadaOrdenada = ParadaPropuesta & {
   orden: number;
   km_desde_anterior: number;
+  /**
+   * La Smart Energy que se atiende sin moverse de esta parada. La agrega
+   * `correr.ts` después de ordenar, y `aceptar_propuesta_ruteo` la convierte en
+   * su propio renglón de `asignacion_maquinas` para que le aparezca al
+   * operador en campo.
+   */
+  servicio?: { id: string; alias: string | null };
 };
 
 export type RutaValidada = {
@@ -176,6 +183,10 @@ export function ordenarYValidar(
     });
     if (params.regresaAResguardo) km += distanciaKm(prev, cedis);
 
+    // La Smart Energy que acompaña a algunas paradas no suma tiempo aquí, por
+    // decisión de dirección: su checklist es corto y cabe dentro de lo que ya
+    // se presupuesta por parada. Si algún día se alarga, el lugar de tocarlo
+    // es éste.
     const horas =
       params.minutosCarga / 60 +
       (km / params.velocidadKmh) +
