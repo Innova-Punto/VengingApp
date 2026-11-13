@@ -20,6 +20,13 @@ export type ParadaPropuesta = {
 export type ParadaOrdenada = ParadaPropuesta & {
   orden: number;
   km_desde_anterior: number;
+  /**
+   * La Smart Energy que se atiende sin moverse de esta parada. La agrega
+   * `correr.ts` después de ordenar, y `aceptar_propuesta_ruteo` la convierte en
+   * su propio renglón de `asignacion_maquinas` para que le aparezca al
+   * operador en campo.
+   */
+  servicio?: { id: string; alias: string | null };
 };
 
 export type RutaValidada = {
@@ -121,6 +128,15 @@ export type ParametrosJornada = {
   velocidadKmh: number;
   maxParadas: number;
   regresaAResguardo: boolean;
+  /**
+   * Minutos de más que cuesta una parada concreta, por `maquina_id`.
+   *
+   * Hoy sirve para las Smart Energy: donde hay una, el operador atiende dos
+   * máquinas sin moverse del sitio. No es otra parada —no gasta techo ni
+   * traslado— pero sí son ~18 minutos más de checklist y firma, y si no se
+   * suman aquí la jornada se planea más corta de lo que de verdad dura.
+   */
+  minutosExtraPorParada?: Record<string, number>;
 };
 
 /**
@@ -176,10 +192,18 @@ export function ordenarYValidar(
     });
     if (params.regresaAResguardo) km += distanciaKm(prev, cedis);
 
+    const minutosEnParadas = conOrden.reduce(
+      (acc, p) =>
+        acc +
+        params.minutosPorParada +
+        (params.minutosExtraPorParada?.[p.maquina_id] ?? 0),
+      0,
+    );
+
     const horas =
       params.minutosCarga / 60 +
       (km / params.velocidadKmh) +
-      (conOrden.length * params.minutosPorParada) / 60;
+      minutosEnParadas / 60;
 
     return { conOrden, km, horas };
   };

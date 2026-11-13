@@ -44,6 +44,26 @@ export type MaquinaEstado = {
   incidencias_abiertas: number;
   quejas_abiertas: number;
   quejas_tecnicas_30d: number;
+  /**
+   * La máquina Smart Energy que vive en esta misma ubicación, si la hay.
+   *
+   * Las 10 Energy del parque comparten sitio con una de vending, una a una.
+   * Para el operador **no es otra parada**: ya está ahí parado, abre la otra
+   * máquina y le hace su checklist con firma. Por eso no entra a la lista de
+   * máquinas del agente —no debe gastar presupuesto de paradas— pero sí viaja
+   * pegada a su hermana y suma sus minutos.
+   *
+   * Cuando la Energy trae visita vencida, eso es razón para subir la prioridad
+   * de la parada aunque la de vending no urja: es la única forma de llegar a
+   * ella, porque sola nunca va a generar un viaje.
+   */
+  servicio_en_sitio: {
+    id: string;
+    alias: string | null;
+    dias_sin_visita: number | null;
+    frecuencia_visita_dias: number | null;
+    visita_vencida: boolean;
+  } | null;
 };
 
 export type PersonaEstado = {
@@ -272,12 +292,31 @@ export async function construirEstado(): Promise<EstadoRuteo> {
     ventaPorMaquina.set(v.maquina_id, Number(v.venta_dia ?? 0));
   }
 
+  // Las Energy, indexadas por ubicación, para colgarlas de su hermana.
+  //
+  // Antes esta línea era un `.filter()` que simplemente las tiraba, y el
+  // resultado fue que el 11-nov —primer día del agente— no se asignó **ni una
+  // sola** de las 10, cuando con la ruta fija entraban 7 a 10 diarias. Se
+  // caían del plan sin que nadie se enterara hasta que los operadores lo
+  // notaron en campo. Siguen fuera de la lista de paradas, que es lo correcto,
+  // pero ahora viajan pegadas a la máquina con la que comparten sitio.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const servicioPorUbicacion = new Map<string, any>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const m of (sugerencias ?? []) as any[]) {
+    if (m.tipo === "servicio" && m.ubicacion_id) {
+      servicioPorUbicacion.set(m.ubicacion_id, m);
+    }
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const maquinas: MaquinaEstado[] = ((sugerencias ?? []) as any[])
-    // Las de servicio no cuentan contra el techo de paradas de surtido: son
-    // otra visita, con checklist y firma, y no venden.
+    // Las de servicio no son parada propia: cuelgan de su hermana de sitio.
     .filter((m) => m.tipo !== "servicio")
     .map((m) => {
+      const srv = m.ubicacion_id
+        ? servicioPorUbicacion.get(m.ubicacion_id)
+        : null;
       const agua = aguaPorMaquina.get(m.maquina_id);
       const quejas = quejasPorMaquina.get(m.maquina_id);
       return {
@@ -311,6 +350,17 @@ export async function construirEstado(): Promise<EstadoRuteo> {
         incidencias_abiertas: incidenciasPorMaquina.get(m.maquina_id) ?? 0,
         quejas_abiertas: quejas?.abiertas ?? 0,
         quejas_tecnicas_30d: quejas?.tecnicas ?? 0,
+        servicio_en_sitio: srv
+          ? {
+              id: srv.maquina_id,
+              alias: srv.alias ?? null,
+              dias_sin_visita:
+                srv.dias_sin_visita != null ? Number(srv.dias_sin_visita) : null,
+              frecuencia_visita_dias:
+                srv.frecuencia_dias != null ? Number(srv.frecuencia_dias) : null,
+              visita_vencida: !!srv.visita_vencida,
+            }
+          : null,
       };
     });
 

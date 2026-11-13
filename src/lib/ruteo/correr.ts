@@ -112,6 +112,15 @@ export async function correrPropuesta(opts: {
 
     const porMaquina = new Map(estado.maquinas.map((m) => [m.id, m]));
 
+    // Minutos de más donde la parada incluye una Smart Energy. El número no es
+    // inventado: son 185 visitas de servicio de los últimos 60 días, 18 min de
+    // promedio y 17 de mediana.
+    const minServicio = params.ruteo_min_servicio_en_sitio ?? 18;
+    const minutosExtraPorParada: Record<string, number> = {};
+    for (const m of estado.maquinas) {
+      if (m.servicio_en_sitio) minutosExtraPorParada[m.id] = minServicio;
+    }
+
     const plan: PlanRuta[] = corrida.respuesta.asignaciones.map((a) => {
       const persona = estado!.personas.find((p) => p.id === a.operador_id)!;
       const paradas = a.paradas
@@ -135,10 +144,25 @@ export async function correrPropuesta(opts: {
           ? persona.max_paradas_sabado
           : persona.max_paradas,
         regresaAResguardo: persona.regresa_a_resguardo,
+        minutosExtraPorParada,
       });
 
-      return {
+      // Cada parada se lleva su Energy, si la tiene. Va aquí y no en la
+      // respuesta del modelo a propósito: el acompañamiento es un hecho del
+      // sitio, no una decisión de ruteo, y dejárselo al modelo sería darle una
+      // oportunidad de olvidarlo.
+      const conServicio = {
         ...validada,
+        paradas: validada.paradas.map((p) => {
+          const srv = porMaquina.get(p.maquina_id)?.servicio_en_sitio;
+          return srv
+            ? { ...p, servicio: { id: srv.id, alias: srv.alias } }
+            : p;
+        }),
+      };
+
+      return {
+        ...conServicio,
         operador_id: persona.id,
         operador_nombre: persona.nombre,
         vehiculo: persona.vehiculo,
