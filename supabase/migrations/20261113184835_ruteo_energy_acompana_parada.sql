@@ -23,8 +23,9 @@
 -- checklist con firma. Así que ahora viajan colgadas de su hermana:
 --
 --   · No entran a la lista de paradas del agente ni gastan techo.
---   · Suman 18 min a la parada que las lleva — medido sobre 185 visitas de
---     servicio de los últimos 60 días (promedio 18, mediana 17).
+--   · No suman tiempo a la parada. Dirección lo decidió así: el checklist es
+--     corto y cabe dentro de lo que ya se presupuesta por parada. Si algún día
+--     se alarga, el lugar de tocarlo es `optimizador.ts`.
 --   · `aceptar_propuesta_ruteo` las inserta como renglón propio con el mismo
 --     orden que su hermana, para que al operador le aparezcan en campo.
 --   · El agente ve `servicio_en_sitio.visita_vencida` y puede subir la parada
@@ -34,13 +35,6 @@
 -- El cambio en el RPC es el bloque del `v_srv`; lo demás es idéntico a
 -- 20261112144931.
 -- ============================================================================
-
--- Minutos del checklist de una Smart Energy, medidos: 185 visitas de los
--- últimos 60 días, 18 de promedio y 17 de mediana.
-insert into public.config_global (clave, valor, tipo_dato, descripcion)
-select 'ruteo_min_servicio_en_sitio', '18', 'numero',
-       'Minutos extra que suma una parada cuando incluye una máquina Smart Energy en el mismo sitio. No es otra parada: no gasta techo ni traslado.'
-where not exists (select 1 from public.config_global where clave='ruteo_min_servicio_en_sitio');
 
 create or replace function public.aceptar_propuesta_ruteo(
   p_propuesta_id uuid

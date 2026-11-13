@@ -128,15 +128,6 @@ export type ParametrosJornada = {
   velocidadKmh: number;
   maxParadas: number;
   regresaAResguardo: boolean;
-  /**
-   * Minutos de más que cuesta una parada concreta, por `maquina_id`.
-   *
-   * Hoy sirve para las Smart Energy: donde hay una, el operador atiende dos
-   * máquinas sin moverse del sitio. No es otra parada —no gasta techo ni
-   * traslado— pero sí son ~18 minutos más de checklist y firma, y si no se
-   * suman aquí la jornada se planea más corta de lo que de verdad dura.
-   */
-  minutosExtraPorParada?: Record<string, number>;
 };
 
 /**
@@ -192,18 +183,14 @@ export function ordenarYValidar(
     });
     if (params.regresaAResguardo) km += distanciaKm(prev, cedis);
 
-    const minutosEnParadas = conOrden.reduce(
-      (acc, p) =>
-        acc +
-        params.minutosPorParada +
-        (params.minutosExtraPorParada?.[p.maquina_id] ?? 0),
-      0,
-    );
-
+    // La Smart Energy que acompaña a algunas paradas no suma tiempo aquí, por
+    // decisión de dirección: su checklist es corto y cabe dentro de lo que ya
+    // se presupuesta por parada. Si algún día se alarga, el lugar de tocarlo
+    // es éste.
     const horas =
       params.minutosCarga / 60 +
       (km / params.velocidadKmh) +
-      minutosEnParadas / 60;
+      (conOrden.length * params.minutosPorParada) / 60;
 
     return { conOrden, km, horas };
   };

@@ -91,9 +91,10 @@ Escalera estricta: un criterio de arriba vence a cualquiera de abajo. Dentro del
 
 Diez ubicaciones tienen además una máquina Smart Energy. Cuando una máquina
 trae \`servicio_en_sitio\`, significa que ahí mismo hay una segunda máquina que
-el operador atiende **sin moverse**: checklist y firma del encargado, unos 18
-minutos más. No la agregues como parada ni la cuentes contra el techo — se
-suma sola cuando eliges esa parada, y ya está considerada en el tiempo.
+el operador atiende **sin moverse**: checklist y firma del encargado. Es rápido
+y cabe dentro del tiempo que ya presupuestas por parada, así que no la agregues
+como parada, no la cuentes contra el techo y no le sumes minutos. Se engancha
+sola cuando eliges esa parada.
 
 Lo que sí tienes que hacer: **mirar \`servicio_en_sitio.visita_vencida\`.**
 Una Energy vencida es razón suficiente para programar esa parada aunque la
