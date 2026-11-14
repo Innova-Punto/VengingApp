@@ -387,8 +387,21 @@ export async function construirEstado(): Promise<EstadoRuteo> {
       // OJO: `ruteo_min_por_parada_*` (40 y 63.8) son el total puerta a puerta,
       // traslado incluido. Aquí NO se usan: como sí tenemos coordenadas, el
       // traslado se calcula con la ruta real. Usarlos sería cobrarlo dos veces.
+      //
+      // El 24 viene de cuadrar la parada completa, no solo el tiempo adentro.
+      // Medido entre oct y nov-2026 (696 visitas, 833 tramos): en sitio 32.7
+      // min y hueco entre paradas 18.2, o sea 50.9 por parada. El modelo cobra
+      // `en_sitio + 14 fijos + km/21`, y esos 14 están medidos sobre la
+      // camioneta —en moto el fijo real es de 4 a 9— así que sobran unos 7.
+      // Subir el tiempo en sitio a 24 compensa ese exceso: 24 + 14 + 11 de
+      // traslado = 49 contra 50.9 reales, dentro del 4%.
+      //
+      // Dicho de otro modo: 24 no es lo que tardan adentro de la máquina, es
+      // el número que hace que la jornada completa cuadre con los otros dos
+      // parámetros como están. Si algún día el fijo se parte por vehículo,
+      // éste tiene que volver a ~32.7 el mismo día, o la cuenta se va al alza.
       minutos_en_sitio: Number(
-        o.min_en_sitio_estimado ?? (esSupervisor ? 28.6 : 20.3),
+        o.min_en_sitio_estimado ?? (esSupervisor ? 28.6 : 24),
       ),
     };
   });
