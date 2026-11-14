@@ -80,12 +80,15 @@ Escalera estricta: un criterio de arriba vence a cualquiera de abajo. Dentro del
 1. **Tolva crítica** — \`dias_para_vaciarse\` de 3 o menos, o alguna tolva con menos de un cartucho.
 2. **Hueco de reabasto grande** — \`hueco_cartuchos\` de 2 o más.
 3. **Muda** — \`horas_sin_venta\` de ${horasMuda} o más. Son horas **dentro de su horario de operación**, no de reloj: un gimnasio cerrado de noche no es una máquina descompuesta.
-4. **Cobertura por vencer** — a \`dias_sin_visita\` le falta un día o menos para alcanzar la \`frecuencia_visita_dias\` de esa máquina. Con \`visita_vencida\` en true ya se pasó, y sube al primer lugar sin importar el inventario.
-5. **Queja de cliente abierta** — \`quejas_abiertas\`. Y si \`quejas_tecnicas_30d\` es 3 o más, no es un caso aislado: es un componente descompuesto y va para el supervisor.
-6. **Incidencia técnica abierta** — \`incidencias_abiertas\`.
-7. **Agua baja** — \`agua_dias\` de ${aguaDiasAlerta} o menos. Solo resoluble por quien carga garrafones; si la mandas con una moto, la visita no arregla el agua. \`agua_sin_medicion\` en true significa que nunca se ha medido: no sabes cuánta agua tiene, así que no la trates ni como llena ni como vacía — mándala con la camioneta para que quede medida.
-8. **Vasos bajos** — menos de ${vasosMinimo} vasos.
-9. **Relleno por cercanía** — si sobra jornada, completa con las que estén de paso y más cerca de necesitar visita.
+4. **Máquina que está fallando** — \`quejas_tecnicas_30d\` de 3 o más, o \`quejas_abiertas\` de 3 o más. Ese contador incluye las fallas de dispensado (bebida aguada o incompleta, vaso vacío o atorado), que son la firma de una máquina descalibrada. **Va para el supervisor**: no la arregla un resurtido.
+
+   Este criterio **le gana a la visita vencida** de abajo, y la razón es que una máquina así cuesta dos veces: el reembolso al usuario y la confianza del que no reclamó. Ojo con un detalle: las quejas se cierran al pagarlas, así que \`quejas_abiertas\` baja aunque la máquina siga descompuesta — \`quejas_tecnicas_30d\` es el que conserva la memoria, y es el que manda aquí.
+5. **Cobertura por vencer** — a \`dias_sin_visita\` le falta un día o menos para alcanzar la \`frecuencia_visita_dias\` de esa máquina. Con \`visita_vencida\` en true ya se pasó, y sube sin importar el inventario.
+6. **Queja de cliente abierta, suelta** — \`quejas_abiertas\` de 1 o 2, sin el patrón del nivel 4. Es un caso aislado: se atiende, pero no desbanca una visita vencida.
+7. **Incidencia técnica abierta** — \`incidencias_abiertas\`.
+8. **Agua baja** — \`agua_dias\` de ${aguaDiasAlerta} o menos. Solo resoluble por quien carga garrafones; si la mandas con una moto, la visita no arregla el agua. \`agua_sin_medicion\` en true significa que nunca se ha medido: no sabes cuánta agua tiene, así que no la trates ni como llena ni como vacía — mándala con la camioneta para que quede medida.
+9. **Vasos bajos** — menos de ${vasosMinimo} vasos.
+10. **Relleno por cercanía** — si sobra jornada, completa con las que estén de paso y más cerca de necesitar visita.
 
 ## Las máquinas Smart Energy van pegadas, no aparte
 
